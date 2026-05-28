@@ -1,0 +1,51 @@
+import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Gauge, ThumbsUp, Target, ArrowRight, Sparkles } from 'lucide-react';
+import { Card, CardHeader } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { PracticeSubNav } from '../../components/mss/PracticeSubNav';
+import { useSurface } from '../../store/useSurface';
+import { PRACTICE_OVERVIEW as o } from '../../lib/mss/practice';
+
+export function PracticeOverviewPage() {
+  const setSurface = useSurface((s) => s.setSurface);
+  useEffect(() => { setSurface('mss'); }, [setSurface]);
+
+  return (
+    <div className="animate-fade-up space-y-5">
+      <PracticeSubNav />
+      <h1 className="text-2xl font-semibold text-ink">Ma pratique managériale</h1>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card><p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Efficacité managériale</p><p className="mono mt-1 text-2xl font-semibold text-ink">{o.effectiveness}/5</p><p className="text-[11px] text-ink-400">Feedback 360 + KPI équipe</p></Card>
+        <Card><p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Régularité rituels</p><p className="mono mt-1 text-2xl font-semibold text-ink">{o.ritualRegularity}%</p></Card>
+        <Card><p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Couverture 1:1 (mois)</p><p className="mono mt-1 text-2xl font-semibold text-ink">{o.oneOnOneCoverage}%</p></Card>
+        <Card><p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Reconnaissances (trim.)</p><p className="mono mt-1 text-2xl font-semibold text-ink">{o.recognitionsSent}<span className="text-base text-ink-400">/{o.recognitionsTarget}</span></p></Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Mes points forts" action={<ThumbsUp size={16} className="text-ink-400" />} />
+          <ul className="space-y-1.5 text-sm font-medium text-ink-700">
+            {o.strengths.map((s) => <li key={s} className="flex items-start gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ok" /> {s}</li>)}
+          </ul>
+        </Card>
+        <Card className="glass-amber">
+          <CardHeader title="Mes axes de progrès" action={<Target size={16} className="text-amber-deep" />} />
+          <ul className="space-y-1.5 text-sm font-medium text-ink-700">
+            {o.improvements.map((s) => <li key={s} className="flex items-start gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-deep" /> {s}</li>)}
+          </ul>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader title="Mon développement manager" action={<Sparkles size={16} className="text-ink-400" />} />
+        <p className="text-sm font-medium text-ink-700">{o.managerPath}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link to="/team/ma-pratique/formations"><Button variant="ghost" size="sm">Voir parcours recommandés <ArrowRight size={14} /></Button></Link>
+          <Link to="/team/ma-pratique/efficacite"><Button variant="ghost" size="sm"><Gauge size={14} /> Mon score d’efficacité</Button></Link>
+        </div>
+      </Card>
+    </div>
+  );
+}

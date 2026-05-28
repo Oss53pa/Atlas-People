@@ -1,0 +1,15 @@
+{
+  "name": "Atlas People",
+  "short_name": "Atlas People",
+  "description": "Le SIRH d'intelligence pour l'Afrique francophone.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#EFEDE6",
+  "theme_color": "#EFEDE6",
+  "lang": "fr",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/atlas.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

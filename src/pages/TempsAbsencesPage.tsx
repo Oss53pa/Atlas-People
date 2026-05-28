@@ -1,0 +1,333 @@
+import { useMemo, useState } from 'react';
+import {
+  CalendarPlus,
+  Check,
+  X,
+  Clock,
+  ShieldCheck,
+  ShieldX,
+  CalendarDays,
+  AlarmClock,
+} from 'lucide-react';
+import { PropheticHint } from '../components/ui/feedback';
+import { Card, CardHeader } from '../components/ui/Card';
+import { SectionHeader } from '../components/ui/SectionHeader';
+import { StatusPill } from '../components/ui/StatusPill';
+import { Button } from '../components/ui/Button';
+import { Avatar } from '../components/ui/Avatar';
+import { ProgressBar } from '../components/charts/ProgressBar';
+import { Money } from '../lib/money';
+import { workingDaysBetween } from '../lib/time/workingDays';
+import { timeRulesFor, accruedAnnualLeave, LEAVE_TYPES } from '../lib/time/leaveRules';
+import { computeOvertime } from '../lib/time/overtime';
+import { holidaysFor } from '../lib/time/holidays';
+import { ComplianceGuard } from '../lib/compliance/ComplianceGuard';
+import { useAppStore } from '../store/useAppStore';
+import { countryByCode, currencyOf } from '../data/countries';
+import { EMPLOYEES, employeeById, employeeName, LEAVE_REQUESTS, type LeaveRequest } from '../data/mock';
+import { cn } from '../lib/cn';
+
+type Tab = 'conges' | 'hsup' | 'calendrier';
+
+export function TempsAbsencesPage() {
+  const activeCountry = useAppStore((s) => s.activeCountry);
+  const country = countryByCode(activeCountry);
+  const roster = EMPLOYEES.filter((e) => e.countryCode === activeCountry);
+  const [tab, setTab] = useState<Tab>('conges');
+
+  return (
+    <div className="animate-fade-up space-y-6">
+      <SectionHeader
+        eyebrow="Bloc A · M2"
+        title="Temps & absences"
+        description={`Congés, pointage et heures supplémentaires dans le respect strict du droit du travail · ${country.flag} ${country.name}`}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <TabButton active={tab === 'conges'} onClick={() => setTab('conges')} icon={CalendarPlus}>
+          Congés
+        </TabButton>
+        <TabButton active={tab === 'hsup'} onClick={() => setTab('hsup')} icon={Clock}>
+          Heures supplémentaires
+        </TabButton>
+        <TabButton active={tab === 'calendrier'} onClick={() => setTab('calendrier')} icon={CalendarDays}>
+          Calendrier & fériés
+        </TabButton>
+      </div>
+
+      {tab === 'conges' && <CongesTab country={activeCountry} roster={roster} />}
+      {tab === 'hsup' && <HeuresSupTab country={activeCountry} roster={roster} />}
+      {tab === 'calendrier' && <CalendrierTab country={activeCountry} roster={roster} />}
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, icon: Icon, children }: { active: boolean; onClick: () => void; icon: typeof Clock; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all',
+        active ? 'border-amber bg-amber text-night' : 'border-line bg-surface text-ink-500 hover:text-ink',
+      )}
+    >
+      <Icon size={15} className={active ? 'text-amber' : 'text-ink-400'} /> {children}
+    </button>
+  );
+}
+
+// ---------------- Onglet Congés ----------------
+function CongesTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
+  const [empId, setEmpId] = useState(roster[0]?.id ?? '');
+  const [type, setType] = useState('annual');
+  const [start, setStart] = useState('2026-06-01');
+  const [end, setEnd] = useState('2026-06-05');
+  const [requests, setRequests] = useState<LeaveRequest[]>(LEAVE_REQUESTS);
+
+  const employee = employeeById(empId) ?? roster[0];
+  const days = useMemo(() => workingDaysBetween(start, end, country), [start, end, country]);
+  const accrued = employee ? accruedAnnualLeave(employee.hireDate, country) : 0;
+  const taken = requests.filter((r) => r.employeeId === empId && r.status !== 'refused' && r.type === 'annual').reduce((s, r) => s + workingDaysBetween(r.start, r.end, country), 0);
+  const remaining = Math.round((accrued - taken) * 10) / 10;
+  const insufficient = type === 'annual' && days > remaining;
+
+  const decide = (id: string, status: 'approved' | 'refused') =>
+    setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* Demande */}
+      <Card>
+        <CardHeader title="Poser un congé" subtitle="Décompte automatique des jours ouvrés" />
+        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Collaborateur</label>
+        <select value={empId} onChange={(e) => setEmpId(e.target.value)} className="mb-3 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
+          {roster.map((e) => (
+            <option key={e.id} value={e.id}>{employeeName(e)}</option>
+          ))}
+        </select>
+        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Type</label>
+        <select value={type} onChange={(e) => setType(e.target.value)} className="mb-3 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
+          {LEAVE_TYPES.map((t) => (
+            <option key={t.code} value={t.code}>{t.label}</option>
+          ))}
+        </select>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Du</label>
+            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-2 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Au</label>
+            <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-2 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" />
+          </div>
+        </div>
+        <div className="rounded-2xl bg-surface2 p-3.5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold text-ink-700">Jours ouvrés décomptés</span>
+            <span className="mono text-lg font-bold text-ink">{days}</span>
+          </div>
+          {type === 'annual' && (
+            <>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="font-medium text-ink-500">Solde restant après pose</span>
+                <span className={cn('mono font-bold', insufficient ? 'text-danger' : 'text-ok')}>{Math.round((remaining - days) * 10) / 10} j</span>
+              </div>
+              <ProgressBar className="mt-2" value={Math.max(0, remaining - days)} max={accrued} tone={insufficient ? 'danger' : 'ok'} />
+            </>
+          )}
+        </div>
+        <Button className="mt-3 w-full" disabled={insufficient || days === 0}>
+          <CalendarPlus size={14} /> {insufficient ? 'Solde insuffisant' : 'Envoyer la demande'}
+        </Button>
+        {insufficient && (
+          <p className="mt-2 text-[11px] font-semibold text-danger">
+            Solde de congé insuffisant — dérogation RH requise (auditée).
+          </p>
+        )}
+      </Card>
+
+      {/* File de validation */}
+      <Card className="lg:col-span-2">
+        <CardHeader
+          title="File de validation"
+          subtitle="Manager → RH"
+          action={<StatusPill tone="warn">{requests.filter((r) => r.status === 'pending').length} en attente</StatusPill>}
+        />
+        <div className="space-y-2">
+          {requests.map((r) => {
+            const emp = employeeById(r.employeeId);
+            if (!emp || emp.countryCode !== country) return null;
+            const lt = LEAVE_TYPES.find((t) => t.code === r.type);
+            const d = workingDaysBetween(r.start, r.end, country);
+            return (
+              <div key={r.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface2 p-3">
+                <Avatar name={employeeName(emp)} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-ink">{employeeName(emp)}</p>
+                  <p className="text-[11px] font-medium text-ink-400">
+                    {lt?.label} · {new Date(r.start).toLocaleDateString('fr-FR')} → {new Date(r.end).toLocaleDateString('fr-FR')} · {d}j
+                  </p>
+                </div>
+                {r.status === 'pending' ? (
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => decide(r.id, 'approved')} className="rounded-lg bg-ok/12 p-2 text-ok hover:bg-ok/20"><Check size={15} /></button>
+                    <button onClick={() => decide(r.id, 'refused')} className="rounded-lg bg-danger/10 p-2 text-danger hover:bg-danger/20"><X size={15} /></button>
+                  </div>
+                ) : (
+                  <StatusPill tone={r.status === 'approved' ? 'ok' : 'danger'}>{r.status === 'approved' ? 'Validé' : 'Refusé'}</StatusPill>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ---------------- Onglet Heures sup ----------------
+function HeuresSupTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
+  const [empId, setEmpId] = useState(roster[0]?.id ?? '');
+  const [hours, setHours] = useState(6);
+  const employee = employeeById(empId) ?? roster[0];
+  const rules = timeRulesFor(country);
+  const cur = currencyOf(country);
+
+  const check = ComplianceGuard.checkOvertime({ countryCode: country, weeklyOvertimeHours: hours });
+  const blocked = check.verdict === 'block';
+  const calc = employee && !blocked ? computeOvertime(employee.baseSalary, hours, country, cur) : null;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader title="Déclarer des heures supplémentaires" subtitle={`Durée légale : ${rules.weeklyHours}h/sem · plafond appliqué`} />
+        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Collaborateur</label>
+        <select value={empId} onChange={(e) => setEmpId(e.target.value)} className="mb-4 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
+          {roster.map((e) => (<option key={e.id} value={e.id}>{employeeName(e)}</option>))}
+        </select>
+        <label className="mb-1 flex items-center justify-between text-sm font-semibold text-ink-700">
+          <span>Heures sup. / semaine</span>
+          <span className="mono text-amber-deep">{hours} h</span>
+        </label>
+        <input type="range" min={0} max={30} value={hours} onChange={(e) => setHours(+e.target.value)} className="w-full accent-amber" />
+        <div className={cn('mt-4 flex items-start gap-3 rounded-2xl border p-4', blocked ? 'border-danger/30 bg-danger/[0.06]' : 'border-ok/25 bg-ok/[0.06]')}>
+          {blocked ? <ShieldX className="mt-0.5 shrink-0 text-danger" size={20} /> : <ShieldCheck className="mt-0.5 shrink-0 text-ok" size={20} />}
+          <div>
+            <p className={cn('text-sm font-bold', blocked ? 'text-danger' : 'text-ok')}>
+              {blocked ? 'Validation bloquée — dépassement légal' : 'Heures supplémentaires conformes'}
+            </p>
+            <p className="text-sm font-medium text-ink-700">{check.message}</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Calcul des majorations" subtitle="Reporté en paie (M3) · Money.ts" action={<Clock size={16} className="text-ink-400" />} />
+        {blocked ? (
+          <div className="flex h-full items-center justify-center py-8 text-center">
+            <p className="text-sm font-medium text-ink-400">Réduisez les heures sous le plafond légal pour calculer la majoration.</p>
+          </div>
+        ) : calc ? (
+          <>
+            <div className="space-y-2">
+              {calc.lines.map((l, i) => (
+                <div key={i} className="flex items-center justify-between rounded-xl bg-surface2 px-3.5 py-2.5">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">{l.hours}h majorées</p>
+                    <p className="text-[11px] font-medium text-ink-400">+{l.majorationBps / 100}% du taux horaire</p>
+                  </div>
+                  <span className="mono text-sm font-bold text-ink">{Money.fromJSON({ units: l.amountUnits, currency: cur }).format()}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-amber/[0.08] px-4 py-3">
+              <span className="text-sm font-bold text-ink">Total à reporter en paie</span>
+              <span className="mono text-lg font-bold text-amber-deep">{Money.fromJSON({ units: calc.totalUnits, currency: cur }).formatWithCurrency()}</span>
+            </div>
+          </>
+        ) : null}
+      </Card>
+    </div>
+  );
+}
+
+// ---------------- Onglet Calendrier ----------------
+function CalendrierTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
+  const holidays = holidaysFor(country);
+  const rosterIds = new Set(roster.map((e) => e.id));
+  const year = 2026;
+  const month = 4; // Mai (0-indexé)
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // lundi=0
+
+  const absencesByDay = useMemo(() => {
+    const map: Record<number, number> = {};
+    for (const r of LEAVE_REQUESTS) {
+      if (!rosterIds.has(r.employeeId) || r.status === 'refused') continue;
+      const s = new Date(`${r.start}T00:00:00`);
+      const e = new Date(`${r.end}T00:00:00`);
+      const cur = new Date(s);
+      while (cur <= e) {
+        if (cur.getFullYear() === year && cur.getMonth() === month) {
+          map[cur.getDate()] = (map[cur.getDate()] ?? 0) + 1;
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+    return map;
+  }, [rosterIds]);
+
+  const holidayDays = new Set(
+    holidays.filter((h) => h.date.startsWith('2026-05')).map((h) => Number(h.date.slice(8, 10))),
+  );
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
+        <CardHeader title="Calendrier d'équipe — Mai 2026" subtitle="Détection de conflits (≥ 2 absents)" />
+        <div className="grid grid-cols-7 gap-1.5 text-center">
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((d) => (
+            <div key={d} className="pb-1 text-[10px] font-bold uppercase tracking-wider text-ink-400">{d}</div>
+          ))}
+          {Array.from({ length: firstWeekday }).map((_, i) => (<div key={`pad-${i}`} />))}
+          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+            const weekday = (firstWeekday + day - 1) % 7;
+            const isWeekend = weekday >= 5;
+            const isHol = holidayDays.has(day);
+            const absents = absencesByDay[day] ?? 0;
+            const conflict = absents >= 2;
+            return (
+              <div
+                key={day}
+                className={cn(
+                  'flex aspect-square flex-col items-center justify-center rounded-lg border text-xs font-semibold',
+                  isHol ? 'border-info/30 bg-info/10 text-info' : isWeekend ? 'border-transparent bg-ink/[0.03] text-ink-400' : 'border-line bg-surface text-ink',
+                  conflict && 'border-danger/40 bg-danger/[0.08] text-danger',
+                )}
+                title={isHol ? 'Jour férié' : absents ? `${absents} absent(s)` : ''}
+              >
+                {day}
+                {absents > 0 && !isHol && (
+                  <span className={cn('mono text-[9px] font-bold', conflict ? 'text-danger' : 'text-amber-deep')}>{absents}●</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Jours fériés" subtitle={`${countryByCode(country).name} · 2026`} action={<AlarmClock size={16} className="text-ink-400" />} />
+        <div className="space-y-1.5">
+          {holidays.map((h) => (
+            <div key={h.date} className="flex items-center justify-between rounded-xl bg-surface2 px-3 py-2.5">
+              <span className="text-sm font-semibold text-ink">{h.label}</span>
+              <span className="mono text-[11px] font-bold text-ink-500">{new Date(`${h.date}T00:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+            </div>
+          ))}
+        </div>
+        <PropheticHint className="mt-3">anticipe un pic d'absentéisme autour des ponts de mai.</PropheticHint>
+      </Card>
+    </div>
+  );
+}
