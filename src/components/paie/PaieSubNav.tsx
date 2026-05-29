@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarRange, PencilLine, Calculator, CheckCircle2, BookOpen,
   Banknote, FileText, Landmark, Layers, RefreshCw, BarChart3, ShieldCheck, Settings, Library,
+  FlaskConical, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -10,6 +11,7 @@ const ITEMS = [
   { to: '/paie/cycle', label: 'Cycles', icon: CalendarRange, end: false },
   { to: '/paie/saisie', label: 'Saisie', icon: PencilLine, end: false },
   { to: '/paie/calcul', label: 'Calcul', icon: Calculator, end: false },
+  { to: '/paie/simulation', label: 'Simulation', icon: FlaskConical, end: false },
   { to: '/paie/validation', label: 'Validation', icon: CheckCircle2, end: false },
   { to: '/paie/journal', label: 'Journal', icon: BookOpen, end: false },
   { to: '/paie/virements', label: 'Virements', icon: Banknote, end: false },
@@ -19,6 +21,7 @@ const ITEMS = [
   { to: '/paie/regularisations', label: 'Régularisations', icon: RefreshCw, end: false },
   { to: '/paie/modeles', label: 'Modèles', icon: Library, end: false },
   { to: '/paie/referentiels', label: 'Référentiels', icon: Settings, end: false },
+  { to: '/paie/configuration', label: 'Configuration', icon: SlidersHorizontal, end: false },
   { to: '/paie/reporting', label: 'Reporting', icon: BarChart3, end: false },
   { to: '/paie/audit', label: 'Audit', icon: ShieldCheck, end: false },
 ];

@@ -105,6 +105,7 @@ import { SettingsTemplatesPage } from './pages/mss/SettingsTemplatesPage';
 // M3 PAIE (back-office)
 import { CockpitPaiePage } from './pages/paie/CockpitPaiePage';
 import { CyclesPage } from './pages/paie/CyclesPage';
+import { DossierPaiePage } from './pages/paie/DossierPaiePage';
 import { SaisieVariablesPage } from './pages/paie/SaisieVariablesPage';
 import { CalculPage } from './pages/paie/CalculPage';
 import { ValidationPaiePage } from './pages/paie/ValidationPaiePage';
@@ -119,6 +120,8 @@ import { ReferentielsPage } from './pages/paie/ReferentielsPage';
 import { ReportingPaiePage } from './pages/paie/ReportingPaiePage';
 import { AuditPaiePage } from './pages/paie/AuditPaiePage';
 import { ParametresPaiePage } from './pages/paie/ParametresPaiePage';
+import { SimulationPaiePage } from './pages/paie/SimulationPaiePage';
+import { ConfigurationPaiePage } from './pages/paie/ConfigurationPaiePage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { ALL_MODULES } from './app/nav';
 
@@ -154,9 +157,11 @@ function App() {
         <Route path="/paie/rubriques" element={<RubriquesPage />} />
         {/* M3 PAIE — back-office */}
         <Route path="/paie/cycle" element={<CyclesPage />} />
+        <Route path="/paie/dossier/:employeeId" element={<DossierPaiePage />} />
         <Route path="/paie/saisie" element={<SaisieVariablesPage />} />
         <Route path="/paie/saisie/:employeeId" element={<SaisieVariablesPage />} />
         <Route path="/paie/calcul" element={<CalculPage />} />
+        <Route path="/paie/simulation" element={<SimulationPaiePage />} />
         <Route path="/paie/validation" element={<ValidationPaiePage />} />
         <Route path="/paie/journal" element={<JournalPaiePage />} />
         <Route path="/paie/virements" element={<VirementsPage />} />
@@ -166,6 +171,7 @@ function App() {
         <Route path="/paie/regularisations" element={<RegularisationsPage />} />
         <Route path="/paie/modeles" element={<ModelesPage />} />
         <Route path="/paie/referentiels" element={<ReferentielsPage />} />
+        <Route path="/paie/configuration" element={<ConfigurationPaiePage />} />
         <Route path="/paie/reporting" element={<ReportingPaiePage />} />
         <Route path="/paie/audit" element={<AuditPaiePage />} />
         <Route path="/paie/parametres" element={<ParametresPaiePage />} />

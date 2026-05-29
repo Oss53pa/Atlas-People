@@ -7,9 +7,10 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { ProgressBar } from '../../components/charts/ProgressBar';
 import { useToast } from '../../components/ui/Toast';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
+import { ExplainCalculModal } from '../../components/paie/ExplainCalculModal';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
 import { cycleBulletins, cycleTotals } from '../../lib/m3/cycle';
-import { employeeName } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
 
@@ -19,7 +20,9 @@ export function CalculPage() {
   const { cycle, variables, statuses, prevNet, setPhase } = usePayrollCycle();
   const { toast } = useToast();
   const [ran, setRan] = useState(false);
+  const [explainId, setExplainId] = useState<string | null>(null);
   const rows = useMemo(() => cycleBulletins(variables, statuses, prevNet), [variables, statuses, prevNet]);
+  const explainEmp = explainId ? employeeById(explainId) : undefined;
   const totals = useMemo(() => cycleTotals(rows), [rows]);
   const anomalies = rows.filter((r) => r.bulletin.anomalies.length > 0);
 
@@ -31,6 +34,7 @@ export function CalculPage() {
 
   return (
     <div className="animate-fade-up space-y-5">
+      {explainEmp && <ExplainCalculModal emp={explainEmp} variables={variables[explainEmp.id]} onClose={() => setExplainId(null)} />}
       <PaieSubNav />
       <div className="flex items-center justify-between">
         <div>
@@ -70,6 +74,7 @@ export function CalculPage() {
               <th className="px-3 py-2.5 text-right">Cotisations</th>
               <th className="px-3 py-2.5 text-right">Net</th>
               <th className="px-3 py-2.5 text-center">État</th>
+              <th className="px-3 py-2.5 text-right" />
             </tr></thead>
             <tbody className="divide-y divide-line">
               {rows.map((r) => (
@@ -79,6 +84,7 @@ export function CalculPage() {
                   <td className="mono px-3 py-2.5 text-right text-danger">-{fmt(r.bulletin.totalCotisationsEmp + r.bulletin.totalRetenues)}</td>
                   <td className="mono px-3 py-2.5 text-right font-bold text-ink">{fmt(r.bulletin.netAPayer)}</td>
                   <td className="px-3 py-2.5 text-center">{r.bulletin.emissionBlocked ? <StatusPill tone="danger" dot={false}>Bloqué</StatusPill> : r.bulletin.anomalies.length ? <StatusPill tone="warn" dot={false}>Anomalie</StatusPill> : <StatusPill tone="ok" dot={false}>OK</StatusPill>}</td>
+                  <td className="px-3 py-2.5 text-right"><Button variant="ghost" size="sm" onClick={() => setExplainId(r.emp.id)}>Expliquer</Button></td>
                 </tr>
               ))}
             </tbody>

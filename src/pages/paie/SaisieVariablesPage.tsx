@@ -11,6 +11,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { PayslipModal } from '../../components/payroll/PayslipModal';
+import { ExplainCalculModal } from '../../components/paie/ExplainCalculModal';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
 import { computeM3Bulletin, m3PayrollInput } from '../../lib/m3/engine';
 import { computePayslip, getRegime } from '../../lib/payroll';
@@ -39,6 +40,7 @@ export function SaisieVariablesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | SaisieStatus>('all');
   const [tab, setTab] = useState<Tab>('Temps');
   const [preview, setPreview] = useState(false);
+  const [explain, setExplain] = useState(false);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -68,6 +70,7 @@ export function SaisieVariablesPage() {
   return (
     <div className="animate-fade-up space-y-4">
       {preview && <PayslipModal employee={emp} computation={computation} period={cycle.label} onClose={() => setPreview(false)} />}
+      {explain && <ExplainCalculModal emp={emp} variables={v} onClose={() => setExplain(false)} />}
       <PaieSubNav />
 
       {/* Bandeau cycle */}
@@ -199,7 +202,8 @@ export function SaisieVariablesPage() {
             {/* Actions */}
             <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-4">
               <Button size="sm" onClick={() => setPreview(true)}><Printer size={14} /> Aperçu avant impression</Button>
-              <Button variant="outline" size="sm" onClick={() => toast({ variant: 'success', title: 'Aperçu PDF', description: `Bulletin BROUILLON ${employeeName(emp)}.pdf` })}><FileDown size={14} /> Aperçu PDF</Button>
+              <Button variant="outline" size="sm" onClick={() => setExplain(true)}><Sparkles size={14} /> Expliquer le calcul</Button>
+              <Button variant="ghost" size="sm" onClick={() => toast({ variant: 'success', title: 'Aperçu PDF', description: `Bulletin BROUILLON ${employeeName(emp)}.pdf` })}><FileDown size={14} /> Aperçu PDF</Button>
             </div>
             <p className="mt-2 flex items-start gap-1.5 text-[10px] font-medium text-ink-400"><Sparkles size={11} className="mt-0.5 shrink-0 text-amber-deep" /> Calcul 100 % déterministe (Money entier) · Proph3t explique, ne calcule jamais.</p>
           </div>
@@ -216,7 +220,7 @@ export function SaisieVariablesPage() {
                 <p className="truncate text-[11px] font-medium text-ink-500">{emp.department} · {cur === 'XAF' ? 'CEMAC' : 'UEMOA'}</p>
                 <div className="mt-1"><StatusPill tone={STATUS_META[statuses[selectedId]].tone} dot={false}>{STATUS_META[statuses[selectedId]].label}</StatusPill></div>
               </div>
-              <Link to={`/collaborateurs/${emp.id}`}><Button variant="ghost" size="sm"><ArrowUpRight size={13} /></Button></Link>
+              <Link to={`/paie/dossier/${emp.id}`}><Button variant="ghost" size="sm"><ArrowUpRight size={13} /></Button></Link>
             </div>
             {(v.primes.length > 0 || v.ndf.length > 0 || v.avance > 0) && (
               <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
