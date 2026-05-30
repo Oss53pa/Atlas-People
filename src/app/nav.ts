@@ -13,6 +13,7 @@ import {
   GraduationCap,
   ShieldCheck,
   Smartphone,
+  FileSignature,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -46,6 +47,7 @@ export const NAV: NavGroup[] = [
       { code: 'M1', path: '/collaborateurs', label: 'Collaborateurs', icon: Users, ready: true },
       { code: 'M2', path: '/temps', label: 'Temps & absences', icon: CalendarClock, ready: true },
       { code: 'M3', path: '/paie', label: 'Paie & déclarations', icon: Wallet, ready: true },
+      { code: 'ADM', path: '/hr/actes', label: 'Actes & conformité', icon: FileSignature, ready: true },
       { code: 'M4', path: '/frais', label: 'Notes de frais', icon: ReceiptText, ready: true },
     ],
   },

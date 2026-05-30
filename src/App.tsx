@@ -122,6 +122,16 @@ import { AuditPaiePage } from './pages/paie/AuditPaiePage';
 import { ParametresPaiePage } from './pages/paie/ParametresPaiePage';
 import { SimulationPaiePage } from './pages/paie/SimulationPaiePage';
 import { ConfigurationPaiePage } from './pages/paie/ConfigurationPaiePage';
+// Module « Actes & conformité » (back-office Administration RH OHADA)
+import { CockpitAdminRhPage } from './pages/admin/CockpitAdminRhPage';
+import { ContratsPage as ContratsAdminPage } from './pages/admin/ContratsPage';
+import { PeriodeEssaiPage } from './pages/admin/PeriodeEssaiPage';
+import { DisciplinairePage } from './pages/admin/DisciplinairePage';
+import { CertificatsPage } from './pages/admin/CertificatsPage';
+import { RepresentationPage } from './pages/admin/RepresentationPage';
+import { ObligationsPage } from './pages/admin/ObligationsPage';
+import { ExpatriesPage } from './pages/admin/ExpatriesPage';
+import { ParametresAdminPage } from './pages/admin/ParametresAdminPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { ALL_MODULES } from './app/nav';
 
@@ -131,6 +141,7 @@ const READY: Record<string, JSX.Element> = {
   '/temps': <TempsAbsencesPage />,
   '/frais': <NotesFraisPage />,
   '/paie': <CockpitPaiePage />,
+  '/hr/actes': <CockpitAdminRhPage />,
   '/competences': <CompetencesPage />,
   '/conformite': <ConformitePage />,
   '/moi': <SelfServicePage />,
@@ -176,6 +187,15 @@ function App() {
         <Route path="/paie/audit" element={<AuditPaiePage />} />
         <Route path="/paie/parametres" element={<ParametresPaiePage />} />
         <Route path="/audit" element={<JournalAuditPage />} />
+        {/* M4 ADMIN RH — back-office Administration du personnel OHADA */}
+        <Route path="/hr/actes/contrats" element={<ContratsAdminPage />} />
+        <Route path="/hr/actes/periode-essai" element={<PeriodeEssaiPage />} />
+        <Route path="/hr/actes/disciplinaire" element={<DisciplinairePage />} />
+        <Route path="/hr/actes/certificats" element={<CertificatsPage />} />
+        <Route path="/hr/actes/representation" element={<RepresentationPage />} />
+        <Route path="/hr/actes/obligations" element={<ObligationsPage />} />
+        <Route path="/hr/actes/expatries" element={<ExpatriesPage />} />
+        <Route path="/hr/actes/parametres" element={<ParametresAdminPage />} />
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 
