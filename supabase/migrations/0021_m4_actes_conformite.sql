@@ -526,14 +526,15 @@ declare t text;
 begin
   foreach t in array tabs loop
     execute format('alter table %I enable row level security;', t);
+    execute format('drop policy if exists %I on %I;', 'p_'||t||'_sel', t);
     execute format(
-      'create policy %I on %I for select using (tenant_id = any (current_tenant_ids()));',
+      'create policy %I on %I for select using (tenant_id in (select current_tenant_ids()));',
       'p_'||t||'_sel', t);
+    execute format('drop policy if exists %I on %I;', 'p_'||t||'_all', t);
     execute format(
-      'create policy %I on %I for all using (is_hr_or_admin() and tenant_id = any (current_tenant_ids())) with check (is_hr_or_admin() and tenant_id = any (current_tenant_ids()));',
+      'create policy %I on %I for all using (is_hr_or_admin(tenant_id) and tenant_id in (select current_tenant_ids())) with check (is_hr_or_admin(tenant_id) and tenant_id in (select current_tenant_ids()));',
       'p_'||t||'_all', t);
   end loop;
-exception when duplicate_object then null;
 end $$;
 
 -- Fin migration 0021 — M4 Actes & conformité.
