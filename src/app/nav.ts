@@ -55,15 +55,15 @@ export const NAV: NavGroup[] = [
     bloc: 'B',
     label: 'Attirer & Intégrer',
     modules: [
-      { code: 'M5', path: '/recrutement', label: 'Recrutement', icon: Target, ready: false },
-      { code: 'M6', path: '/onboarding', label: 'Onboarding', icon: Rocket, ready: false },
+      { code: 'M5', path: '/recrutement', label: 'Recrutement', icon: Target, ready: true },
+      { code: 'M6', path: '/onboarding', label: 'Onboarding', icon: Rocket, ready: true },
     ],
   },
   {
     bloc: 'C',
     label: 'Performance & Talents',
     modules: [
-      { code: 'M7', path: '/objectifs', label: 'Objectifs (OKR)', icon: Crosshair, ready: false },
+      { code: 'M7', path: '/objectifs', label: 'Objectifs (OKR)', icon: Crosshair, ready: true },
       { code: 'M8', path: '/evaluations', label: 'Évaluations', icon: Gauge, ready: false },
       { code: 'M9', path: '/competences', label: 'Compétences', icon: Network, ready: true },
       { code: 'M10', path: '/carrieres', label: 'Carrières & succession', icon: Route, ready: false },

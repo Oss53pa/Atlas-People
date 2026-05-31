@@ -132,6 +132,44 @@ import { RepresentationPage } from './pages/admin/RepresentationPage';
 import { ObligationsPage } from './pages/admin/ObligationsPage';
 import { ExpatriesPage } from './pages/admin/ExpatriesPage';
 import { ParametresAdminPage } from './pages/admin/ParametresAdminPage';
+// M5 RECRUTEMENT (back-office ATS)
+import { CockpitRecrutPage } from './pages/recrut/CockpitRecrutPage';
+import { PostesPage } from './pages/recrut/PostesPage';
+import { PosteDetailPage } from './pages/recrut/PosteDetailPage';
+import { CandidaturesPage } from './pages/recrut/CandidaturesPage';
+import { CandidatPage } from './pages/recrut/CandidatPage';
+import { VivierPage } from './pages/recrut/VivierPage';
+import { EntretiensPage } from './pages/recrut/EntretiensPage';
+import { OffresPage } from './pages/recrut/OffresPage';
+import { SourcingPage } from './pages/recrut/SourcingPage';
+import { CooptationPage } from './pages/recrut/CooptationPage';
+import { IntegrationPage } from './pages/recrut/IntegrationPage';
+import { ReportingRecrutPage } from './pages/recrut/ReportingRecrutPage';
+import { RgpdPage } from './pages/recrut/RgpdPage';
+import { ParametresRecrutPage } from './pages/recrut/ParametresRecrutPage';
+// M6 ONBOARDING (back-office Intégration)
+import { CockpitOnboardingPage } from './pages/onboarding/CockpitOnboardingPage';
+import { ArrivantsPage } from './pages/onboarding/ArrivantsPage';
+import { ArrivantDetailPage } from './pages/onboarding/ArrivantDetailPage';
+import { ParcoursPage } from './pages/onboarding/ParcoursPage';
+import { TachesPage } from './pages/onboarding/TachesPage';
+import { BuddyPage } from './pages/onboarding/BuddyPage';
+import { FormationsPage } from './pages/onboarding/FormationsPage';
+import { DocumentsPage } from './pages/onboarding/DocumentsPage';
+import { PulsePage } from './pages/onboarding/PulsePage';
+import { ValidationPePage } from './pages/onboarding/ValidationPePage';
+import { ReportingOnboardingPage } from './pages/onboarding/ReportingOnboardingPage';
+import { ParametresOnboardingPage } from './pages/onboarding/ParametresOnboardingPage';
+// M7 OKR (back-office Objectifs & Key Results)
+import { CockpitOkrPage } from './pages/okr/CockpitOkrPage';
+import { CyclesOkrPage } from './pages/okr/CyclesOkrPage';
+import { ObjectifsEntreprisePage, ObjectifsDepartementPage, ObjectifsEquipePage, ObjectifsIndividuelPage } from './pages/okr/ObjectifsLevelPage';
+import { KeyResultsPage } from './pages/okr/KeyResultsPage';
+import { CheckInsPage } from './pages/okr/CheckInsPage';
+import { AlignementPage } from './pages/okr/AlignementPage';
+import { RevuePage } from './pages/okr/RevuePage';
+import { ReportingOkrPage } from './pages/okr/ReportingOkrPage';
+import { ParametresOkrPage } from './pages/okr/ParametresOkrPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { ALL_MODULES } from './app/nav';
 
@@ -142,6 +180,9 @@ const READY: Record<string, JSX.Element> = {
   '/frais': <NotesFraisPage />,
   '/paie': <CockpitPaiePage />,
   '/hr/actes': <CockpitAdminRhPage />,
+  '/recrutement': <CockpitRecrutPage />,
+  '/onboarding': <CockpitOnboardingPage />,
+  '/objectifs': <CockpitOkrPage />,
   '/competences': <CompetencesPage />,
   '/conformite': <ConformitePage />,
   '/moi': <SelfServicePage />,
@@ -196,6 +237,44 @@ function App() {
         <Route path="/hr/actes/obligations" element={<ObligationsPage />} />
         <Route path="/hr/actes/expatries" element={<ExpatriesPage />} />
         <Route path="/hr/actes/parametres" element={<ParametresAdminPage />} />
+        {/* M5 RECRUTEMENT — back-office ATS */}
+        <Route path="/recrutement/postes" element={<PostesPage />} />
+        <Route path="/recrutement/postes/:id" element={<PosteDetailPage />} />
+        <Route path="/recrutement/candidatures" element={<CandidaturesPage />} />
+        <Route path="/recrutement/candidats/:id" element={<CandidatPage />} />
+        <Route path="/recrutement/vivier" element={<VivierPage />} />
+        <Route path="/recrutement/entretiens" element={<EntretiensPage />} />
+        <Route path="/recrutement/offres" element={<OffresPage />} />
+        <Route path="/recrutement/sourcing" element={<SourcingPage />} />
+        <Route path="/recrutement/cooptation" element={<CooptationPage />} />
+        <Route path="/recrutement/integration" element={<IntegrationPage />} />
+        <Route path="/recrutement/reporting" element={<ReportingRecrutPage />} />
+        <Route path="/recrutement/rgpd" element={<RgpdPage />} />
+        <Route path="/recrutement/parametres" element={<ParametresRecrutPage />} />
+        {/* M6 ONBOARDING — back-office Intégration */}
+        <Route path="/onboarding/arrivants" element={<ArrivantsPage />} />
+        <Route path="/onboarding/arrivants/:employeeId" element={<ArrivantDetailPage />} />
+        <Route path="/onboarding/parcours" element={<ParcoursPage />} />
+        <Route path="/onboarding/taches" element={<TachesPage />} />
+        <Route path="/onboarding/buddy" element={<BuddyPage />} />
+        <Route path="/onboarding/formations" element={<FormationsPage />} />
+        <Route path="/onboarding/documents" element={<DocumentsPage />} />
+        <Route path="/onboarding/pulse" element={<PulsePage />} />
+        <Route path="/onboarding/validation" element={<ValidationPePage />} />
+        <Route path="/onboarding/reporting" element={<ReportingOnboardingPage />} />
+        <Route path="/onboarding/parametres" element={<ParametresOnboardingPage />} />
+        {/* M7 OKR */}
+        <Route path="/objectifs/cycles" element={<CyclesOkrPage />} />
+        <Route path="/objectifs/entreprise" element={<ObjectifsEntreprisePage />} />
+        <Route path="/objectifs/departement" element={<ObjectifsDepartementPage />} />
+        <Route path="/objectifs/equipe" element={<ObjectifsEquipePage />} />
+        <Route path="/objectifs/individuel" element={<ObjectifsIndividuelPage />} />
+        <Route path="/objectifs/key-results" element={<KeyResultsPage />} />
+        <Route path="/objectifs/check-ins" element={<CheckInsPage />} />
+        <Route path="/objectifs/alignement" element={<AlignementPage />} />
+        <Route path="/objectifs/revue" element={<RevuePage />} />
+        <Route path="/objectifs/reporting" element={<ReportingOkrPage />} />
+        <Route path="/objectifs/parametres" element={<ParametresOkrPage />} />
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 
