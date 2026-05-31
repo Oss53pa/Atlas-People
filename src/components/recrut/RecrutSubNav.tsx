@@ -13,12 +13,15 @@ const ITEMS = [
   { to: '/recrutement/candidatures', label: 'Pipeline',    icon: KanbanSquare,    end: false },
   { to: '/recrutement/vivier',       label: 'Vivier',      icon: Users,           end: false },
   { to: '/recrutement/entretiens',   label: 'Entretiens',  icon: CalendarClock,   end: false },
+  { to: '/recrutement/tests',        label: 'Tests',       icon: FlaskConical,    end: false },
   { to: '/recrutement/offres',       label: 'Offres',      icon: Mail,            end: false },
   { to: '/recrutement/sourcing',     label: 'Sourcing',    icon: Megaphone,       end: false },
+  { to: '/recrutement/marque-employeur', label: 'Marque employeur', icon: Globe,  end: false },
   { to: '/recrutement/cooptation',   label: 'Cooptation',  icon: Gift,            end: false },
   { to: '/recrutement/integration',  label: 'Intégration', icon: Rocket,          end: false },
   { to: '/recrutement/reporting',    label: 'Reporting',   icon: BarChart3,       end: false },
   { to: '/recrutement/rgpd',         label: 'RGPD',        icon: Shield,          end: false },
+  { to: '/recrutement/audit',        label: 'Audit',       icon: ShieldCheck,     end: false },
   { to: '/recrutement/parametres',   label: 'Paramètres',  icon: Settings,        end: false },
 ];
 

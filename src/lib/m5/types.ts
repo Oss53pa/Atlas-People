@@ -286,3 +286,84 @@ export interface RecrutKPI {
   acceptanceRate: number;      // % offres acceptées
   costPerHire: number;
 }
+
+// ───────────────────────────────────────────── Tests & assessments (doc 08)
+export type TestCategory = 'technique' | 'psychometrique' | 'cognitif' | 'mise_situation' | 'langue' | 'assessment';
+export type TestScoring = 'auto' | 'manual' | 'hybrid';
+export type PassationStatus = 'invited' | 'in_progress' | 'submitted' | 'scored' | 'expired';
+
+export interface RecruitmentTest {
+  id: string;
+  name: string;
+  category: TestCategory;
+  description: string;
+  durationMin: number;
+  questionsCount: number;
+  scoring: TestScoring;
+  maxScore: number;
+  passingScore: number;        // % requis
+  proctoring: boolean;         // anti-triche webcam
+  copyPasteDisabled: boolean;
+  tabSwitchDetection: boolean;
+  passations: number;
+  avgScore?: number;           // % moyen (undefined si psychométrique)
+  active: boolean;
+}
+
+export interface TestPassation {
+  id: string;
+  testId: string;
+  candidateId: string;
+  applicationId?: string;
+  status: PassationStatus;
+  invitedAt: string;
+  submittedAt?: string;
+  score?: number;              // %
+  passed?: boolean;
+  flags?: string[];            // anti-triche (tab switch, copier-coller…)
+}
+
+// ───────────────────────────────────────────── Marque employeur (doc 13)
+export interface CareerSiteSection {
+  key: string;
+  label: string;
+  enabled: boolean;
+  summary: string;
+}
+export interface Testimonial {
+  id: string;
+  employeeId?: string;
+  authorName: string;
+  role: string;
+  quote: string;
+  hasVideo: boolean;
+}
+export interface EmployerBrandKPI {
+  visitorsMonth: number;
+  visitorsDelta: number;       // % vs M-1
+  conversionRate: number;      // visiteur → candidature %
+  glassdoorScore: number;      // /5
+  acceptanceRate: number;      // %
+  spontaneousApps: number;     // /mois
+}
+
+// ───────────────────────────────────────────── Audit M5 (doc 16)
+export type AuditSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+export interface AuditEntry {
+  id: string;
+  at: string;
+  actor: string;
+  action: string;              // recruitment.offer.published…
+  severity: AuditSeverity;
+  detail: string;
+  hash: string;
+}
+export type FraudKind = 'cooptation_abusive' | 'conflit_interet' | 'biais_discrimination' | 'offre_fictive' | 'doublon_candidat';
+export interface FraudAlert {
+  id: string;
+  kind: FraudKind;
+  severity: AuditSeverity;
+  message: string;
+  detectedAt: string;
+  status: 'open' | 'reviewing' | 'cleared' | 'confirmed';
+}

@@ -1,6 +1,8 @@
 import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { CockpitPage } from './pages/CockpitPage';
+import { UnifiedCockpitDRHPage } from './pages/UnifiedCockpitPage';
+import { WhatIfSimulatorPage } from './pages/WhatIfSimulatorPage';
 import { CollaborateursPage } from './pages/CollaborateursPage';
 import { EmployeeDossierPage } from './pages/EmployeeDossierPage';
 import { AmendmentDossierPage } from './pages/AmendmentDossierPage';
@@ -13,7 +15,13 @@ import { TempsAbsencesPage } from './pages/TempsAbsencesPage';
 import { RubriquesPage } from './pages/RubriquesPage';
 import { NotesFraisPage } from './pages/NotesFraisPage';
 import { CompetencesPage } from './pages/CompetencesPage';
-import { ConformitePage } from './pages/ConformitePage';
+// M12 Conformité & SST — enrichi
+import {
+  CockpitConformitePage, DuerPage, RpsPage, AtMpPage, RegistrePage,
+  DeclarationsPage, VisitesMedicalesPage, HabilitationsPage, AuditsPage,
+  InspectionsPage as InspectionsConformitePage, ConservationPage, ParametresConformitePage,
+} from './pages/conformite/ConformitePages';
+import { ConformitePage as LegacyComplianceGuard } from './pages/ConformitePage';
 import { JournalAuditPage } from './pages/JournalAuditPage';
 import { SelfServicePage } from './pages/SelfServicePage';
 import { MonTempsPage } from './pages/ess/MonTempsPage';
@@ -181,6 +189,12 @@ import {
   HautsPotentielsPage, MentoratPage, CartographiePage, MobiliteCarrieresPage,
   ReportingCarrieresPage, ParametresCarrieresPage,
 } from './pages/carrieres/CarrieresPages';
+// M11 Formation
+import {
+  CockpitFormationPage, CataloguePage, PlanFormationPage, SessionsPage,
+  InscriptionsPage, EvaluationsKirkpatrickPage, CertificationsPage, RoiPage,
+  CompetencesFormationPage, FdfpPage, ReportingFormationPage, ParametresFormationPage,
+} from './pages/formation/FormationPages';
 // M7 OKR (back-office Objectifs & Key Results)
 import { CockpitOkrPage } from './pages/okr/CockpitOkrPage';
 import { CyclesOkrPage } from './pages/okr/CyclesOkrPage';
@@ -191,6 +205,10 @@ import { AlignementPage } from './pages/okr/AlignementPage';
 import { RevuePage } from './pages/okr/RevuePage';
 import { ReportingOkrPage } from './pages/okr/ReportingOkrPage';
 import { ParametresOkrPage } from './pages/okr/ParametresOkrPage';
+import {
+  MethodologieOkrPage, NotationOkrPage, RetrospectiveOkrPage,
+  GouvernanceOkrPage, IntegrationOkrPage, AuditOkrPage,
+} from './pages/okr/OkrEnrichmentPages';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { ALL_MODULES } from './app/nav';
 
@@ -206,8 +224,9 @@ const READY: Record<string, JSX.Element> = {
   '/objectifs': <CockpitOkrPage />,
   '/evaluations': <CockpitEvalPage />,
   '/carrieres': <CockpitCarrieresPage />,
+  '/formation': <CockpitFormationPage />,
   '/competences': <CompetencesPage />,
-  '/conformite': <ConformitePage />,
+  '/conformite': <CockpitConformitePage />,
   '/moi': <SelfServicePage />,
 };
 
@@ -269,12 +288,15 @@ function App() {
         <Route path="/recrutement/candidats/:id" element={<CandidatPage />} />
         <Route path="/recrutement/vivier" element={<VivierPage />} />
         <Route path="/recrutement/entretiens" element={<EntretiensPage />} />
+        <Route path="/recrutement/tests" element={<TestsPage />} />
         <Route path="/recrutement/offres" element={<OffresPage />} />
         <Route path="/recrutement/sourcing" element={<SourcingPage />} />
+        <Route path="/recrutement/marque-employeur" element={<MarqueEmployeurPage />} />
         <Route path="/recrutement/cooptation" element={<CooptationPage />} />
         <Route path="/recrutement/integration" element={<IntegrationPage />} />
         <Route path="/recrutement/reporting" element={<ReportingRecrutPage />} />
         <Route path="/recrutement/rgpd" element={<RgpdPage />} />
+        <Route path="/recrutement/audit" element={<AuditRecrutPage />} />
         <Route path="/recrutement/parametres" element={<ParametresRecrutPage />} />
         {/* M6 ONBOARDING — back-office Intégration */}
         <Route path="/onboarding/arrivants" element={<ArrivantsPage />} />
@@ -328,6 +350,37 @@ function App() {
         <Route path="/carrieres/mobilite" element={<MobiliteCarrieresPage />} />
         <Route path="/carrieres/reporting" element={<ReportingCarrieresPage />} />
         <Route path="/carrieres/parametres" element={<ParametresCarrieresPage />} />
+        <Route path="/formation/catalogue" element={<CataloguePage />} />
+        <Route path="/formation/plan" element={<PlanFormationPage />} />
+        <Route path="/formation/sessions" element={<SessionsPage />} />
+        <Route path="/formation/inscriptions" element={<InscriptionsPage />} />
+        <Route path="/formation/evaluations" element={<EvaluationsKirkpatrickPage />} />
+        <Route path="/formation/certifications" element={<CertificationsPage />} />
+        <Route path="/formation/roi" element={<RoiPage />} />
+        <Route path="/formation/competences" element={<CompetencesFormationPage />} />
+        <Route path="/formation/fdfp" element={<FdfpPage />} />
+        <Route path="/formation/reporting" element={<ReportingFormationPage />} />
+        <Route path="/formation/parametres" element={<ParametresFormationPage />} />
+        <Route path="/conformite/duer" element={<DuerPage />} />
+        <Route path="/conformite/rps" element={<RpsPage />} />
+        <Route path="/conformite/at-mp" element={<AtMpPage />} />
+        <Route path="/conformite/registre" element={<RegistrePage />} />
+        <Route path="/conformite/declarations" element={<DeclarationsPage />} />
+        <Route path="/conformite/visites" element={<VisitesMedicalesPage />} />
+        <Route path="/conformite/habilitations" element={<HabilitationsPage />} />
+        <Route path="/conformite/audits" element={<AuditsPage />} />
+        <Route path="/conformite/inspections" element={<InspectionsConformitePage />} />
+        <Route path="/conformite/conservation" element={<ConservationPage />} />
+        <Route path="/conformite/parametres" element={<ParametresConformitePage />} />
+        <Route path="/conformite/legacy-guard" element={<LegacyComplianceGuard />} />
+        <Route path="/objectifs/methodologie" element={<MethodologieOkrPage />} />
+        <Route path="/objectifs/notation" element={<NotationOkrPage />} />
+        <Route path="/objectifs/retrospective" element={<RetrospectiveOkrPage />} />
+        <Route path="/objectifs/gouvernance" element={<GouvernanceOkrPage />} />
+        <Route path="/objectifs/integration" element={<IntegrationOkrPage />} />
+        <Route path="/objectifs/audit" element={<AuditOkrPage />} />
+        <Route path="/cockpit-360" element={<UnifiedCockpitDRHPage />} />
+        <Route path="/whatif" element={<WhatIfSimulatorPage />} />
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 
