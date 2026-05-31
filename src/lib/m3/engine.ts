@@ -10,9 +10,24 @@ import { ComplianceGuard } from '../compliance/ComplianceGuard';
 import type { EmployeeRecord } from '../../data/mock';
 import { currencyOf } from '../../data/countries';
 import type { PayrollInput } from '../payroll/types';
-import type { BulletinViewer, BulletinRow, BulletinAnomaly, PayrollVariables } from './types';
+import type { BulletinViewer, BulletinRow, BulletinAnomaly, PayrollVariables, RubriqueModel } from './types';
 
 const round = (n: number) => Math.round(n);
+
+/**
+ * Fusionne le modèle récurrent du salarié avec les variables du mois.
+ * Les rubriques du modèle (récurrentes, ré-appliquées chaque cycle) précèdent
+ * celles saisies ponctuellement ce mois. Le résultat sert de point unique de
+ * vérité pour le bulletin live, l'aperçu imprimable et l'explicateur.
+ */
+export function mergeModel(monthly: PayrollVariables, model?: RubriqueModel): PayrollVariables {
+  if (!model || (model.primes.length === 0 && model.retenues.length === 0)) return monthly;
+  return {
+    ...monthly,
+    primes: [...model.primes, ...monthly.primes],
+    retenues: [...model.retenues, ...monthly.retenues],
+  };
+}
 
 /** Taux horaire de référence = salaire base / (jours ouvrables × 8h). */
 export function tauxHoraire(baseSalary: number, joursOuvrables: number): number {

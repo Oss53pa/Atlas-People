@@ -10,12 +10,26 @@ export type SaisieStatus = 'to_seize' | 'prefilled' | 'seized' | 'anomaly' | 'lo
 export type CyclePhase =
   | 'open' | 'preparation' | 'calculation' | 'validation' | 'diffusion' | 'payment' | 'closed';
 
+/** Mode de calcul d'une rubrique saisie (sinon montant fixe manuel). */
+export type RubriqueCalcMode = 'fixed' | 'base_rate' | 'qty_rate';
+export interface RubriqueCalc {
+  mode: RubriqueCalcMode;
+  base?: number;   // base_rate : base de calcul (FCFA)
+  rate?: number;   // base_rate : taux %
+  qty?: number;    // qty_rate : quantité
+  unit?: number;   // qty_rate : montant unitaire (FCFA)
+}
+
 export interface PrimePonctuelle {
   code: string;
   label: string;
-  amount: number;      // francs
+  amount: number;      // francs (montant résolu)
   taxable: boolean;    // soumis IRPP + CNPS
-  source?: 'mss' | 'manual';
+  baseCnps?: boolean;  // soumis CNPS (issu du catalogue)
+  source?: 'mss' | 'manual' | 'catalogue';
+  rubriqueCode?: string; // code rubrique catalogue (référence)
+  calc?: RubriqueCalc;   // mode de calcul (absent = montant fixe saisi)
+  recurring?: boolean;   // appartient au modèle du salarié (chaque mois)
 }
 
 export interface RetenueExceptionnelle {
@@ -23,6 +37,15 @@ export interface RetenueExceptionnelle {
   label: string;
   amount: number;
   account?: string;
+  rubriqueCode?: string;
+  calc?: RubriqueCalc;
+  recurring?: boolean;
+}
+
+/** Modèle de paie du salarié : rubriques récurrentes ré-appliquées chaque cycle. */
+export interface RubriqueModel {
+  primes: PrimePonctuelle[];
+  retenues: RetenueExceptionnelle[];
 }
 
 export interface NdfLine {

@@ -14,6 +14,9 @@ import { cn } from '../../lib/cn';
 const TYPE_TONE: Record<RubriqueType, 'ok' | 'amber' | 'danger' | 'info' | 'neutral'> = {
   gain: 'ok', retenue: 'danger', cotisation_emp: 'info', cotisation_pat: 'amber', info: 'neutral',
 };
+const TONE_DOT: Record<'ok' | 'amber' | 'danger' | 'info' | 'neutral', string> = {
+  ok: 'bg-ok', amber: 'bg-amber', danger: 'bg-danger', info: 'bg-info', neutral: 'bg-ink-300',
+};
 const TYPE_LABEL: Record<RubriqueType, string> = {
   gain: 'Gain', retenue: 'Retenue', cotisation_emp: 'Cot. salariale', cotisation_pat: 'Cot. patronale', info: 'Info',
 };
@@ -167,8 +170,13 @@ export function ConfigurationPaiePage() {
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        <p className="mono text-[11px] font-bold text-ink-500">{r.code}</p>
-                        <p className="text-[13px] font-semibold text-ink">{r.libelle}</p>
+                        <div className="flex items-center gap-2">
+                          <span className={cn('h-2 w-2 shrink-0 rounded-full', TONE_DOT[TYPE_TONE[r.type]])} title={TYPE_LABEL[r.type]} />
+                          <div className="min-w-0">
+                            <p className="mono text-[11px] font-bold text-ink-500">{r.code}</p>
+                            <p className="text-[13px] font-semibold text-ink">{r.libelle}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-3 py-2">
                         <select value={r.type} onChange={(e) => patch(r.code, { type: e.target.value as RubriqueType })}

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { EMPLOYEES } from '../data/mock';
-import { computeM3Bulletin } from '../lib/m3/engine';
-import type { PayrollVariables, SaisieStatus, CyclePhase } from '../lib/m3/types';
+import { computeM3Bulletin, mergeModel } from '../lib/m3/engine';
+import type { PayrollVariables, SaisieStatus, CyclePhase, RubriqueModel } from '../lib/m3/types';
 
 /** M3 — état du cycle de paie courant (démo : Mai 2026, société Atlas Studio CI). */
 export interface CycleMeta {
@@ -42,6 +42,25 @@ function seedVariables(): Record<string, PayrollVariables> {
   return v;
 }
 
+// Modèle de paie par salarié : rubriques récurrentes ré-appliquées chaque cycle.
+function seedModels(): Record<string, RubriqueModel> {
+  const m: Record<string, RubriqueModel> = {};
+  for (const e of EMPLOYEES) m[e.id] = { primes: [], retenues: [] };
+  // e2 — Kouadio : indemnité transport (non imp.) + mutuelle santé, récurrentes.
+  m['e2'] = {
+    primes: [{ code: 'R051_IND_TRANSP__seed', label: 'Indemnité de transport', amount: 30_000, taxable: false, baseCnps: false, source: 'catalogue', rubriqueCode: 'R051_IND_TRANSP', calc: { mode: 'fixed' }, recurring: true }],
+    retenues: [{ code: 'X100_MUTUELLE__seed', label: 'Mutuelle santé', amount: 12_000, account: '427000', rubriqueCode: 'X100_MUTUELLE', calc: { mode: 'fixed' }, recurring: true }],
+  };
+  // e4 — Ibrahim : prêt employeur mensuel récurrent.
+  m['e4'] = {
+    primes: [],
+    retenues: [{ code: 'X200_PRET__seed', label: 'Prêt employeur', amount: 50_000, account: '425000', rubriqueCode: 'X200_PRET', calc: { mode: 'fixed' }, recurring: true }],
+  };
+  return m;
+}
+
+const SEED_MODELS = seedModels();
+
 function seedStatuses(): Record<string, SaisieStatus> {
   const s: Record<string, SaisieStatus> = {};
   for (const e of EMPLOYEES) s[e.id] = 'to_seize';
@@ -51,24 +70,28 @@ function seedStatuses(): Record<string, SaisieStatus> {
   return s;
 }
 
-// Net du mois précédent (baseline = mois plein « propre ») pour comparaison M-1.
+// Net du mois précédent (mois plein + modèle récurrent) pour comparaison M-1.
 function seedPrevNet(): Record<string, number> {
   const p: Record<string, number> = {};
-  for (const e of EMPLOYEES) p[e.id] = computeM3Bulletin(e, fullMonth()).netAPayer;
+  for (const e of EMPLOYEES) p[e.id] = computeM3Bulletin(e, mergeModel(fullMonth(), SEED_MODELS[e.id])).netAPayer;
   return p;
 }
 
 interface State {
   cycle: CycleMeta;
   variables: Record<string, PayrollVariables>;
+  models: Record<string, RubriqueModel>;
   statuses: Record<string, SaisieStatus>;
   prevNet: Record<string, number>;
   setVariables: (employeeId: string, patch: Partial<PayrollVariables>) => void;
+  setModel: (employeeId: string, patch: Partial<RubriqueModel>) => void;
   setStatus: (employeeId: string, status: SaisieStatus) => void;
   markReady: (employeeId: string) => void;
   lock: (employeeId: string) => void;
   setPhase: (phase: CyclePhase) => void;
 }
+
+const emptyModel = (): RubriqueModel => ({ primes: [], retenues: [] });
 
 export const usePayrollCycle = create<State>((set) => ({
   cycle: {
@@ -77,10 +100,13 @@ export const usePayrollCycle = create<State>((set) => ({
     phase: 'preparation', payDate: '2026-05-25', deadlineSaisie: '2026-05-20', deadlineValidation: '2026-05-23',
   },
   variables: seedVariables(),
+  models: SEED_MODELS,
   statuses: seedStatuses(),
   prevNet: seedPrevNet(),
   setVariables: (employeeId, patch) =>
     set((s) => ({ variables: { ...s.variables, [employeeId]: { ...s.variables[employeeId], ...patch } } })),
+  setModel: (employeeId, patch) =>
+    set((s) => ({ models: { ...s.models, [employeeId]: { ...(s.models[employeeId] ?? emptyModel()), ...patch } } })),
   setStatus: (employeeId, status) => set((s) => ({ statuses: { ...s.statuses, [employeeId]: status } })),
   markReady: (employeeId) => set((s) => ({ statuses: { ...s.statuses, [employeeId]: 'seized' } })),
   lock: (employeeId) => set((s) => ({ statuses: { ...s.statuses, [employeeId]: 'locked' } })),

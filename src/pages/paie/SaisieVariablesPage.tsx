@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search, Plus, Trash2, Sparkles, Lock, FileDown, Printer, CheckCircle2, AlertTriangle,
-  ArrowUpRight, ArrowDownRight, Zap, Circle, ShieldCheck, PencilLine,
+  ArrowUpRight, ArrowDownRight, Zap, Circle, ShieldCheck, PencilLine, Repeat,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -12,13 +12,15 @@ import { useToast } from '../../components/ui/Toast';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { PayslipModal } from '../../components/payroll/PayslipModal';
 import { ExplainCalculModal } from '../../components/paie/ExplainCalculModal';
+import { RubriquePicker, type RubriquePick } from '../../components/paie/RubriquePicker';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
-import { computeM3Bulletin, m3PayrollInput } from '../../lib/m3/engine';
+import { computeM3Bulletin, m3PayrollInput, mergeModel } from '../../lib/m3/engine';
+import { describeCalc } from '../../lib/m3/rubriques';
 import { computePayslip, getRegime } from '../../lib/payroll';
 import { EMPLOYEES, employeeById, employeeName, matricule } from '../../data/mock';
 import { currencyOf } from '../../data/countries';
 import { Money } from '../../lib/money';
-import type { SaisieStatus, PayrollVariables, BulletinRow } from '../../lib/m3/types';
+import type { SaisieStatus, PayrollVariables, BulletinRow, PrimePonctuelle, RetenueExceptionnelle } from '../../lib/m3/types';
 import { cn } from '../../lib/cn';
 
 const STATUS_META: Record<SaisieStatus, { label: string; tone: 'ok' | 'amber' | 'neutral' | 'warn' | 'danger'; icon: typeof Circle }> = {
@@ -29,11 +31,11 @@ const STATUS_META: Record<SaisieStatus, { label: string; tone: 'ok' | 'amber' | 
   locked: { label: 'Verrouillé', tone: 'ok', icon: Lock },
 };
 
-const TABS = ['Temps', 'Heures sup.', 'Primes', 'Retenues', 'NDF', 'Avances', 'Notes'] as const;
+const TABS = ['Temps', 'Heures sup.', 'Rubriques', 'NDF', 'Avances', 'Notes'] as const;
 type Tab = typeof TABS[number];
 
 export function SaisieVariablesPage() {
-  const { cycle, variables, statuses, prevNet, setVariables, markReady, lock } = usePayrollCycle();
+  const { cycle, variables, models, statuses, prevNet, setVariables, setModel, markReady, lock } = usePayrollCycle();
   const { toast } = useToast();
   const [selectedId, setSelectedId] = useState('e2');
   const [query, setQuery] = useState('');
@@ -41,6 +43,7 @@ export function SaisieVariablesPage() {
   const [tab, setTab] = useState<Tab>('Temps');
   const [preview, setPreview] = useState(false);
   const [explain, setExplain] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -56,21 +59,50 @@ export function SaisieVariablesPage() {
 
   const emp = employeeById(selectedId)!;
   const v = variables[selectedId];
-  const bulletin = useMemo(() => computeM3Bulletin(emp, v), [emp, v]);
+  const model = models[selectedId] ?? { primes: [], retenues: [] };
+  // Entrée effective = modèle récurrent du salarié ⊕ variables du mois.
+  const eff = useMemo(() => mergeModel(v, model), [v, model]);
+  const bulletin = useMemo(() => computeM3Bulletin(emp, eff), [emp, eff]);
   const cur = currencyOf(emp.countryCode);
   const fmt = (n: number) => Money.of(Math.round(n), cur).format();
   const netDelta = bulletin.netAPayer - (prevNet[selectedId] ?? bulletin.netAPayer);
   const netDeltaPct = prevNet[selectedId] ? (netDelta / prevNet[selectedId]) * 100 : 0;
 
   // Calcul officiel (même entrée déterministe) pour l'aperçu avant impression.
-  const computation = useMemo(() => computePayslip(m3PayrollInput(emp, v), getRegime(emp.countryCode), employeeName(emp)), [emp, v]);
+  const computation = useMemo(() => computePayslip(m3PayrollInput(emp, eff), getRegime(emp.countryCode), employeeName(emp)), [emp, eff]);
 
   const patch = (p: Partial<PayrollVariables>) => setVariables(selectedId, p);
+
+  // Ajout / retrait d'une rubrique — vers le mois courant ou le modèle récurrent.
+  const addRubrique = ({ kind, target, line }: RubriquePick) => {
+    if (target === 'model') {
+      setModel(selectedId, kind === 'gain'
+        ? { primes: [...model.primes, line as PrimePonctuelle] }
+        : { retenues: [...model.retenues, line as RetenueExceptionnelle] });
+    } else {
+      patch(kind === 'gain'
+        ? { primes: [...v.primes, line as PrimePonctuelle] }
+        : { retenues: [...v.retenues, line as RetenueExceptionnelle] });
+    }
+    toast({ variant: 'success', title: target === 'model' ? 'Ajouté au modèle' : 'Ajouté ce mois', description: `${line.label} · ${fmt(line.amount)}` });
+  };
+  const removeRubrique = (target: 'month' | 'model', kind: 'gain' | 'retenue', code: string) => {
+    if (target === 'model') {
+      setModel(selectedId, kind === 'gain'
+        ? { primes: model.primes.filter((p) => p.code !== code) }
+        : { retenues: model.retenues.filter((r) => r.code !== code) });
+    } else {
+      patch(kind === 'gain'
+        ? { primes: v.primes.filter((p) => p.code !== code) }
+        : { retenues: v.retenues.filter((r) => r.code !== code) });
+    }
+  };
 
   return (
     <div className="animate-fade-up space-y-4">
       {preview && <PayslipModal employee={emp} computation={computation} period={cycle.label} onClose={() => setPreview(false)} />}
-      {explain && <ExplainCalculModal emp={emp} variables={v} onClose={() => setExplain(false)} />}
+      {explain && <ExplainCalculModal emp={emp} variables={eff} onClose={() => setExplain(false)} />}
+      {pickerOpen && <RubriquePicker countryCode={emp.countryCode} baseSalary={emp.baseSalary} onAdd={addRubrique} onClose={() => setPickerOpen(false)} />}
       <PaieSubNav />
 
       {/* Bandeau cycle */}
@@ -165,6 +197,7 @@ export function SaisieVariablesPage() {
 
             {/* COTISATIONS */}
             <BlletSection title="Cotisations & impôts (part salariale)" rows={bulletin.cotisationsEmp} fmt={fmt} />
+            <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-ink-400"><Lock size={10} /> CNPS &amp; IRPP calculées automatiquement par le moteur — verrouillées.</p>
             {bulletin.retenues.length > 0 && <BlletSection title="Retenues" rows={bulletin.retenues} fmt={fmt} />}
 
             {/* NET */}
@@ -222,11 +255,15 @@ export function SaisieVariablesPage() {
               </div>
               <Link to={`/paie/dossier/${emp.id}`}><Button variant="ghost" size="sm"><ArrowUpRight size={13} /></Button></Link>
             </div>
-            {(v.primes.length > 0 || v.ndf.length > 0 || v.avance > 0) && (
+            {(eff.primes.length > 0 || eff.retenues.length > 0 || eff.ndf.length > 0 || eff.avance > 0) && (
               <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                {v.ndf.map((n) => <span key={n.ref} className="rounded-md bg-info/10 px-2 py-1 text-info">NDF {fmt(n.amount)}</span>)}
-                {v.primes.map((p) => <span key={p.code} className="rounded-md bg-amber/12 px-2 py-1 text-amber-deep">Prime {fmt(p.amount)}</span>)}
-                {v.avance > 0 && <span className="rounded-md bg-danger/10 px-2 py-1 text-danger">Avance {fmt(v.avance)}</span>}
+                {(model.primes.length + model.retenues.length) > 0 && (
+                  <span className="flex items-center gap-1 rounded-md bg-ok/10 px-2 py-1 text-ok"><Repeat size={10} /> Modèle {model.primes.length + model.retenues.length}</span>
+                )}
+                {eff.ndf.map((n) => <span key={n.ref} className="rounded-md bg-info/10 px-2 py-1 text-info">NDF {fmt(n.amount)}</span>)}
+                {eff.primes.map((p) => <span key={p.code} className="rounded-md bg-amber/12 px-2 py-1 text-amber-deep">{p.label} {fmt(p.amount)}</span>)}
+                {eff.retenues.map((r) => <span key={r.code} className="rounded-md bg-danger/10 px-2 py-1 text-danger">{r.label} {fmt(r.amount)}</span>)}
+                {eff.avance > 0 && <span className="rounded-md bg-danger/10 px-2 py-1 text-danger">Avance {fmt(eff.avance)}</span>}
               </div>
             )}
           </Card>
@@ -266,15 +303,23 @@ export function SaisieVariablesPage() {
                 <p className="rounded-xl bg-surface2 px-3 py-2.5 text-[12px] font-medium text-ink-700">Taux horaire : <span className="mono font-bold text-ink">{fmt(emp.baseSalary / (v.joursOuvrables * 8))}</span>/h</p>
               </div>
             )}
-            {tab === 'Primes' && (
-              <ListEditor title="Primes & gains ponctuels" items={v.primes.map((p) => ({ id: p.code, label: p.label, amount: p.amount, sub: p.taxable ? 'imposable' : 'non imposable', tag: p.source }))}
-                onAdd={() => patch({ primes: [...v.primes, { code: `R0_${Date.now()}`, label: 'Nouvelle prime', amount: 50_000, taxable: true, source: 'manual' }] })}
-                onRemove={(id) => patch({ primes: v.primes.filter((p) => p.code !== id) })} fmt={fmt} addLabel="+ Prime" />
-            )}
-            {tab === 'Retenues' && (
-              <ListEditor title="Retenues exceptionnelles" items={v.retenues.map((r) => ({ id: r.code, label: r.label, amount: r.amount, sub: 'retenue', tag: undefined }))}
-                onAdd={() => patch({ retenues: [...v.retenues, { code: `X0_${Date.now()}`, label: 'Retenue exceptionnelle', amount: 20_000 }] })}
-                onRemove={(id) => patch({ retenues: v.retenues.filter((r) => r.code !== id) })} fmt={fmt} addLabel="+ Retenue" warn="Justification + 4-eyes + notification employé requises." />
+            {tab === 'Rubriques' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-ink">Rubriques du bulletin</p>
+                  <Button size="sm" onClick={() => setPickerOpen(true)}><Plus size={14} /> Ajouter une rubrique</Button>
+                </div>
+                <RubriqueBlock title="Modèle (récurrent)" hint="ré-appliqué chaque mois" recurring
+                  gains={model.primes} retenues={model.retenues} fmt={fmt}
+                  onRemove={(kind, code) => removeRubrique('model', kind, code)} />
+                <RubriqueBlock title="Ce mois uniquement" hint="éléments variables du cycle"
+                  gains={v.primes} retenues={v.retenues} fmt={fmt}
+                  onRemove={(kind, code) => removeRubrique('month', kind, code)} />
+                {(model.primes.length + model.retenues.length + v.primes.length + v.retenues.length) === 0 && (
+                  <p className="rounded-xl bg-surface2 px-3 py-4 text-center text-[12px] font-medium text-ink-400">Aucune rubrique. Cliquez « Ajouter une rubrique » pour piocher dans le catalogue.</p>
+                )}
+                <p className="flex items-start gap-1.5 text-[10px] font-medium text-ink-400"><AlertTriangle size={11} className="mt-0.5 shrink-0 text-warn" /> Retenues exceptionnelles : justification + 4-eyes + notification employé requises.</p>
+              </div>
             )}
             {tab === 'NDF' && (
               <ListEditor title="NDF à intégrer en paie" items={v.ndf.map((n) => ({ id: n.ref, label: `${n.ref} · ${n.label}`, amount: n.amount, sub: n.taxable ? 'réintégré imposable' : 'remboursement non imposable', tag: undefined }))}
@@ -342,6 +387,47 @@ function BlletSection({ title, rows, fmt, muted }: { title: string; rows: Bullet
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+/** Bloc de rubriques (groupe Modèle récurrent ou Ce mois), gains + retenues. */
+function RubriqueBlock({ title, hint, gains, retenues, fmt, onRemove, recurring }: {
+  title: string; hint: string; gains: PrimePonctuelle[]; retenues: RetenueExceptionnelle[];
+  fmt: (n: number) => string; onRemove: (kind: 'gain' | 'retenue', code: string) => void; recurring?: boolean;
+}) {
+  const empty = gains.length === 0 && retenues.length === 0;
+  return (
+    <div className="rounded-xl border border-line bg-surface2/40 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[12px] font-bold text-ink">{recurring && <Repeat size={12} className="text-amber-deep" />}{title}</p>
+        <span className="text-[10px] font-medium text-ink-400">{hint}</span>
+      </div>
+      {empty ? <p className="text-[12px] font-medium text-ink-400">—</p> : (
+        <div className="space-y-1.5">
+          {gains.map((g) => (
+            <RubLine key={g.code} label={g.label} amount={g.amount} tone="gain" fmt={fmt}
+              sub={`${describeCalc(g.calc, fmt)} · ${g.taxable ? 'imposable' : 'non imp.'}`} onRemove={() => onRemove('gain', g.code)} />
+          ))}
+          {retenues.map((r) => (
+            <RubLine key={r.code} label={r.label} amount={r.amount} tone="retenue" fmt={fmt}
+              sub={`${describeCalc(r.calc, fmt)} · retenue`} onRemove={() => onRemove('retenue', r.code)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+function RubLine({ label, amount, sub, tone, onRemove, fmt }: {
+  label: string; amount: number; sub: string; tone: 'gain' | 'retenue'; onRemove: () => void; fmt: (n: number) => string;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-surface px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] font-semibold text-ink">{label}</p>
+        <p className="truncate text-[10px] font-medium text-ink-400">{sub}</p>
+      </div>
+      <span className={cn('mono text-[13px] font-bold', tone === 'retenue' ? 'text-danger' : 'text-ink')}>{tone === 'retenue' ? '-' : ''}{fmt(amount)}</span>
+      <button onClick={onRemove} className="rounded-lg p-1.5 text-ink-400 hover:bg-danger/10 hover:text-danger"><Trash2 size={14} /></button>
     </div>
   );
 }

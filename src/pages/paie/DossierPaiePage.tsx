@@ -13,7 +13,7 @@ import { useToast } from '../../components/ui/Toast';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { PayslipModal } from '../../components/payroll/PayslipModal';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
-import { computeM3Bulletin, m3PayrollInput } from '../../lib/m3/engine';
+import { computeM3Bulletin, m3PayrollInput, mergeModel } from '../../lib/m3/engine';
 import { computePayslip, getRegime } from '../../lib/payroll';
 import { employeeById, employeeName, matricule, mobileMoney, type EmployeeRecord } from '../../data/mock';
 import { currencyOf } from '../../data/countries';
@@ -41,7 +41,7 @@ const TABS = [
 
 export function DossierPaiePage() {
   const { employeeId = 'e2' } = useParams();
-  const { cycle, variables, prevNet } = usePayrollCycle();
+  const { cycle, variables, models, prevNet } = usePayrollCycle();
   const { toast } = useToast();
   const [tab, setTab] = useState('synthese');
   const [preview, setPreview] = useState<string | null>(null);
@@ -50,8 +50,10 @@ export function DossierPaiePage() {
   const cur = emp ? currencyOf(emp.countryCode) : 'XOF';
   const fmt = (n: number) => Money.of(Math.round(n), cur).format();
 
-  const baseline = useMemo(() => (emp ? computeM3Bulletin(emp, fullMonth) : null), [emp]);
-  const current = useMemo(() => (emp ? computeM3Bulletin(emp, variables[emp.id] ?? fullMonth) : null), [emp, variables]);
+  const model = emp ? models[emp.id] : undefined;
+  // Bulletins calculés intègrent le modèle récurrent du salarié (cohérent avec la Saisie).
+  const baseline = useMemo(() => (emp ? computeM3Bulletin(emp, mergeModel(fullMonth, model)) : null), [emp, model]);
+  const current = useMemo(() => (emp ? computeM3Bulletin(emp, mergeModel(variables[emp.id] ?? fullMonth, model)) : null), [emp, variables, model]);
 
   if (!emp || !baseline || !current) {
     return <div className="animate-fade-up space-y-4"><PaieSubNav /><Card><p className="py-10 text-center text-sm font-medium text-ink-400">Collaborateur introuvable.</p></Card></div>;
@@ -59,7 +61,7 @@ export function DossierPaiePage() {
 
   const brutTheorique = emp.baseSalary + emp.taxableAllowances + emp.nonTaxableAllowances;
   const seniority = 2026 - new Date(emp.hireDate).getFullYear();
-  const computationFull = computePayslip(m3PayrollInput(emp, fullMonth), getRegime(emp.countryCode), employeeName(emp));
+  const computationFull = computePayslip(m3PayrollInput(emp, mergeModel(fullMonth, model)), getRegime(emp.countryCode), employeeName(emp));
 
   return (
     <div className="animate-fade-up space-y-4">
@@ -180,7 +182,12 @@ export function DossierPaiePage() {
                   <KV label="Jours travaillés" value={String(v.joursTravailles)} />
                   <KV label="HS 15 % / 50 %" value={`${v.hs15} h / ${v.hs50} h`} />
                 </div>
-                {v.primes.length > 0 && <div className="rounded-xl bg-surface2 px-3 py-2 text-[12px] font-medium text-ink-700"><b>Primes :</b> {v.primes.map((p) => `${p.label} ${fmt(p.amount)}`).join(' · ')}</div>}
+                {model && (model.primes.length > 0 || model.retenues.length > 0) && (
+                  <div className="rounded-xl border border-amber/25 bg-amber/[0.05] px-3 py-2 text-[12px] font-medium text-ink-700">
+                    <b>Modèle récurrent (chaque mois) :</b> {[...model.primes, ...model.retenues].map((r) => `${r.label} ${fmt(r.amount)}`).join(' · ')}
+                  </div>
+                )}
+                {v.primes.length > 0 && <div className="rounded-xl bg-surface2 px-3 py-2 text-[12px] font-medium text-ink-700"><b>Primes (ce mois) :</b> {v.primes.map((p) => `${p.label} ${fmt(p.amount)}`).join(' · ')}</div>}
                 {v.ndf.length > 0 && <div className="rounded-xl bg-surface2 px-3 py-2 text-[12px] font-medium text-ink-700"><b>NDF :</b> {v.ndf.map((n) => `${n.ref} ${fmt(n.amount)}`).join(' · ')}</div>}
                 {v.avance > 0 && <div className="rounded-xl bg-surface2 px-3 py-2 text-[12px] font-medium text-ink-700"><b>Avance :</b> -{fmt(v.avance)}</div>}
                 <div className="rounded-xl border border-amber/30 bg-amber/[0.06] px-4 py-3">
