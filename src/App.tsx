@@ -3,6 +3,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { CockpitPage } from './pages/CockpitPage';
 import { UnifiedCockpitDRHPage } from './pages/UnifiedCockpitPage';
 import { WhatIfSimulatorPage } from './pages/WhatIfSimulatorPage';
+import { WhatIfComparePage } from './pages/WhatIfComparePage';
 import { CollaborateursPage } from './pages/CollaborateursPage';
 import { EmployeeDossierPage } from './pages/EmployeeDossierPage';
 import { AmendmentDossierPage } from './pages/AmendmentDossierPage';
@@ -18,7 +19,7 @@ import { CompetencesPage } from './pages/CompetencesPage';
 // M12 Conformité & SST — enrichi
 import {
   CockpitConformitePage, DuerPage, RpsPage, AtMpPage, RegistrePage,
-  DeclarationsPage, VisitesMedicalesPage, HabilitationsPage, AuditsPage,
+  DeclarationsPage as DeclarationsConformitePage, VisitesMedicalesPage, HabilitationsPage, AuditsPage,
   InspectionsPage as InspectionsConformitePage, ConservationPage, ParametresConformitePage,
 } from './pages/conformite/ConformitePages';
 import { ConformitePage as LegacyComplianceGuard } from './pages/ConformitePage';
@@ -365,7 +366,7 @@ function App() {
         <Route path="/conformite/rps" element={<RpsPage />} />
         <Route path="/conformite/at-mp" element={<AtMpPage />} />
         <Route path="/conformite/registre" element={<RegistrePage />} />
-        <Route path="/conformite/declarations" element={<DeclarationsPage />} />
+        <Route path="/conformite/declarations" element={<DeclarationsConformitePage />} />
         <Route path="/conformite/visites" element={<VisitesMedicalesPage />} />
         <Route path="/conformite/habilitations" element={<HabilitationsPage />} />
         <Route path="/conformite/audits" element={<AuditsPage />} />
@@ -381,6 +382,7 @@ function App() {
         <Route path="/objectifs/audit" element={<AuditOkrPage />} />
         <Route path="/cockpit-360" element={<UnifiedCockpitDRHPage />} />
         <Route path="/whatif" element={<WhatIfSimulatorPage />} />
+        <Route path="/whatif/compare" element={<WhatIfComparePage />} />
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 
