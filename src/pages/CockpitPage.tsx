@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Users,
   Banknote,
@@ -97,12 +98,19 @@ export function CockpitPage() {
         description="Vue d'intelligence en temps réel — masse salariale projetée, équité surveillée, climat social et signaux de rétention orientés soin."
         action={
           <>
+            <Link to="/cockpit-360">
+              <Button variant="outline" size="sm">
+                <ArrowUpRight size={14} /> Vue 360°
+              </Button>
+            </Link>
             <Button variant="outline" size="sm">
               Exporter
             </Button>
-            <Button size="sm">
-              <Sparkles size={14} /> Simulation what-if
-            </Button>
+            <Link to="/whatif">
+              <Button size="sm">
+                <Sparkles size={14} /> Simulation what-if
+              </Button>
+            </Link>
           </>
         }
       />

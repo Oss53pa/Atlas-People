@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { QuickLauncher } from '../QuickLauncher';
 
 export function AppLayout() {
   return (
@@ -12,6 +13,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <QuickLauncher />
     </div>
   );
 }

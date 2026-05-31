@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  LayoutGrid,
   Users,
   CalendarClock,
   Wallet,
@@ -37,7 +38,8 @@ export const NAV: NavGroup[] = [
     bloc: 'home',
     label: 'Pilotage',
     modules: [
-      { code: 'M13', path: '/', label: 'Cockpit DRH', icon: LayoutDashboard, ready: true },
+      { code: 'M13',  path: '/',            label: 'Cockpit DRH',  icon: LayoutDashboard, ready: true },
+      { code: 'C360', path: '/cockpit-360', label: 'Vue 360°',     icon: LayoutGrid,      ready: true },
     ],
   },
   {
@@ -64,10 +66,10 @@ export const NAV: NavGroup[] = [
     label: 'Performance & Talents',
     modules: [
       { code: 'M7', path: '/objectifs', label: 'Objectifs (OKR)', icon: Crosshair, ready: true },
-      { code: 'M8', path: '/evaluations', label: 'Évaluations', icon: Gauge, ready: false },
+      { code: 'M8', path: '/evaluations', label: 'Évaluations', icon: Gauge, ready: true },
       { code: 'M9', path: '/competences', label: 'Compétences', icon: Network, ready: true },
-      { code: 'M10', path: '/carrieres', label: 'Carrières & succession', icon: Route, ready: false },
-      { code: 'M11', path: '/formation', label: 'Formation', icon: GraduationCap, ready: false },
+      { code: 'M10', path: '/carrieres', label: 'Carrières & succession', icon: Route, ready: true },
+      { code: 'M11', path: '/formation', label: 'Formation', icon: GraduationCap, ready: true },
     ],
   },
   {

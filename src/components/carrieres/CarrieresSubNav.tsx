@@ -1,34 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, Building2, Users, User, Target, MessageSquare,
-  GitBranch, ClipboardCheck, BarChart3, Settings, ChevronLeft, ChevronRight,
-  BookOpenCheck, Star, ScrollText, Crown, Wallet, ShieldAlert,
+  LayoutDashboard, Route, TrendingUp, Crown, Network, Sparkles, Users,
+  Map, Briefcase, BarChart3, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 const ITEMS = [
-  { to: '/objectifs',                label: 'Cockpit',         icon: LayoutDashboard, end: true  },
-  { to: '/objectifs/cycles',         label: 'Cycles',          icon: CalendarRange,   end: false },
-  { to: '/objectifs/entreprise',     label: 'Entreprise',      icon: Building2,       end: false },
-  { to: '/objectifs/departement',    label: 'Département',     icon: Users,           end: false },
-  { to: '/objectifs/equipe',         label: 'Équipe',          icon: Users,           end: false },
-  { to: '/objectifs/individuel',     label: 'Individuel',      icon: User,            end: false },
-  { to: '/objectifs/key-results',    label: 'Key Results',     icon: Target,          end: false },
-  { to: '/objectifs/check-ins',      label: 'Check-ins',       icon: MessageSquare,   end: false },
-  { to: '/objectifs/alignement',     label: 'Alignement',      icon: GitBranch,       end: false },
-  { to: '/objectifs/methodologie',   label: 'Méthodologie',    icon: BookOpenCheck,   end: false },
-  { to: '/objectifs/notation',       label: 'Notation',        icon: Star,            end: false },
-  { to: '/objectifs/retrospective',  label: 'Rétrospective',   icon: ScrollText,      end: false },
-  { to: '/objectifs/gouvernance',    label: 'Gouvernance',     icon: Crown,           end: false },
-  { to: '/objectifs/integration',    label: 'Intégration M3/M8', icon: Wallet,        end: false },
-  { to: '/objectifs/audit',          label: 'Audit',           icon: ShieldAlert,     end: false },
-  { to: '/objectifs/revue',          label: 'Revue',           icon: ClipboardCheck,  end: false },
-  { to: '/objectifs/reporting',      label: 'Reporting',       icon: BarChart3,       end: false },
-  { to: '/objectifs/parametres',     label: 'Paramètres',      icon: Settings,        end: false },
+  { to: '/carrieres',                label: 'Cockpit',         icon: LayoutDashboard, end: true  },
+  { to: '/carrieres/filieres',       label: 'Filières',        icon: Route,           end: false },
+  { to: '/carrieres/trajectoires',   label: 'Trajectoires',    icon: TrendingUp,      end: false },
+  { to: '/carrieres/postes-cles',    label: 'Postes clés',     icon: Crown,           end: false },
+  { to: '/carrieres/succession',     label: 'Succession',      icon: Network,         end: false },
+  { to: '/carrieres/hauts-potentiels', label: 'Hauts potentiels', icon: Sparkles,     end: false },
+  { to: '/carrieres/mentorat',       label: 'Mentorat',        icon: Users,           end: false },
+  { to: '/carrieres/cartographie',   label: 'Cartographie',    icon: Map,             end: false },
+  { to: '/carrieres/mobilite',       label: 'Mobilité interne', icon: Briefcase,      end: false },
+  { to: '/carrieres/reporting',      label: 'Reporting',       icon: BarChart3,       end: false },
+  { to: '/carrieres/parametres',     label: 'Paramètres',      icon: Settings,        end: false },
 ];
 
-export function OkrSubNav() {
+export function CarrieresSubNav() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);

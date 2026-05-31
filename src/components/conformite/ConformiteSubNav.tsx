@@ -1,34 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, Building2, Users, User, Target, MessageSquare,
-  GitBranch, ClipboardCheck, BarChart3, Settings, ChevronLeft, ChevronRight,
-  BookOpenCheck, Star, ScrollText, Crown, Wallet, ShieldAlert,
+  LayoutDashboard, AlertTriangle, Brain, Activity, BookOpen, Landmark,
+  Stethoscope, BadgeCheck, FileSearch, ShieldAlert, Archive, Settings,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 const ITEMS = [
-  { to: '/objectifs',                label: 'Cockpit',         icon: LayoutDashboard, end: true  },
-  { to: '/objectifs/cycles',         label: 'Cycles',          icon: CalendarRange,   end: false },
-  { to: '/objectifs/entreprise',     label: 'Entreprise',      icon: Building2,       end: false },
-  { to: '/objectifs/departement',    label: 'Département',     icon: Users,           end: false },
-  { to: '/objectifs/equipe',         label: 'Équipe',          icon: Users,           end: false },
-  { to: '/objectifs/individuel',     label: 'Individuel',      icon: User,            end: false },
-  { to: '/objectifs/key-results',    label: 'Key Results',     icon: Target,          end: false },
-  { to: '/objectifs/check-ins',      label: 'Check-ins',       icon: MessageSquare,   end: false },
-  { to: '/objectifs/alignement',     label: 'Alignement',      icon: GitBranch,       end: false },
-  { to: '/objectifs/methodologie',   label: 'Méthodologie',    icon: BookOpenCheck,   end: false },
-  { to: '/objectifs/notation',       label: 'Notation',        icon: Star,            end: false },
-  { to: '/objectifs/retrospective',  label: 'Rétrospective',   icon: ScrollText,      end: false },
-  { to: '/objectifs/gouvernance',    label: 'Gouvernance',     icon: Crown,           end: false },
-  { to: '/objectifs/integration',    label: 'Intégration M3/M8', icon: Wallet,        end: false },
-  { to: '/objectifs/audit',          label: 'Audit',           icon: ShieldAlert,     end: false },
-  { to: '/objectifs/revue',          label: 'Revue',           icon: ClipboardCheck,  end: false },
-  { to: '/objectifs/reporting',      label: 'Reporting',       icon: BarChart3,       end: false },
-  { to: '/objectifs/parametres',     label: 'Paramètres',      icon: Settings,        end: false },
+  { to: '/conformite',                label: 'Cockpit',         icon: LayoutDashboard, end: true  },
+  { to: '/conformite/duer',           label: 'DUER',            icon: AlertTriangle,   end: false },
+  { to: '/conformite/rps',            label: 'RPS',             icon: Brain,           end: false },
+  { to: '/conformite/at-mp',          label: 'AT / MP',         icon: Activity,        end: false },
+  { to: '/conformite/registre',       label: 'Registre',        icon: BookOpen,        end: false },
+  { to: '/conformite/declarations',   label: 'Déclarations',    icon: Landmark,        end: false },
+  { to: '/conformite/visites',        label: 'Visites méd.',    icon: Stethoscope,     end: false },
+  { to: '/conformite/habilitations',  label: 'Habilitations',   icon: BadgeCheck,      end: false },
+  { to: '/conformite/audits',         label: 'Audits',          icon: FileSearch,      end: false },
+  { to: '/conformite/inspections',    label: 'Inspections',     icon: ShieldAlert,     end: false },
+  { to: '/conformite/conservation',   label: 'Conservation',    icon: Archive,         end: false },
+  { to: '/conformite/parametres',     label: 'Paramètres',      icon: Settings,        end: false },
 ];
 
-export function OkrSubNav() {
+export function ConformiteSubNav() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);

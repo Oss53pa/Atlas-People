@@ -26,14 +26,16 @@ export function Topbar() {
       {/* Sélecteur d'espace (ESS / MSS / Back-office RH) */}
       <SpaceSwitcher />
 
-      {/* Recherche */}
-      <div className="relative hidden max-w-md flex-1 sm:block">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
-        <input
-          placeholder="Rechercher un collaborateur, un bulletin, une compétence…"
-          className="h-10 w-full rounded-xl border border-line bg-surface pl-10 pr-4 text-sm font-medium text-ink placeholder:text-ink-400 focus:border-amber/40 focus:outline-none focus:ring-2 focus:ring-amber/15"
-        />
-      </div>
+      {/* Quick Launcher (Cmd+K) */}
+      <button
+        onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
+        className="relative hidden max-w-md flex-1 items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2.5 text-sm font-medium text-ink-400 transition-colors hover:border-amber/40 sm:flex"
+        aria-label="Ouvrir la palette de commandes"
+      >
+        <Search size={16} className="text-ink-400" />
+        <span className="flex-1 text-left">Rechercher pages, collaborateurs, actions…</span>
+        <kbd className="mono rounded border border-line bg-surface2 px-1.5 py-0.5 text-[10px] font-bold text-ink-500">Ctrl K</kbd>
+      </button>
 
       <div className="flex-1 sm:hidden" />
 

@@ -2,22 +2,28 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ListChecks, GraduationCap, FileText, MessageSquareHeart,
-  Library, BadgeCheck, BarChart3, Settings, Rocket, ChevronLeft, ChevronRight,
+  Library, BadgeCheck, BarChart3, Settings, Rocket, Clock, ArrowLeftRight, Globe2,
+  Eye, ShieldCheck, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 const ITEMS = [
-  { to: '/onboarding',              label: 'Cockpit',       icon: LayoutDashboard, end: true  },
-  { to: '/onboarding/arrivants',    label: 'Arrivants',     icon: Users,           end: false },
-  { to: '/onboarding/parcours',     label: 'Templates',     icon: Library,         end: false },
-  { to: '/onboarding/taches',       label: 'Tâches',        icon: ListChecks,      end: false },
-  { to: '/onboarding/buddy',        label: 'Buddy',         icon: Rocket,          end: false },
-  { to: '/onboarding/formations',   label: 'Formations',    icon: GraduationCap,   end: false },
-  { to: '/onboarding/documents',    label: 'Documents',     icon: FileText,        end: false },
-  { to: '/onboarding/pulse',        label: 'Pulse',         icon: MessageSquareHeart, end: false },
-  { to: '/onboarding/validation',   label: 'Validation PE', icon: BadgeCheck,      end: false },
-  { to: '/onboarding/reporting',    label: 'Reporting',     icon: BarChart3,       end: false },
-  { to: '/onboarding/parametres',   label: 'Paramètres',    icon: Settings,        end: false },
+  { to: '/onboarding',                  label: 'Cockpit',         icon: LayoutDashboard, end: true  },
+  { to: '/onboarding/arrivants',        label: 'Arrivants',       icon: Users,           end: false },
+  { to: '/onboarding/preboarding',      label: 'Pré-boarding',    icon: Clock,           end: false },
+  { to: '/onboarding/parcours',         label: 'Templates',       icon: Library,         end: false },
+  { to: '/onboarding/taches',           label: 'Tâches',          icon: ListChecks,      end: false },
+  { to: '/onboarding/buddy',            label: 'Buddy',           icon: Rocket,          end: false },
+  { to: '/onboarding/formations',       label: 'Formations',      icon: GraduationCap,   end: false },
+  { to: '/onboarding/documents',        label: 'Documents',       icon: FileText,        end: false },
+  { to: '/onboarding/pulse',            label: 'Pulse',           icon: MessageSquareHeart, end: false },
+  { to: '/onboarding/feedback-360',     label: 'Feedback 360',    icon: Eye,             end: false },
+  { to: '/onboarding/mobilite-interne', label: 'Mobilité interne',icon: ArrowLeftRight,  end: false },
+  { to: '/onboarding/expat',            label: 'Expatriés',       icon: Globe2,          end: false },
+  { to: '/onboarding/validation',       label: 'Validation PE',   icon: BadgeCheck,      end: false },
+  { to: '/onboarding/audit',            label: 'Audit',           icon: ShieldCheck,     end: false },
+  { to: '/onboarding/reporting',        label: 'Reporting',       icon: BarChart3,       end: false },
+  { to: '/onboarding/parametres',       label: 'Paramètres',      icon: Settings,        end: false },
 ];
 
 export function OnboardingSubNav() {

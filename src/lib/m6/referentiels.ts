@@ -48,13 +48,101 @@ export const OWNER_LABEL: Record<OwnerRole, string> = {
   newcomer: 'Nouveau collaborateur',
 };
 
-// ─────────────────────────────────────── Templates de parcours
-export const TEMPLATES: OnboardingTemplate[] = [
-  { code: 'STD_CADRE',     label: 'Standard Cadre',         description: 'Parcours 90 jours pour tout cadre Atlas',                     appliesTo: 'Tous cadres',           durationDays: 90, taskCount: 38, active: true },
-  { code: 'TECH',          label: 'Tech / Engineering',     description: 'Parcours dédié Tech : env dev, code review, on-call',         appliesTo: 'Tech',                  durationDays: 90, taskCount: 44, active: true },
-  { code: 'COMMERCIAL',    label: 'Commercial',             description: 'Parcours commercial : produit, CRM, accompagnement terrain',  appliesTo: 'Ventes',                durationDays: 90, taskCount: 40, active: true },
-  { code: 'MANAGER',       label: 'Manager / Lead',         description: 'Parcours manager : équipe, OKRs, rituels, RH 360°',           appliesTo: 'Manager / Director',    durationDays: 90, taskCount: 46, active: true },
-  { code: 'STAGE',         label: 'Stage / Apprenti',       description: "Parcours light pour stagiaire ou apprenti",                     appliesTo: 'STAGE / APPR',         durationDays: 30, taskCount: 22, active: true },
+// ─────────────────────────────────────── Templates de parcours — bibliothèque 20 standards (doc 02)
+export type ParcoursFamily = 'cadre' | 'maitrise' | 'employe' | 'ops' | 'specifique' | 'interne';
+export interface OnboardingTemplateRef extends OnboardingTemplate { family: ParcoursFamily; flags?: ('remote' | 'expat' | 'internal_mobility' | 'graduate')[] }
+export const TEMPLATES: OnboardingTemplateRef[] = [
+  // CADRES
+  { code: 'ONB-CADRE-A-DIRECTION',  family: 'cadre',      label: 'Cadre A · Direction',           description: 'Direction/Comex · plan 100 j · présentation Comex J+90 · coaching exécutif',     appliesTo: 'Direction · essai 6 mois',   durationDays: 90,  taskCount: 52, active: true },
+  { code: 'ONB-CADRE-B-CONFIRME',   family: 'cadre',      label: 'Cadre B · Confirmé',            description: 'Parcours le plus complet · 5 phases · 30/60/90 · scorecard complète',          appliesTo: 'Cadres / managers',           durationDays: 90,  taskCount: 105, active: true },
+  { code: 'ONB-CADRE-C-JEUNE',      family: 'cadre',      label: 'Cadre C · Jeune diplômé',       description: 'Programme graduate · rotation 2 sem · réseautage promo · fondamentaux Atlas', appliesTo: 'Jeunes diplômés',             durationDays: 90,  taskCount: 88, active: true, flags: ['graduate'] },
+  { code: 'ONB-CADRE-EXPAT',        family: 'cadre',      label: 'Cadre · Expatrié',              description: 'Pré-mobilité J-90 · permis travail · famille · culture · 6 mois',             appliesTo: 'Expatriés OHADA',             durationDays: 180, taskCount: 142, active: true, flags: ['expat'] },
+  // MAÎTRISE
+  { code: 'ONB-MAITRISE-TECH',      family: 'maitrise',   label: 'Maîtrise · Technique',          description: 'Formations techniques · évals 30/60',                                          appliesTo: 'Maîtrise technique',          durationDays: 60,  taskCount: 48, active: true },
+  { code: 'ONB-MAITRISE-COMMERCIAL',family: 'maitrise',   label: 'Maîtrise · Commerciale',        description: 'Produit · CRM · accompagnement senior',                                          appliesTo: 'Maîtrise commerciale',        durationDays: 60,  taskCount: 44, active: true },
+  { code: 'ONB-MAITRISE-ADMIN',     family: 'maitrise',   label: 'Maîtrise · Administrative',     description: 'Procédures internes · outils SIRH · process',                                    appliesTo: 'Maîtrise administrative',     durationDays: 60,  taskCount: 40, active: true },
+  // EMPLOYÉS
+  { code: 'ONB-EMPLOYE-BUREAU',     family: 'employe',    label: 'Employé · Bureau',              description: 'Accueil 30 j · outils · process',                                                appliesTo: 'Employés bureau',             durationDays: 30,  taskCount: 24, active: true },
+  { code: 'ONB-EMPLOYE-COMMERCE',   family: 'employe',    label: 'Employé · Commerce',            description: 'Produits J+1→J+5 · accompagnement senior · 1er client J+10',                   appliesTo: 'Vendeurs / commerce',         durationDays: 30,  taskCount: 28, active: true },
+  { code: 'ONB-EMPLOYE-OUVRIER',    family: 'employe',    label: 'Employé · Ouvrier',             description: 'HSSE · poste de travail · binôme atelier',                                       appliesTo: 'Ouvriers',                    durationDays: 30,  taskCount: 22, active: true },
+  // OPS / TERRAIN
+  { code: 'ONB-AGENT-SECURITE',     family: 'ops',        label: 'Agent · Sécurité',              description: 'HSSE J+1→J+7 · shadow J+5→J+15 · tests aptitude J+15',                          appliesTo: 'Agents sécurité',             durationDays: 30,  taskCount: 26, active: true },
+  { code: 'ONB-AGENT-ENTRETIEN',    family: 'ops',        label: 'Agent · Entretien',             description: 'Sécurité produits · protocoles · binôme',                                        appliesTo: 'Agents entretien',            durationDays: 30,  taskCount: 18, active: true },
+  { code: 'ONB-AGENT-MAINTENANCE',  family: 'ops',        label: 'Agent · Maintenance',           description: 'Habilitations · sécurité électrique · interventions',                            appliesTo: 'Agents maintenance',          durationDays: 30,  taskCount: 22, active: true },
+  { code: 'ONB-MANAGER-CC',         family: 'ops',        label: 'Manager · Centre commercial',   description: 'Pilotage opérationnel · animations · sécurité site',                             appliesTo: 'Centres commerciaux',         durationDays: 60,  taskCount: 38, active: true },
+  // SPÉCIFIQUES
+  { code: 'ONB-TELETRAVAIL-FULL',   family: 'specifique', label: 'Télétravail · Full remote',     description: 'Livraison matériel · visite site 1-2 j · buddy virtuel · cafés virtuels',       appliesTo: 'Full remote',                 durationDays: 60,  taskCount: 32, active: true, flags: ['remote'] },
+  { code: 'ONB-TELETRAVAIL-HYBRIDE',family: 'specifique', label: 'Télétravail · Hybride',         description: 'Mix présentiel/distance · rituels hybrides',                                     appliesTo: 'Hybride 2-3 j/sem',           durationDays: 60,  taskCount: 30, active: true, flags: ['remote'] },
+  { code: 'ONB-ALTERNANT',          family: 'specifique', label: 'Alternant / Apprenti',           description: 'Tuteur · lien CFA · suivi double · contrats apprentissage',                     appliesTo: 'Alternance / apprentissage',  durationDays: 90,  taskCount: 26, active: true },
+  { code: 'ONB-STAGIAIRE',          family: 'specifique', label: 'Stagiaire',                     description: 'Livrable rapport · éval fin stage · convention',                                  appliesTo: 'Stagiaires',                  durationDays: 30,  taskCount: 18, active: true },
+  { code: 'ONB-CDD-COURT',          family: 'specifique', label: 'CDD court (< 3 mois)',           description: 'Onboarding allégé · focus opérationnel',                                          appliesTo: 'CDD courts',                  durationDays: 14,  taskCount: 12, active: true },
+  // MOBILITÉ INTERNE
+  { code: 'ONB-INTERNE-PROMOTION',  family: 'interne',    label: 'Mobilité · Promotion',          description: 'Évolution hiérarchique même service · 15-30 j',                                   appliesTo: 'Promotions internes',         durationDays: 30,  taskCount: 16, active: true, flags: ['internal_mobility'] },
+  { code: 'ONB-INTERNE-MUTATION',   family: 'interne',    label: 'Mobilité · Mutation',           description: 'Changement service/direction · 30-45 j',                                          appliesTo: 'Mutations internes',          durationDays: 45,  taskCount: 22, active: true, flags: ['internal_mobility'] },
+  { code: 'ONB-INTERNE-GEO',        family: 'interne',    label: 'Mobilité · Géographique',       description: 'Changement site sans changement métier · 15 j',                                  appliesTo: 'Mobilité site',               durationDays: 15,  taskCount: 10, active: true, flags: ['internal_mobility'] },
+  { code: 'ONB-INTERNE-RECONV',     family: 'interne',    label: 'Mobilité · Reconversion',       description: 'Changement métier + service · ≈ onboarding externe',                               appliesTo: 'Reconversions',               durationDays: 60,  taskCount: 30, active: true, flags: ['internal_mobility'] },
+  { code: 'ONB-INTERNE-RETOUR',     family: 'interne',    label: 'Mobilité · Retour longue absence', description: 'Après absence > 6 mois (sabbatique, parental, maladie, détachement)',         appliesTo: 'Retours absence longue',      durationDays: 30,  taskCount: 14, active: true, flags: ['internal_mobility'] },
+  { code: 'ONB-INTERNE-DIRIGEANT',  family: 'interne',    label: 'Mobilité · Promotion dirigeant', description: 'Promotion direction · plan 100 j Comex · coaching 6 mois',                       appliesTo: 'Nouveaux dirigeants',          durationDays: 90,  taskCount: 38, active: true, flags: ['internal_mobility'] },
+];
+
+export const PARCOURS_FAMILY_META: Record<ParcoursFamily, { label: string; tone: 'amber' | 'info' | 'ok' | 'neutral' }> = {
+  cadre:       { label: 'Cadres',       tone: 'amber'   },
+  maitrise:    { label: 'Maîtrise',     tone: 'info'    },
+  employe:     { label: 'Employés',     tone: 'ok'      },
+  ops:         { label: 'Ops / terrain',tone: 'neutral' },
+  specifique:  { label: 'Spécifiques',  tone: 'info'    },
+  interne:     { label: 'Mobilité interne', tone: 'amber' },
+};
+
+// ─────────────────────────────────────── Mobilité interne — sous-types & règles
+export const INTERNAL_MOBILITY_RULES = {
+  noChartesIfNoMajorChange: true,
+  noWelcomeBook: true,
+  noPeriodEssaiSaufReconv: true,
+  emailConserve: true,
+  equipmentConserve: true,
+  managementFormation40h: true,
+  filetSecuriteRetourAncienPoste: '3 à 6 mois (paramétrable tenant)',
+  declencheurAvenantM4: true,
+};
+export const INTERNAL_MOBILITY_GRID = [
+  { dim: 'Adaptation métier',          weight: 40 },
+  { dim: 'Intégration équipe',         weight: 20 },
+  { dim: 'Performance opérationnelle', weight: 25 },
+  { dim: 'Satisfaction',               weight: 15 },
+];
+
+// ─────────────────────────────────────── Expat — règles OHADA & KPIs
+export const EXPAT_RULES = {
+  permitTravailMaxDays: 90,        // ministère Travail CI ~60 j d'instruction · cible < 90 j
+  visaFamilleMaxDays: 60,
+  logementMaxDaysPostArrivee: 30,
+  ecoleMaxDaysPostArrivee: 15,
+  noArrivalWithoutPermit: true,    // règle dure
+  earlyTerminationProtocole: 'rapatriement + rachat bail + déménagement + indemnités contractuelles',
+};
+export const EXPAT_KPIS = [
+  { label: 'Permis travail obtenu',         target: '< 90 j' },
+  { label: 'Visas famille obtenus',         target: '< 60 j' },
+  { label: 'Logement définitif',            target: '< 30 j post-arrivée' },
+  { label: 'École enfants inscrits',        target: '< 15 j post-arrivée' },
+  { label: 'Score adaptation expat & famille', target: '> 4 / 5 à 6 mois' },
+  { label: 'Taux rupture < 1 an',           target: '< 5 %' },
+  { label: 'Renouvellement contrat 3 ans',  target: '> 80 %' },
+];
+export const EXPAT_ACTEURS = [
+  'Chargé mobilité internationale (coordination)',
+  'Cabinet juridique / avocat (visas, permis)',
+  'Cabinet relocation (logement, école, services)',
+  'Formateur interculturel',
+  'Mentor expat (autre expatrié installé 2+ ans, RDV mensuels 6 mois)',
+  'Famille (conjoint, enfants)',
+];
+export const EXPAT_PHASES = [
+  { code: 'PRE_J90',   label: 'Pré-mobilité (J-90 → J-1)',  detail: 'Décision · visa/permis · logement/école · déménagement' },
+  { code: 'INIT_J30',  label: 'Phase 1 · intégration (J+1 → J+30)', detail: 'Accueil · papiers · réseau' },
+  { code: 'GROW_J90',  label: 'Phase 2 · montée en compétence (J+31 → J+90)', detail: 'Prise en main · résultats' },
+  { code: 'CONSO_J180',label: 'Phase 3 · consolidation (J+91 → J+180)', detail: 'Bilan 6 mois · validation essai · point famille' },
 ];
 
 // ─────────────────────────────────────── Tâches standard par milestone
