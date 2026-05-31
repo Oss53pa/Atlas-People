@@ -134,6 +134,8 @@ import { ExpatriesPage } from './pages/admin/ExpatriesPage';
 import { ParametresAdminPage } from './pages/admin/ParametresAdminPage';
 // M5 RECRUTEMENT (back-office ATS)
 import { CockpitRecrutPage } from './pages/recrut/CockpitRecrutPage';
+import { BesoinsPage } from './pages/recrut/BesoinsPage';
+import { BesoinDetailPage } from './pages/recrut/BesoinDetailPage';
 import { PostesPage } from './pages/recrut/PostesPage';
 import { PosteDetailPage } from './pages/recrut/PosteDetailPage';
 import { CandidaturesPage } from './pages/recrut/CandidaturesPage';
@@ -160,6 +162,25 @@ import { PulsePage } from './pages/onboarding/PulsePage';
 import { ValidationPePage } from './pages/onboarding/ValidationPePage';
 import { ReportingOnboardingPage } from './pages/onboarding/ReportingOnboardingPage';
 import { ParametresOnboardingPage } from './pages/onboarding/ParametresOnboardingPage';
+import { PreBoardingPage } from './pages/onboarding/PreBoardingPage';
+import { MobiliteInternePage } from './pages/onboarding/MobiliteInternePage';
+import { OnboardingExpatPage } from './pages/onboarding/OnboardingExpatPage';
+import { Feedback360Page } from './pages/onboarding/Feedback360Page';
+import { AuditM6Page } from './pages/onboarding/AuditM6Page';
+// M8 ÉVALUATIONS
+import { CockpitEvalPage } from './pages/eval/CockpitEvalPage';
+import { TalentGridPage } from './pages/eval/TalentGridPage';
+import { EvaluationDetailPage } from './pages/eval/EvaluationDetailPage';
+import {
+  CyclesEvalPage, CampagnesPage, EvaluationsListPage, Feedback360EvalPage,
+  CalibrationPage, PlansDevPage, OneOnOnePage, ReportingEvalPage, ParametresEvalPage,
+} from './pages/eval/OtherEvalPages';
+// M10 CARRIÈRES & SUCCESSION
+import {
+  CockpitCarrieresPage, FilieresPage, TrajectoiresPage, PostesClesPage, SuccessionPage,
+  HautsPotentielsPage, MentoratPage, CartographiePage, MobiliteCarrieresPage,
+  ReportingCarrieresPage, ParametresCarrieresPage,
+} from './pages/carrieres/CarrieresPages';
 // M7 OKR (back-office Objectifs & Key Results)
 import { CockpitOkrPage } from './pages/okr/CockpitOkrPage';
 import { CyclesOkrPage } from './pages/okr/CyclesOkrPage';
@@ -183,6 +204,8 @@ const READY: Record<string, JSX.Element> = {
   '/recrutement': <CockpitRecrutPage />,
   '/onboarding': <CockpitOnboardingPage />,
   '/objectifs': <CockpitOkrPage />,
+  '/evaluations': <CockpitEvalPage />,
+  '/carrieres': <CockpitCarrieresPage />,
   '/competences': <CompetencesPage />,
   '/conformite': <ConformitePage />,
   '/moi': <SelfServicePage />,
@@ -238,6 +261,8 @@ function App() {
         <Route path="/hr/actes/expatries" element={<ExpatriesPage />} />
         <Route path="/hr/actes/parametres" element={<ParametresAdminPage />} />
         {/* M5 RECRUTEMENT — back-office ATS */}
+        <Route path="/recrutement/besoins" element={<BesoinsPage />} />
+        <Route path="/recrutement/besoins/:besoinId" element={<BesoinDetailPage />} />
         <Route path="/recrutement/postes" element={<PostesPage />} />
         <Route path="/recrutement/postes/:id" element={<PosteDetailPage />} />
         <Route path="/recrutement/candidatures" element={<CandidaturesPage />} />
@@ -263,6 +288,11 @@ function App() {
         <Route path="/onboarding/validation" element={<ValidationPePage />} />
         <Route path="/onboarding/reporting" element={<ReportingOnboardingPage />} />
         <Route path="/onboarding/parametres" element={<ParametresOnboardingPage />} />
+        <Route path="/onboarding/preboarding" element={<PreBoardingPage />} />
+        <Route path="/onboarding/mobilite-interne" element={<MobiliteInternePage />} />
+        <Route path="/onboarding/expat" element={<OnboardingExpatPage />} />
+        <Route path="/onboarding/feedback-360" element={<Feedback360Page />} />
+        <Route path="/onboarding/audit" element={<AuditM6Page />} />
         {/* M7 OKR */}
         <Route path="/objectifs/cycles" element={<CyclesOkrPage />} />
         <Route path="/objectifs/entreprise" element={<ObjectifsEntreprisePage />} />
@@ -275,6 +305,29 @@ function App() {
         <Route path="/objectifs/revue" element={<RevuePage />} />
         <Route path="/objectifs/reporting" element={<ReportingOkrPage />} />
         <Route path="/objectifs/parametres" element={<ParametresOkrPage />} />
+        {/* M8 Évaluations */}
+        <Route path="/evaluations/cycles" element={<CyclesEvalPage />} />
+        <Route path="/evaluations/campagnes" element={<CampagnesPage />} />
+        <Route path="/evaluations/liste" element={<EvaluationsListPage />} />
+        <Route path="/evaluations/eval/:employeeId" element={<EvaluationDetailPage />} />
+        <Route path="/evaluations/360" element={<Feedback360EvalPage />} />
+        <Route path="/evaluations/calibration" element={<CalibrationPage />} />
+        <Route path="/evaluations/talent-grid" element={<TalentGridPage />} />
+        <Route path="/evaluations/plans-dev" element={<PlansDevPage />} />
+        <Route path="/evaluations/1-1" element={<OneOnOnePage />} />
+        <Route path="/evaluations/reporting" element={<ReportingEvalPage />} />
+        <Route path="/evaluations/parametres" element={<ParametresEvalPage />} />
+        {/* M10 Carrières & Succession */}
+        <Route path="/carrieres/filieres" element={<FilieresPage />} />
+        <Route path="/carrieres/trajectoires" element={<TrajectoiresPage />} />
+        <Route path="/carrieres/postes-cles" element={<PostesClesPage />} />
+        <Route path="/carrieres/succession" element={<SuccessionPage />} />
+        <Route path="/carrieres/hauts-potentiels" element={<HautsPotentielsPage />} />
+        <Route path="/carrieres/mentorat" element={<MentoratPage />} />
+        <Route path="/carrieres/cartographie" element={<CartographiePage />} />
+        <Route path="/carrieres/mobilite" element={<MobiliteCarrieresPage />} />
+        <Route path="/carrieres/reporting" element={<ReportingCarrieresPage />} />
+        <Route path="/carrieres/parametres" element={<ParametresCarrieresPage />} />
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 

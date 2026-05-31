@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, Briefcase, KanbanSquare, CalendarClock, Mail, Users,
+  LayoutDashboard, ClipboardList, Briefcase, KanbanSquare, CalendarClock, Mail, Users,
   Megaphone, Gift, Rocket, BarChart3, Shield, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 const ITEMS = [
   { to: '/recrutement',              label: 'Cockpit',     icon: LayoutDashboard, end: true  },
+  { to: '/recrutement/besoins',      label: 'Besoins',     icon: ClipboardList,   end: false },
   { to: '/recrutement/postes',       label: 'Postes',      icon: Briefcase,       end: false },
   { to: '/recrutement/candidatures', label: 'Pipeline',    icon: KanbanSquare,    end: false },
   { to: '/recrutement/vivier',       label: 'Vivier',      icon: Users,           end: false },

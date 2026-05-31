@@ -2,7 +2,51 @@
  * M5 RECRUTEMENT — référentiels du module ATS.
  * Pipeline, canaux, motifs refus, critères scorecard, RGPD.
  */
-import type { ApplicationStage, ChannelType, InterviewType, RecommendationLevel, JobLevel, JobStatus } from './types';
+import type { ApplicationStage, ChannelType, InterviewType, RecommendationLevel, JobLevel, JobStatus, NeedType, NeedUrgency, NeedStatus } from './types';
+
+// ───────────────────────────────────────── Besoin de recrutement (5 types)
+export interface NeedTypeRef { code: NeedType; label: string; desc: string; dafRequired: boolean }
+export const NEED_TYPES: NeedTypeRef[] = [
+  { code: 'CREATION',       label: 'Création de poste',  desc: 'Poste nouveau, sans équivalent existant',        dafRequired: true  },
+  { code: 'REMPLACEMENT',   label: 'Remplacement',       desc: 'Remplacement d\'un collaborateur sorti',         dafRequired: false },
+  { code: 'RENFORT',        label: 'Renfort',            desc: 'Augmentation d\'effectif (croissance)',          dafRequired: true  },
+  { code: 'TRANSFORMATION', label: 'Transformation',     desc: 'Création avec suppression d\'un autre poste',     dafRequired: true  },
+  { code: 'PROJET',         label: 'Projet (CDD)',       desc: 'Recrutement temporaire pour projet spécifique',  dafRequired: false },
+];
+
+export const NEED_STATUS_META: Record<NeedStatus, { label: string; tone: 'ok' | 'amber' | 'info' | 'warn' | 'danger' | 'neutral' }> = {
+  draft:          { label: 'Brouillon',           tone: 'neutral' },
+  pending_rrh:    { label: 'Validation RRH',       tone: 'info'    },
+  pending_daf:    { label: 'Validation DAF',       tone: 'info'    },
+  pending_drh:    { label: 'Validation DRH',       tone: 'info'    },
+  pending_dg:     { label: 'Validation DG',        tone: 'amber'   },
+  approved:       { label: 'Approuvé',             tone: 'ok'      },
+  rejected:       { label: 'Refusé',               tone: 'danger'  },
+  in_progress:    { label: 'En recrutement',       tone: 'amber'   },
+  hired:          { label: 'Pourvu',               tone: 'ok'      },
+  closed_no_hire: { label: 'Clos sans embauche',   tone: 'neutral' },
+  cancelled:      { label: 'Annulé',               tone: 'danger'  },
+};
+
+export const NEED_URGENCY_META: Record<NeedUrgency, { label: string; tone: 'ok' | 'amber' | 'danger'; days: number }> = {
+  standard: { label: 'Standard', tone: 'ok',     days: 90 },
+  urgent:   { label: 'Urgent',   tone: 'amber',  days: 30 },
+  critique: { label: 'Critique', tone: 'danger', days: 15 },
+};
+
+/** Seuil de coût annuel déclenchant la validation DG (FCFA). */
+export const NEED_DG_THRESHOLD = 50_000_000;
+/** Charges patronales moyennes appliquées à l'estimation coût employeur. */
+export const EMPLOYER_CHARGES_RATE = 0.21;
+
+export const NEED_WIZARD_STEPS = [
+  'Type & contexte',
+  'Définition du poste',
+  'Profil recherché',
+  'Rémunération & budget',
+  'Calendrier & organisation',
+  'Validation & soumission',
+] as const;
 
 // ───────────────────────────────────────── Pipeline (9 stages)
 export interface PipelineStageRef {

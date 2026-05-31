@@ -5,6 +5,71 @@
  * Intégration : M4 Admin RH (candidat retenu → contrat), M6 Onboarding (handoff).
  */
 
+// ───────────────────────────────────────── Besoin de recrutement (amont)
+export type NeedType = 'CREATION' | 'REMPLACEMENT' | 'RENFORT' | 'TRANSFORMATION' | 'PROJET';
+export type NeedUrgency = 'standard' | 'urgent' | 'critique';
+export type NeedStatus =
+  | 'draft' | 'pending_rrh' | 'pending_daf' | 'pending_drh' | 'pending_dg'
+  | 'approved' | 'rejected' | 'in_progress' | 'hired' | 'closed_no_hire' | 'cancelled';
+export type NeedValidationDecision = 'pending' | 'approved' | 'approved_with_changes' | 'info_requested' | 'rejected';
+
+export interface NeedValidationStep {
+  role: 'RRH' | 'DAF' | 'DRH' | 'DG';
+  validatorName: string;
+  required: boolean;
+  decision: NeedValidationDecision;
+  decidedAt?: string;
+  comment?: string;
+  slaDays: number;
+}
+
+export interface RecruitmentNeed {
+  id: string;
+  ref: string;                  // BES-2026-0245
+  type: NeedType;
+  volume: number;               // nb de postes
+  urgency: NeedUrgency;
+  status: NeedStatus;
+  // poste
+  title: string;
+  department: string;
+  hiringManagerId: string;      // employee id
+  category: string;             // ex. Cadre B
+  echelon?: string;
+  contractType: JobContractType;
+  location: string;
+  countryCode: string;
+  remotePolicy?: string;
+  // remplacement / transformation
+  replacesEmployeeId?: string;
+  suppressedPositions?: string[];
+  // profil (résumé — détail dans l'offre)
+  experienceMin: number;
+  experienceMax: number;
+  educationMin: string;
+  // rémunération & budget
+  salaryMin: number;
+  salaryMax: number;
+  salaryMedian: number;
+  allowancesMonthly: number;
+  employerCostMonthly: number;  // estimé
+  recruitmentCost: number;      // estimé one-shot
+  budgetYear1: number;          // coût employé + recrutement
+  budgetEnvelope?: string;      // rattachement budgétaire (ex. DC-2026)
+  // calendrier
+  idealStartDate: string;
+  latestStartDate: string;
+  forecastStartDate?: string;   // calculé
+  // workflow
+  createdAt: string;
+  createdById: string;
+  motivation: string;
+  businessCase?: string;
+  validations: NeedValidationStep[];
+  plannedChannels: string[];    // codes canaux envisagés
+  createdOfferIds?: string[];   // offres issues du besoin
+}
+
 // ─────────────────────────────────────────────────────── Postes
 export type JobStatus = 'draft' | 'open' | 'on_hold' | 'closed_filled' | 'closed_cancelled';
 export type JobLevel = 'junior' | 'confirme' | 'senior' | 'lead' | 'manager' | 'director';
