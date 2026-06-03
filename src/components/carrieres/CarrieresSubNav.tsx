@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Route, TrendingUp, Crown, Network, Sparkles, Users,
   Map, Briefcase, BarChart3, Settings, ChevronLeft, ChevronRight,
-  Building2, Grid3x3, Award, Heart, Shield,
+  Building2, Grid3x3, Award, Heart, Shield, Compass, Globe,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -21,6 +21,11 @@ const ITEMS = [
   { to: '/carrieres/talent-review',  label: 'Talent Review',   icon: Grid3x3,         end: false },
   { to: '/carrieres/talent-pools',   label: 'Talent Pools',    icon: Award,           end: false },
   { to: '/carrieres/promotions',     label: 'Promotions',      icon: TrendingUp,      end: false },
+  { to: '/carrieres/frameworks',     label: 'Frameworks',      icon: Compass,         end: false },
+  { to: '/carrieres/parcours',       label: 'Parcours indiv.', icon: Route,           end: false },
+  { to: '/carrieres/succession-plus', label: 'Succession+',    icon: Network,         end: false },
+  { to: '/carrieres/mentorat-pro',   label: 'Mentorat & Sponsor.', icon: Heart,       end: false },
+  { to: '/carrieres/expatriation',   label: 'Expatriation',    icon: Globe,           end: false },
   { to: '/carrieres/alumni',         label: 'Alumni',          icon: Heart,           end: false },
   { to: '/carrieres/audit',          label: 'Audit M10',       icon: Shield,          end: false },
   { to: '/carrieres/reporting',      label: 'Reporting',       icon: BarChart3,       end: false },

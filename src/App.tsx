@@ -18,6 +18,10 @@ import {
 import {
   JobArchitecturePage, TalentReviewPage, TalentPoolsPage, PromotionsPage, AlumniPage, AuditM10Page,
 } from './pages/carrieres/CarrieresSprint1Pages';
+import {
+  CareerFrameworksPage, CareerPathsIndividualsPage, SuccessionEnrichedPage,
+  MentoratSponsorshipPage, ExpatriationPage,
+} from './pages/carrieres/CarrieresSprint2Pages';
 import { CollaborateursPage } from './pages/CollaborateursPage';
 import { EmployeeDossierPage } from './pages/EmployeeDossierPage';
 import { AmendmentDossierPage } from './pages/AmendmentDossierPage';
@@ -424,6 +428,11 @@ function App() {
         <Route path="/carrieres/promotions" element={<PromotionsPage />} />
         <Route path="/carrieres/alumni" element={<AlumniPage />} />
         <Route path="/carrieres/audit" element={<AuditM10Page />} />
+        <Route path="/carrieres/frameworks" element={<CareerFrameworksPage />} />
+        <Route path="/carrieres/parcours" element={<CareerPathsIndividualsPage />} />
+        <Route path="/carrieres/succession-plus" element={<SuccessionEnrichedPage />} />
+        <Route path="/carrieres/mentorat-pro" element={<MentoratSponsorshipPage />} />
+        <Route path="/carrieres/expatriation" element={<ExpatriationPage />} />
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 
