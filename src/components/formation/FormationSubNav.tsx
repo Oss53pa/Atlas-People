@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ClipboardList, CalendarDays, UserCheck, Gauge,
   Award, Coins, Network, Landmark, BarChart3, Settings, ChevronLeft, ChevronRight,
+  Route, FileSignature, Layers, Monitor, Users, Shield,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -17,6 +18,12 @@ const ITEMS = [
   { to: '/formation/roi',            label: 'ROI',             icon: Coins,            end: false },
   { to: '/formation/competences',    label: 'Compétences',     icon: Network,          end: false },
   { to: '/formation/fdfp',           label: 'FDFP / Fonds',    icon: Landmark,         end: false },
+  { to: '/formation/parcours',       label: 'Parcours',        icon: Route,            end: false },
+  { to: '/formation/pif',            label: 'PIF',             icon: FileSignature,    end: false },
+  { to: '/formation/modalites',      label: 'Modalités',       icon: Layers,           end: false },
+  { to: '/formation/lms',            label: 'LMS digital',     icon: Monitor,          end: false },
+  { to: '/formation/formateurs',     label: 'Formateurs',      icon: Users,            end: false },
+  { to: '/formation/audit',          label: 'Audit M11',       icon: Shield,           end: false },
   { to: '/formation/reporting',      label: 'Reporting',       icon: BarChart3,        end: false },
   { to: '/formation/parametres',     label: 'Paramètres',      icon: Settings,         end: false },
 ];

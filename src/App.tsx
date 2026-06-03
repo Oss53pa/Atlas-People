@@ -22,6 +22,9 @@ import {
   CareerFrameworksPage, CareerPathsIndividualsPage, SuccessionEnrichedPage,
   MentoratSponsorshipPage, ExpatriationPage,
 } from './pages/carrieres/CarrieresSprint2Pages';
+import {
+  ParcoursFormationPage, PifPage, ModalitesPage, LmsPage, FormateursPage, AuditM11Page,
+} from './pages/formation/FormationSprint1Pages';
 import { CollaborateursPage } from './pages/CollaborateursPage';
 import { EmployeeDossierPage } from './pages/EmployeeDossierPage';
 import { AmendmentDossierPage } from './pages/AmendmentDossierPage';
@@ -433,6 +436,12 @@ function App() {
         <Route path="/carrieres/succession-plus" element={<SuccessionEnrichedPage />} />
         <Route path="/carrieres/mentorat-pro" element={<MentoratSponsorshipPage />} />
         <Route path="/carrieres/expatriation" element={<ExpatriationPage />} />
+        <Route path="/formation/parcours" element={<ParcoursFormationPage />} />
+        <Route path="/formation/pif" element={<PifPage />} />
+        <Route path="/formation/modalites" element={<ModalitesPage />} />
+        <Route path="/formation/lms" element={<LmsPage />} />
+        <Route path="/formation/formateurs" element={<FormateursPage />} />
+        <Route path="/formation/audit" element={<AuditM11Page />} />
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 
