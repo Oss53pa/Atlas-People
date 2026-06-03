@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarRange, Megaphone, ClipboardList, Eye, Grid3x3,
   Scale, TrendingUp, MessageSquare, BarChart3, Settings, ChevronLeft, ChevronRight,
+  Calendar, Layers, Award, Heart, Shield,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -16,6 +17,11 @@ const ITEMS = [
   { to: '/evaluations/talent-grid',  label: '9-box',           icon: Grid3x3,         end: false },
   { to: '/evaluations/plans-dev',    label: 'Plans dev',       icon: TrendingUp,      end: false },
   { to: '/evaluations/1-1',          label: '1-1',             icon: MessageSquare,   end: false },
+  { to: '/evaluations/cycle-annuel', label: 'Cycle annuel',    icon: Calendar,        end: false },
+  { to: '/evaluations/grille',       label: 'Grille 5 dim.',   icon: Layers,          end: false },
+  { to: '/evaluations/notation',     label: 'Notation ABCDE',  icon: Award,           end: false },
+  { to: '/evaluations/equite',       label: 'Équité H/F',      icon: Heart,           end: false },
+  { to: '/evaluations/audit',        label: 'Audit',           icon: Shield,          end: false },
   { to: '/evaluations/reporting',    label: 'Reporting',       icon: BarChart3,       end: false },
   { to: '/evaluations/parametres',   label: 'Paramètres',      icon: Settings,        end: false },
 ];

@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import {
   Users, Wallet, Target, Gauge, GraduationCap, ShieldCheck, Briefcase,
   Sparkles, TrendingUp, TrendingDown, AlertTriangle, Clock, CheckCircle2,
-  ArrowUpRight, Route, Network, Activity, Brain, Crown, Heart,
+  ArrowUpRight, Route, Network, Activity, Brain, Crown, Heart, Printer,
 } from 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatusPill } from '../components/ui/StatusPill';
@@ -19,6 +19,7 @@ import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
 import { EMPLOYEES, employeeName, employeeById } from '../data/mock';
 import { kpis as recrutKpis } from '../lib/m5/mock';
+import { ProphtetPanel, type CockpitAlert } from '../components/ProphtetPanel';
 import { CONFORMITE_KPI } from '../lib/m12/mock';
 import { FORMATION_KPI, certificationsExpiringSoon } from '../lib/m11/mock';
 import { CRITICAL_ROLES, HIGH_POTS, kpis as carrieresKpis } from '../lib/m10/mock';
@@ -243,8 +244,20 @@ export function UnifiedCockpitDRHPage() {
     ...(notice > 0 ? [{ icon: TrendingDown, label: `${notice} sortie(s) en préavis`, link: '/collaborateurs', tone: 'warn' as const }] : []),
   ];
 
+  // PROPH3T : alertes mappées vers les types/domaines/sévérités du moteur narratif
+  const prophtetAlerts: CockpitAlert[] = [
+    ...(k12.declarationsOverdue > 0 ? [{ label: `${k12.declarationsOverdue} déclaration(s) sociale(s) en retard`, domain: 'declarations' as const, severity: 'critical' as const }] : []),
+    ...(k12.duerRisksCritical > 0   ? [{ label: `${k12.duerRisksCritical} risque(s) DUER critiques/élevés`,        domain: 'duer'         as const, severity: 'high'     as const }] : []),
+    ...(benchWeakRoles.length > 0   ? [{ label: `${benchWeakRoles.length} poste(s) clé(s) à bench faible`,         domain: 'bench'        as const, severity: 'high'     as const }] : []),
+    ...(expiringCerts.length > 0    ? [{ label: `${expiringCerts.length} certification(s) à renouveler < 90 j`,    domain: 'cert'         as const, severity: 'medium'   as const }] : []),
+    ...(k7.atRisk > 0               ? [{ label: `${k7.atRisk} OKR à risque (confidence < 4)`,                      domain: 'okr'          as const, severity: 'high'     as const }] : []),
+    ...(k12.atOpenCount > 0         ? [{ label: `${k12.atOpenCount} accident(s) du travail en investigation`,     domain: 'at'           as const, severity: 'critical' as const }] : []),
+    ...(notice > 0                  ? [{ label: `${notice} sortie(s) en préavis`,                                  domain: 'departure'    as const, severity: 'medium'   as const }] : []),
+  ];
+
   return (
     <div className="animate-fade-up space-y-5">
+      <div className="print-header" data-print-date={new Date().toISOString().slice(0, 10)}>Cockpit DRH 360°</div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl text-ink">Cockpit DRH 360°</h1>
@@ -254,6 +267,7 @@ export function UnifiedCockpitDRHPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link to="/"><Button variant="outline" size="sm">Vue classique</Button></Link>
+          <Button variant="outline" size="sm" onClick={() => window.print()}><Printer size={14} /> PDF</Button>
           <Link to="/conformite"><Button size="sm"><ShieldCheck size={14} /> Conformité</Button></Link>
         </div>
       </div>
@@ -296,6 +310,16 @@ export function UnifiedCockpitDRHPage() {
           </div>
         </Card>
       )}
+
+      {/* PROPH3T narrative */}
+      <ProphtetPanel context={{
+        kind: 'cockpit-alerts',
+        data: {
+          alerts: prophtetAlerts,
+          conformityScore: k12.conformityScoreGlobal,
+          rpsBurnoutPct: k12.rpsBurnoutRiskPct,
+        },
+      }} />
 
       {/* 8 SECTIONS MODULES */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

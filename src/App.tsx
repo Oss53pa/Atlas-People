@@ -4,6 +4,20 @@ import { CockpitPage } from './pages/CockpitPage';
 import { UnifiedCockpitDRHPage } from './pages/UnifiedCockpitPage';
 import { WhatIfSimulatorPage } from './pages/WhatIfSimulatorPage';
 import { WhatIfComparePage } from './pages/WhatIfComparePage';
+import {
+  CycleAnnuelEvalPage, GrilleEvaluationPage, CalibrationEvalPage,
+  NotationFinalePage, EquiteEvalPage, AuditEvalPage,
+} from './pages/eval/EvalEnrichmentPages';
+import {
+  CartographieCompetencesPage, TaxonomieCompetencesPage, GapAnalysisPage,
+  SpofPage, HeatmapCompetencesPage, ReferentielMetiersPage, ParametresCompetencesPage,
+} from './pages/competences/CompetencesEnrichmentPages';
+import {
+  AuditM9Page, AutoEvalCompetencesPage, ManagerEvalCompetencesPage, PdcPage, TalentsMobilitePage,
+} from './pages/competences/CompetencesSprint1Pages';
+import {
+  JobArchitecturePage, TalentReviewPage, TalentPoolsPage, PromotionsPage, AlumniPage, AuditM10Page,
+} from './pages/carrieres/CarrieresSprint1Pages';
 import { CollaborateursPage } from './pages/CollaborateursPage';
 import { EmployeeDossierPage } from './pages/EmployeeDossierPage';
 import { AmendmentDossierPage } from './pages/AmendmentDossierPage';
@@ -158,6 +172,9 @@ import { IntegrationPage } from './pages/recrut/IntegrationPage';
 import { ReportingRecrutPage } from './pages/recrut/ReportingRecrutPage';
 import { RgpdPage } from './pages/recrut/RgpdPage';
 import { ParametresRecrutPage } from './pages/recrut/ParametresRecrutPage';
+import { TestsPage } from './pages/recrut/TestsPage';
+import { MarqueEmployeurPage } from './pages/recrut/MarqueEmployeurPage';
+import { AuditRecrutPage } from './pages/recrut/AuditRecrutPage';
 // M6 ONBOARDING (back-office Intégration)
 import { CockpitOnboardingPage } from './pages/onboarding/CockpitOnboardingPage';
 import { ArrivantsPage } from './pages/onboarding/ArrivantsPage';
@@ -383,6 +400,30 @@ function App() {
         <Route path="/cockpit-360" element={<UnifiedCockpitDRHPage />} />
         <Route path="/whatif" element={<WhatIfSimulatorPage />} />
         <Route path="/whatif/compare" element={<WhatIfComparePage />} />
+        <Route path="/evaluations/cycle-annuel" element={<CycleAnnuelEvalPage />} />
+        <Route path="/evaluations/grille" element={<GrilleEvaluationPage />} />
+        <Route path="/evaluations/calibration" element={<CalibrationEvalPage />} />
+        <Route path="/evaluations/notation" element={<NotationFinalePage />} />
+        <Route path="/evaluations/equite" element={<EquiteEvalPage />} />
+        <Route path="/evaluations/audit" element={<AuditEvalPage />} />
+        <Route path="/competences/cartographie" element={<CartographieCompetencesPage />} />
+        <Route path="/competences/taxonomie" element={<TaxonomieCompetencesPage />} />
+        <Route path="/competences/gap" element={<GapAnalysisPage />} />
+        <Route path="/competences/spof" element={<SpofPage />} />
+        <Route path="/competences/heatmap" element={<HeatmapCompetencesPage />} />
+        <Route path="/competences/metiers" element={<ReferentielMetiersPage />} />
+        <Route path="/competences/parametres" element={<ParametresCompetencesPage />} />
+        <Route path="/competences/auto-eval" element={<AutoEvalCompetencesPage />} />
+        <Route path="/competences/manager-eval" element={<ManagerEvalCompetencesPage />} />
+        <Route path="/competences/pdc" element={<PdcPage />} />
+        <Route path="/competences/mobilite" element={<TalentsMobilitePage />} />
+        <Route path="/competences/audit" element={<AuditM9Page />} />
+        <Route path="/carrieres/job-architecture" element={<JobArchitecturePage />} />
+        <Route path="/carrieres/talent-review" element={<TalentReviewPage />} />
+        <Route path="/carrieres/talent-pools" element={<TalentPoolsPage />} />
+        <Route path="/carrieres/promotions" element={<PromotionsPage />} />
+        <Route path="/carrieres/alumni" element={<AlumniPage />} />
+        <Route path="/carrieres/audit" element={<AuditM10Page />} />
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 

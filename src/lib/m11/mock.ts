@@ -601,7 +601,7 @@ export const SKILL_UPLIFTS: SkillUpliftEntry[] = [
 ];
 
 // ───────────────────────── KPIs ─────────────────────────
-const beneficiariesYTD = new Set(REGISTRATIONS.filter((r) => r.status === 'completed' || r.status === 'attended' || r.status === 'partial').map((r) => r.employeeId)).size;
+const beneficiairesYTD = new Set(REGISTRATIONS.filter((r) => r.status === 'completed' || r.status === 'attended' || r.status === 'partial').map((r) => r.employeeId)).size;
 const totalReactionScores = REGISTRATIONS.filter((r) => typeof r.reactionScore === 'number').map((r) => r.reactionScore!);
 const avgReaction = totalReactionScores.length ? totalReactionScores.reduce((a, b) => a + b, 0) / totalReactionScores.length : 0;
 const totalLearningScores = REGISTRATIONS.filter((r) => typeof r.learningScore === 'number').map((r) => r.learningScore!);
@@ -622,7 +622,7 @@ const upcomingSessions = SESSIONS.filter((s) => {
 
 export const FORMATION_KPI: FormationKPI = {
   beneficiairesYTD,
-  tauxAcces: beneficiariesYTD / EMPLOYEES.length,
+  tauxAcces: beneficiairesYTD / EMPLOYEES.length,
   heuresMoyennesParCollab: Math.round((sumHours / EMPLOYEES.length) * 10) / 10,
   budgetConsomme: PLAN_2026.budgetConsumed,
   budgetTotal: PLAN_2026.budgetEnvelope,

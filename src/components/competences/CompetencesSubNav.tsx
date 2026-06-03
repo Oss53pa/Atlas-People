@@ -1,32 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Briefcase, KanbanSquare, CalendarClock, Mail, Users,
-  Megaphone, Gift, Rocket, BarChart3, Shield, Settings, ChevronLeft, ChevronRight,
-  FlaskConical, Globe, ShieldCheck,
+  LayoutDashboard, Grid3x3, BookOpen, AlertTriangle, ShieldAlert, Sparkles,
+  Briefcase, Settings, ChevronLeft, ChevronRight,
+  ClipboardCheck, ClipboardList, TrendingUp, ArrowRightLeft, Shield,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 const ITEMS = [
-  { to: '/recrutement',              label: 'Cockpit',     icon: LayoutDashboard, end: true  },
-  { to: '/recrutement/besoins',      label: 'Besoins',     icon: ClipboardList,   end: false },
-  { to: '/recrutement/postes',       label: 'Postes',      icon: Briefcase,       end: false },
-  { to: '/recrutement/candidatures', label: 'Pipeline',    icon: KanbanSquare,    end: false },
-  { to: '/recrutement/vivier',       label: 'Vivier',      icon: Users,           end: false },
-  { to: '/recrutement/entretiens',   label: 'Entretiens',  icon: CalendarClock,   end: false },
-  { to: '/recrutement/tests',        label: 'Tests',       icon: FlaskConical,    end: false },
-  { to: '/recrutement/offres',       label: 'Offres',      icon: Mail,            end: false },
-  { to: '/recrutement/sourcing',     label: 'Sourcing',    icon: Megaphone,       end: false },
-  { to: '/recrutement/marque-employeur', label: 'Marque employeur', icon: Globe,  end: false },
-  { to: '/recrutement/cooptation',   label: 'Cooptation',  icon: Gift,            end: false },
-  { to: '/recrutement/integration',  label: 'Intégration', icon: Rocket,          end: false },
-  { to: '/recrutement/reporting',    label: 'Reporting',   icon: BarChart3,       end: false },
-  { to: '/recrutement/rgpd',         label: 'RGPD',        icon: Shield,          end: false },
-  { to: '/recrutement/audit',        label: 'Audit',       icon: ShieldCheck,     end: false },
-  { to: '/recrutement/parametres',   label: 'Paramètres',  icon: Settings,        end: false },
+  { to: '/competences',              label: 'Cockpit',         icon: LayoutDashboard, end: true  },
+  { to: '/competences/cartographie', label: 'Cartographie',    icon: Grid3x3,         end: false },
+  { to: '/competences/taxonomie',    label: 'Taxonomie',       icon: BookOpen,        end: false },
+  { to: '/competences/gap',          label: 'Gap analysis',    icon: AlertTriangle,   end: false },
+  { to: '/competences/spof',         label: 'Compétences critiques', icon: ShieldAlert, end: false },
+  { to: '/competences/heatmap',      label: 'Heatmap',         icon: Sparkles,        end: false },
+  { to: '/competences/metiers',      label: 'Référentiel métiers', icon: Briefcase,   end: false },
+  { to: '/competences/auto-eval',    label: 'Auto-éval',       icon: ClipboardCheck,  end: false },
+  { to: '/competences/manager-eval', label: 'Éval manager',    icon: ClipboardList,   end: false },
+  { to: '/competences/pdc',          label: 'PDC',             icon: TrendingUp,      end: false },
+  { to: '/competences/mobilite',     label: 'Talents/Mobilité', icon: ArrowRightLeft, end: false },
+  { to: '/competences/audit',        label: 'Audit M9',        icon: Shield,          end: false },
+  { to: '/competences/parametres',   label: 'Paramètres',      icon: Settings,        end: false },
 ];
 
-export function RecrutSubNav() {
+export function CompetencesSubNav() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);

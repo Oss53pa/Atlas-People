@@ -20,7 +20,11 @@ export function PayslipModal({
       <div className="no-print flex items-center justify-between px-4 py-3">
         <p className="text-sm font-bold text-white">Bulletin de paie · {period}</p>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => window.print()}>
+          <Button size="sm" onClick={() => {
+            document.body.classList.add('print-payslip');
+            window.print();
+            setTimeout(() => document.body.classList.remove('print-payslip'), 500);
+          }}>
             <Printer size={14} /> Imprimer / PDF
           </Button>
           <button onClick={onClose} className="rounded-xl bg-white/10 p-2 text-white hover:bg-white/20">

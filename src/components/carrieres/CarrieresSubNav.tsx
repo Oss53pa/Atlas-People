@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Route, TrendingUp, Crown, Network, Sparkles, Users,
   Map, Briefcase, BarChart3, Settings, ChevronLeft, ChevronRight,
+  Building2, Grid3x3, Award, Heart, Shield,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -16,6 +17,12 @@ const ITEMS = [
   { to: '/carrieres/mentorat',       label: 'Mentorat',        icon: Users,           end: false },
   { to: '/carrieres/cartographie',   label: 'Cartographie',    icon: Map,             end: false },
   { to: '/carrieres/mobilite',       label: 'Mobilité interne', icon: Briefcase,      end: false },
+  { to: '/carrieres/job-architecture', label: 'Job architecture', icon: Building2,    end: false },
+  { to: '/carrieres/talent-review',  label: 'Talent Review',   icon: Grid3x3,         end: false },
+  { to: '/carrieres/talent-pools',   label: 'Talent Pools',    icon: Award,           end: false },
+  { to: '/carrieres/promotions',     label: 'Promotions',      icon: TrendingUp,      end: false },
+  { to: '/carrieres/alumni',         label: 'Alumni',          icon: Heart,           end: false },
+  { to: '/carrieres/audit',          label: 'Audit M10',       icon: Shield,          end: false },
   { to: '/carrieres/reporting',      label: 'Reporting',       icon: BarChart3,       end: false },
   { to: '/carrieres/parametres',     label: 'Paramètres',      icon: Settings,        end: false },
 ];

@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Save, Trash2, ArrowRightLeft, AlertTriangle,
-  TrendingUp, TrendingDown, Wallet, Calculator, Building2, Users, Calendar,
+  TrendingUp, TrendingDown, Wallet, Calculator, Building2, Users, Calendar, Printer,
 } from 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -16,6 +16,7 @@ import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
 import { EMPLOYEES, employeeName, type EmployeeRecord } from '../data/mock';
 import { useWhatIfScenarios, type WhatIfScenario } from '../store/useWhatIfScenarios';
+import { ProphtetPanel } from '../components/ProphtetPanel';
 import { cn } from '../lib/cn';
 
 const fmt = (n: number): string => new Intl.NumberFormat('fr-FR').format(Math.round(n));
@@ -125,6 +126,7 @@ export function WhatIfComparePage() {
 
   return (
     <div className="animate-fade-up space-y-5">
+      <div className="print-header" data-print-date={new Date().toISOString().slice(0, 10)}>Comparateur de scénarios A vs B</div>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wider text-amber-deep">Comparateur · M13</p>
@@ -135,6 +137,7 @@ export function WhatIfComparePage() {
         </div>
         <div className="flex items-center gap-2">
           <Link to="/whatif"><Button variant="outline" size="sm"><ArrowLeft size={14} /> Simulateur</Button></Link>
+          <Button variant="outline" size="sm" onClick={() => window.print()}><Printer size={14} /> PDF</Button>
         </div>
       </div>
 
@@ -361,6 +364,21 @@ export function WhatIfComparePage() {
           </div>
         )}
       </Card>
+
+      {(scA || scB) && (
+        <ProphtetPanel context={{
+          kind: 'whatif-scenario',
+          data: {
+            deltaMonthly: delta.employerCost,
+            deltaPct: pctChange,
+            deltaHeadcount: delta.headcount,
+            deltaCharges: delta.charges,
+            hiresCount: (scB?.hires.length ?? 0) - (scA?.hires.length ?? 0),
+            removalsCount: (scB?.removedIds.length ?? 0) - (scA?.removedIds.length ?? 0),
+            increasePct: (scB?.increasePct ?? 0) - (scA?.increasePct ?? 0),
+          },
+        }} />
+      )}
 
       <Card>
         <CardHeader title="Aide à la décision" subtitle="Lecture du delta — méthode Atlas" action={<Calendar size={16} className="text-amber-deep" />} />

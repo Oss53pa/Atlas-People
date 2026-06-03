@@ -119,16 +119,23 @@
   }
 }
 
-/* Impression : n'imprimer que le bulletin */
+/* ──────────────────────────────────────────────────────────────
+   IMPRESSION — 2 modes :
+   1) Bulletin de paie : isole .payslip-print (mode legacy).
+   2) Pages stratégiques (cockpits, what-if) : utilisent .print-page
+      qui masque chrome (sidebar/topbar/QuickLauncher/CTA) tout en
+      gardant le contenu, format A4 paysage par défaut.
+   ────────────────────────────────────────────────────────────── */
 @media print {
-  body * {
+  /* — Mode 1 : bulletin (legacy) — */
+  body.print-payslip * {
     visibility: hidden;
   }
-  .payslip-print,
-  .payslip-print * {
+  body.print-payslip .payslip-print,
+  body.print-payslip .payslip-print * {
     visibility: visible;
   }
-  .payslip-print {
+  body.print-payslip .payslip-print {
     position: absolute;
     inset: 0;
     margin: 0;
@@ -136,7 +143,121 @@
     box-shadow: none;
     padding: 16px;
   }
-  .no-print {
+
+  /* — Mode 2 : pages stratégiques (DEFAULT print mode) — */
+  /* Masque le chrome applicatif */
+  aside,
+  nav.sticky,
+  header.sticky,
+  .no-print,
+  [data-no-print="true"] {
     display: none !important;
   }
+
+  /* Reset layout : pleine largeur, marges A4 */
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Le wrapper principal occupe toute la page */
+  main,
+  .lg\:pl-\[252px\],
+  .lg\:pl-\[252px\] > main {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  /* Sortir des conteneurs scrollables */
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .max-h-\[60vh\],
+  .max-h-\[200px\] {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Cartes : conserver les bordures mais retirer les ombres */
+  .shadow,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-2xl {
+    box-shadow: none !important;
+  }
+
+  /* Masquer boutons d'action UI */
+  button:not(.print-keep),
+  a[href]:not(.print-keep) {
+    display: none !important;
+  }
+
+  /* Sauf : liens internes et boutons explicitement marqués */
+  .print-keep {
+    display: inline-flex !important;
+  }
+
+  /* Tables : pas de coupure au milieu d'une ligne */
+  table {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Cards : éviter coupure */
+  [class*="rounded-2xl"],
+  [class*="rounded-xl"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Eviter coupure après titre */
+  h1, h2, h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Page A4 paysage par défaut (cockpits larges) */
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  /* Forcer pagination */
+  .print-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* Branding header en haut de chaque page imprimée */
+  .print-header {
+    display: block !important;
+    font-family: 'Grand Hotel', cursive;
+    font-size: 18px;
+    color: #C97E12;
+    text-align: center;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  body:not(.print-payslip) .print-header::after {
+    content: " · Atlas People · " attr(data-print-date);
+    font-family: inherit;
+    font-size: 10px;
+    color: #888;
+    font-style: italic;
+    margin-left: 8px;
+  }
+}
+
+/* Cachés par défaut (visible uniquement en print) */
+.print-header {
+  display: none;
 }

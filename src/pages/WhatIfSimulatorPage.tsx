@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import {
   Sparkles, Calculator, TrendingUp, TrendingDown, Users, Wallet,
   RotateCcw, Save, AlertTriangle, ArrowLeft, Building2, UserPlus, UserMinus,
+  Printer,
 } from 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -19,6 +20,7 @@ import { TENANT_CURRENCY } from '../data/countries';
 import { EMPLOYEES, employeeName, type EmployeeRecord } from '../data/mock';
 import { useWhatIfScenarios } from '../store/useWhatIfScenarios';
 import { useToast } from '../components/ui/Toast';
+import { ProphtetPanel } from '../components/ProphtetPanel';
 import { cn } from '../lib/cn';
 
 const fmt = (n: number): string => new Intl.NumberFormat('fr-FR').format(Math.round(n));
@@ -185,6 +187,7 @@ export function WhatIfSimulatorPage() {
 
   return (
     <div className="animate-fade-up space-y-5">
+      <div className="print-header" data-print-date={new Date().toISOString().slice(0, 10)}>Simulateur stratégique DRH</div>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wider text-amber-deep">Simulation what-if · M13</p>
@@ -197,6 +200,7 @@ export function WhatIfSimulatorPage() {
           <Link to="/"><Button variant="outline" size="sm"><ArrowLeft size={14} /> Cockpit</Button></Link>
           <Link to="/whatif/compare"><Button variant="outline" size="sm">Comparer ({scenarios.length}) →</Button></Link>
           <Button variant="outline" size="sm" onClick={reset}><RotateCcw size={14} /> Réinitialiser</Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}><Printer size={14} /> PDF</Button>
         </div>
       </div>
 
@@ -418,6 +422,21 @@ export function WhatIfSimulatorPage() {
                 </div>
               </div>
             </Card>
+          )}
+
+          {hasMutations && (
+            <ProphtetPanel context={{
+              kind: 'whatif-scenario',
+              data: {
+                deltaMonthly: delta.employerCost,
+                deltaPct: pctChange,
+                deltaHeadcount: delta.headcount,
+                deltaCharges: delta.charges,
+                hiresCount: hires.length,
+                removalsCount: removedIds.size,
+                increasePct,
+              },
+            }} />
           )}
 
           <Card>

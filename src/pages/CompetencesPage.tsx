@@ -6,6 +6,7 @@ import { StatCard } from '../components/ui/StatCard';
 import { StatusPill } from '../components/ui/StatusPill';
 import { ProgressBar } from '../components/charts/ProgressBar';
 import { Brand } from '../components/ui/Brand';
+import { CompetencesSubNav } from '../components/competences/CompetencesSubNav';
 import { SKILLS } from '../data/mock';
 
 function riskColor(s: { holders: number; projectedGap: number }): string {
@@ -39,6 +40,7 @@ export function CompetencesPage() {
 
   return (
     <div className="animate-fade-up space-y-6">
+      <CompetencesSubNav />
       <SectionHeader
         eyebrow="Bloc C · M9"
         title="Graphe de compétences"
