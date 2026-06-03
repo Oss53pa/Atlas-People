@@ -14,6 +14,7 @@ import { StatCard } from '../components/ui/StatCard';
 import { StatusPill } from '../components/ui/StatusPill';
 import { Brand } from '../components/ui/Brand';
 import { CompetencesSubNav } from '../components/competences/CompetencesSubNav';
+import { M9LiveBanner } from '../components/competences/M9LiveBanner';
 import { SKILLS } from '../data/mock';
 import { cn } from '../lib/cn';
 
@@ -135,6 +136,7 @@ export function CompetencesPage() {
   return (
     <div className="animate-fade-up space-y-6">
       <CompetencesSubNav />
+      <M9LiveBanner />
       <SectionHeader
         eyebrow="Bloc C · M9"
         title="Skills Cloud Atlas"
