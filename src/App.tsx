@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { CockpitPage } from './pages/CockpitPage';
 import { UnifiedCockpitDRHPage } from './pages/UnifiedCockpitPage';
+import { LandingPage } from './pages/LandingPage';
+import { WelcomeCockpitPage } from './pages/WelcomeCockpitPage';
 import { WhatIfSimulatorPage } from './pages/WhatIfSimulatorPage';
 import { WhatIfComparePage } from './pages/WhatIfComparePage';
 import {
@@ -253,11 +255,16 @@ const READY: Record<string, JSX.Element> = {
   '/competences': <CompetencesPage />,
   '/conformite': <CockpitConformitePage />,
   '/moi': <SelfServicePage />,
+  '/cockpit-360': <UnifiedCockpitDRHPage />,
+  '/accueil': <WelcomeCockpitPage />,
 };
 
 function App() {
   return (
     <Routes>
+      {/* Landing publique non-authentifiée — hors AppLayout */}
+      <Route path="/landing" element={<LandingPage />} />
+
       <Route element={<AppLayout />}>
         {ALL_MODULES.map((m) => (
           <Route
@@ -404,7 +411,8 @@ function App() {
         <Route path="/objectifs/gouvernance" element={<GouvernanceOkrPage />} />
         <Route path="/objectifs/integration" element={<IntegrationOkrPage />} />
         <Route path="/objectifs/audit" element={<AuditOkrPage />} />
-        <Route path="/cockpit-360" element={<UnifiedCockpitDRHPage />} />
+        {/* /cockpit-360 désormais wiré via READY (ligne ~258) */}
+        <Route path="/accueil" element={<WelcomeCockpitPage />} />
         <Route path="/whatif" element={<WhatIfSimulatorPage />} />
         <Route path="/whatif/compare" element={<WhatIfComparePage />} />
         <Route path="/evaluations/cycle-annuel" element={<CycleAnnuelEvalPage />} />
