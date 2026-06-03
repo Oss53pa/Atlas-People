@@ -18,6 +18,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { FormationSubNav } from '../../components/formation/FormationSubNav';
+import { M11LiveBanner } from '../../components/formation/M11LiveBanner';
 import {
   COURSES, PLAN_2026, SESSIONS, REGISTRATIONS, KIRKPATRICK_EVALS,
   CERTIFICATIONS, FDFP_DECLARATIONS, ROI_CALCULATIONS, SKILL_UPLIFTS,
@@ -54,6 +55,7 @@ export function CockpitFormationPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <FormationSubNav />
+      <M11LiveBanner />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Formation & Développement</h1>

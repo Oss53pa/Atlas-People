@@ -10,6 +10,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
+import { M5LiveBanner } from '../../components/recrut/M5LiveBanner';
 import {
   JOBS, APPLICATIONS, INTERVIEWS, OFFERS, ACTIVITY, REFERRALS, SOURCING_CHANNELS,
   candidateById, jobById, stageMeta, kpis,
@@ -50,6 +51,7 @@ export function CockpitRecrutPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <RecrutSubNav />
+      <M5LiveBanner />
 
       <div className="flex items-center justify-between">
         <div>

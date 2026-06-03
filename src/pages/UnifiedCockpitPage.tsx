@@ -3,7 +3,7 @@
  * Pull KPIs de M1 · M2 · M3 · M5 · M6 · M7 · M8 · M10 · M11 · M12.
  * Destination DG / DRH / Comex — synthèse stratégique en une page.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, Wallet, Target, Gauge, GraduationCap, ShieldCheck, Briefcase,
@@ -22,6 +22,7 @@ import { kpis as recrutKpis } from '../lib/m5/mock';
 import { ProphtetPanel, type CockpitAlert } from '../components/ProphtetPanel';
 import { CONFORMITE_KPI } from '../lib/m12/mock';
 import { FORMATION_KPI, certificationsExpiringSoon } from '../lib/m11/mock';
+import { fetchM11CockpitLive, type M11CockpitLive } from '../lib/m11/supabaseLive';
 import { CRITICAL_ROLES, HIGH_POTS, kpis as carrieresKpis } from '../lib/m10/mock';
 import { BENCH_STRENGTH_META } from '../lib/m10/referentiels';
 import { OBJECTIVES } from '../lib/m7/mock';
@@ -126,6 +127,14 @@ export function UnifiedCockpitDRHPage() {
   const benchWeakRoles = CRITICAL_ROLES.filter((r) => r.benchStrength === 'weak' || r.benchStrength === 'none');
   const expiringCerts = certificationsExpiringSoon();
 
+  // M11 sprint 1 — données vivantes Supabase (PIF · LMS · patterns FDFP)
+  const [m11Live, setM11Live] = useState<M11CockpitLive | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchM11CockpitLive().then((res) => { if (!cancelled && res) setM11Live(res); });
+    return () => { cancelled = true; };
+  }, []);
+
   const sections: SectionBlock[] = [
     {
       title: 'Effectif & Cycle de vie',
@@ -202,7 +211,9 @@ export function UnifiedCockpitDRHPage() {
     },
     {
       title: 'Formation & Développement',
-      subtitle: 'M11 · catalogue · Kirkpatrick · FDFP/3FPT · ROI',
+      subtitle: m11Live
+        ? `M11 · sprint 1 vivant · ${m11Live.parcoursActifs} parcours · ${m11Live.pifTotal} PIF`
+        : 'M11 · catalogue · Kirkpatrick · FDFP/3FPT · ROI',
       icon: GraduationCap,
       cta: { to: '/formation', label: 'Ouvrir M11' },
       tiles: [
@@ -211,8 +222,20 @@ export function UnifiedCockpitDRHPage() {
         { tile: { label: 'Heures / collab', value: String(k11.heuresMoyennesParCollab), unit: `cible ${TRAINING_THRESHOLDS.HOURS_PER_EMPLOYEE_TARGET} h` }, icon: Clock },
         { tile: { label: 'Satisfaction L1', value: `${k11.satisfactionMoyenneL1}/5`, unit: 'Kirkpatrick' }, icon: Sparkles },
         { tile: { label: 'FDFP récupérable', value: fmtCompact(k11.fdfpRecuperableYTD), unit: 'YTD', tone: 'success', link: '/formation/fdfp' }, icon: Wallet },
+        // ── Sprint 1 widgets vivants (Supabase atlas_people) ──
+        ...(m11Live ? [
+          { tile: { label: 'PIF signés', value: `${Math.round(m11Live.pifSignedRate * 100)} %`, unit: `${m11Live.pifTotal} PIF`, tone: 'success' as const, link: '/formation/pif' }, icon: CheckCircle2 },
+          { tile: { label: 'Budget PIF', value: fmtCompact(m11Live.budgetConsumed),
+              unit: `/ ${fmtCompact(m11Live.budgetTotal)} FCFA`,
+              tone: m11Live.budgetConsumed / Math.max(1, m11Live.budgetTotal) > 0.9 ? 'warn' as const : 'default' as const, link: '/formation/pif' }, icon: Wallet },
+          { tile: { label: 'Patterns FDFP', value: String(m11Live.patternsCritical),
+              unit: `${m11Live.patternsOpen} ouverts`,
+              tone: m11Live.patternsCritical > 0 ? 'danger' as const : 'success' as const, link: '/formation/audit' }, icon: AlertTriangle },
+        ] : []),
       ],
-      alert: expiringCerts.length > 0 ? `${expiringCerts.length} certification(s) à renouveler < 90 j` : undefined,
+      alert: m11Live && m11Live.patternsCritical > 0
+        ? `${m11Live.patternsCritical} pattern(s) FDFP critique(s) — pénal possible (P1/P3)`
+        : expiringCerts.length > 0 ? `${expiringCerts.length} certification(s) à renouveler < 90 j` : undefined,
     },
     {
       title: 'Conformité & SST',
@@ -239,6 +262,7 @@ export function UnifiedCockpitDRHPage() {
     ...(k12.duerRisksCritical > 0 ? [{ icon: ShieldCheck, label: `${k12.duerRisksCritical} risque(s) DUER critiques/élevés`, link: '/conformite/duer', tone: 'warn' as const }] : []),
     ...(benchWeakRoles.length > 0 ? [{ icon: Crown, label: `${benchWeakRoles.length} poste(s) clé(s) à bench faible`, link: '/carrieres/succession', tone: 'warn' as const }] : []),
     ...(expiringCerts.length > 0 ? [{ icon: GraduationCap, label: `${expiringCerts.length} certification(s) à renouveler < 90 j`, link: '/formation/certifications', tone: 'warn' as const }] : []),
+    ...(m11Live && m11Live.patternsCritical > 0 ? [{ icon: AlertTriangle, label: `${m11Live.patternsCritical} pattern(s) FDFP critique(s) — pénal possible`, link: '/formation/audit', tone: 'danger' as const }] : []),
     ...(k7.atRisk > 0 ? [{ icon: Target, label: `${k7.atRisk} OKR à risque (confidence < 4)`, link: '/objectifs/notation', tone: 'warn' as const }] : []),
     ...(k12.atOpenCount > 0 ? [{ icon: Activity, label: `${k12.atOpenCount} accident(s) du travail en investigation`, link: '/conformite/at-mp', tone: 'warn' as const }] : []),
     ...(notice > 0 ? [{ icon: TrendingDown, label: `${notice} sortie(s) en préavis`, link: '/collaborateurs', tone: 'warn' as const }] : []),

@@ -10,6 +10,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
+import { M6LiveBanner } from '../../components/onboarding/M6LiveBanner';
 import { JOURNEYS, TASKS, BUDDIES, kpis, templateMeta } from '../../lib/m6/mock';
 import { MILESTONE_META } from '../../lib/m6/referentiels';
 import { EMPLOYEES, employeeById, employeeName } from '../../data/mock';
@@ -34,6 +35,7 @@ export function CockpitOnboardingPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <OnboardingSubNav />
+      <M6LiveBanner />
 
       <div className="flex items-center justify-between">
         <div>
