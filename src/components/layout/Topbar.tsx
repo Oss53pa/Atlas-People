@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Menu, Search, Bell, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Menu, Search, Bell, Sparkles, Home } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { Avatar } from '../ui/Avatar';
 import { Brand } from '../ui/Brand';
@@ -22,6 +23,16 @@ export function Topbar() {
       >
         <Menu size={20} />
       </button>
+
+      {/* Accueil — Welcome Cockpit */}
+      <Link
+        to="/accueil"
+        aria-label="Accueil — Cockpit RH"
+        className="hidden items-center gap-1.5 rounded-xl border border-line bg-surface px-2.5 py-2 text-ink-500 transition-colors hover:border-amber/40 hover:text-amber-deep sm:inline-flex"
+        title="Accueil"
+      >
+        <Home size={16} />
+      </Link>
 
       {/* Sélecteur d'espace (ESS / MSS / Back-office RH) */}
       <SpaceSwitcher />

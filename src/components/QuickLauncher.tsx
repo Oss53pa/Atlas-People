@@ -26,8 +26,10 @@ interface Entry {
 
 const MODULE_ENTRIES: Entry[] = [
   // Pilotage
+  { id: 'pi-0', label: 'Accueil',      group: 'Pilotage', icon: LayoutDashboard, path: '/accueil', hint: 'Welcome cockpit — Hero + 4 KPI + accès rapides', keywords: ['home','welcome','bienvenue','dashboard'] },
   { id: 'pi-1', label: 'Cockpit DRH',  group: 'Pilotage', icon: LayoutDashboard, path: '/', hint: 'Vue classique M13' },
   { id: 'pi-2', label: 'Vue 360° unifiée', group: 'Pilotage', icon: LayoutGrid, path: '/cockpit-360', hint: 'Synthèse cross-modules' },
+  { id: 'pi-5', label: 'Landing publique', group: 'Pilotage', icon: LayoutDashboard, path: '/landing', hint: 'Page commerciale Atlas Studio', keywords: ['site','public','marketing','landing'] },
   { id: 'pi-3', label: 'Simulateur What-if', group: 'Pilotage', icon: Star, path: '/whatif', hint: 'Augmentation · embauches · réformes', keywords: ['simulation','scenario','prevision'] },
   { id: 'pi-4', label: 'Comparateur scénarios A vs B', group: 'Pilotage', icon: Star, path: '/whatif/compare', hint: 'Side-by-side delta financier', keywords: ['compare','versus','arbitrage'] },
 
