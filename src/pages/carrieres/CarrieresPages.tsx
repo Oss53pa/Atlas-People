@@ -17,6 +17,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { CarrieresSubNav } from '../../components/carrieres/CarrieresSubNav';
+import { M10LiveBanner } from '../../components/carrieres/M10LiveBanner';
 import {
   FILIERES, TRAJECTORIES, CRITICAL_ROLES, HIGH_POTS, MENTORSHIPS,
   OPPORTUNITIES, SKILLS_MAPPING, kpis, filiereByCode, successorsOf,
@@ -35,6 +36,7 @@ export function CockpitCarrieresPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <CarrieresSubNav />
+      <M10LiveBanner />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Carrières & Succession</h1>

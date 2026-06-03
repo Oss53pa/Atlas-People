@@ -17,6 +17,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { ConformiteSubNav } from '../../components/conformite/ConformiteSubNav';
+import { M12LiveBanner } from '../../components/conformite/M12LiveBanner';
 import {
   RISKS, RPS_SURVEYS, INCIDENTS, REGISTER_ENTRIES, DECLARATIONS,
   MEDICAL_VISITS, AUTHORIZATIONS, EPI_ASSIGNMENTS, AUDITS, INSPECTIONS,
@@ -51,6 +52,7 @@ export function CockpitConformitePage() {
   return (
     <div className="animate-fade-up space-y-5">
       <ConformiteSubNav />
+      <M12LiveBanner />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Conformité & Santé Sécurité au Travail</h1>

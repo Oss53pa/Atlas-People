@@ -10,6 +10,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { EvalSubNav } from '../../components/eval/EvalSubNav';
+import { M8LiveBanner } from '../../components/eval/M8LiveBanner';
 import {
   EVALUATIONS, CYCLES, CALIBRATIONS, TALENT_BOXES, DEV_PLANS, activeCycle, kpis,
 } from '../../lib/m8/mock';
@@ -27,6 +28,7 @@ export function CockpitEvalPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <EvalSubNav />
+      <M8LiveBanner />
 
       <div className="flex items-center justify-between">
         <div>

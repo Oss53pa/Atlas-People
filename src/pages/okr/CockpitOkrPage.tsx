@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
+import { M7LiveBanner } from '../../components/okr/M7LiveBanner';
 import {
   OBJECTIVES, KEY_RESULTS, CHECKINS, OKR_CYCLES, activeCycle, kpis, krsByObjective,
 } from '../../lib/m7/mock';
@@ -25,6 +26,7 @@ export function CockpitOkrPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <OkrSubNav />
+      <M7LiveBanner />
 
       <div className="flex items-center justify-between">
         <div>
