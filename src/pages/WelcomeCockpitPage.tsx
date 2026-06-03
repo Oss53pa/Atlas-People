@@ -16,7 +16,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Home, Users, Briefcase, Route as RouteIcon, GraduationCap, BarChart3,
-  Bell, AlertTriangle, Sparkles, ArrowUpRight, Calendar,
+  AlertTriangle, Sparkles, ArrowUpRight, Calendar, ExternalLink, LogIn,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { Money } from '../lib/money';
@@ -130,6 +130,10 @@ export function WelcomeCockpitPage() {
             </div>
           </Link>
           <div className="flex flex-wrap items-center gap-2">
+            <Link to="/landing"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-semibold text-ink-500 transition-colors hover:border-amber-deep/30 hover:text-amber-deep">
+              <ExternalLink size={10} /> Landing publique
+            </Link>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-semibold text-ink-500">
               <Calendar size={11} /> Période <strong className="ml-0.5 text-ink">Avril 2026</strong>
             </span>
@@ -139,9 +143,9 @@ export function WelcomeCockpitPage() {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-violet-50/40 px-3 py-1 text-[11px] font-semibold text-violet-700">
               <Sparkles size={11} className="text-violet-500" /> PROPH3T HR
             </span>
-            <Link to="/cockpit-360"
+            <Link to="/"
               className="inline-flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-1.5 text-[12px] font-bold text-surface transition-shadow hover:shadow-lg">
-              Le Cockpit <ArrowUpRight size={13} />
+              <LogIn size={13} /> Entrer dans l'app
             </Link>
           </div>
         </div>
@@ -227,9 +231,20 @@ export function WelcomeCockpitPage() {
 
       {/* ───────── 5. Footer signature ───────── */}
       <footer className="border-t border-line bg-surface">
-        <p className="mx-auto max-w-7xl px-6 py-6 text-center text-[11px] font-medium text-ink-400">
-          Atlas People · Atlas Studio · OHADA — 17 États · SYSCOHADA révisé 2017 · Tenant démo Côte d'Ivoire (XOF)
-        </p>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-6">
+          <p className="text-[11px] font-medium text-ink-400">
+            Atlas People · Atlas Studio · OHADA — 17 États · SYSCOHADA révisé 2017 · Tenant démo Côte d'Ivoire (XOF)
+          </p>
+          <div className="flex items-center gap-3 text-[11px] font-semibold">
+            <Link to="/landing" className="inline-flex items-center gap-1 text-ink-500 hover:text-amber-deep">
+              <ExternalLink size={11} /> Landing publique
+            </Link>
+            <span className="text-ink-300">·</span>
+            <Link to="/" className="inline-flex items-center gap-1 text-ink-500 hover:text-amber-deep">
+              <LogIn size={11} /> Entrer dans l'app
+            </Link>
+          </div>
+        </div>
       </footer>
     </div>
   );

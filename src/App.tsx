@@ -256,14 +256,15 @@ const READY: Record<string, JSX.Element> = {
   '/conformite': <CockpitConformitePage />,
   '/moi': <SelfServicePage />,
   '/cockpit-360': <UnifiedCockpitDRHPage />,
-  '/accueil': <WelcomeCockpitPage />,
+  // '/accueil' est désormais hors AppLayout (route directe ci-dessous)
 };
 
 function App() {
   return (
     <Routes>
-      {/* Landing publique non-authentifiée — hors AppLayout */}
+      {/* Pages "marketing/welcome" hors AppLayout (sans sidebar / sans topbar) */}
       <Route path="/landing" element={<LandingPage />} />
+      <Route path="/accueil" element={<WelcomeCockpitPage />} />
 
       <Route element={<AppLayout />}>
         {ALL_MODULES.map((m) => (
@@ -412,7 +413,7 @@ function App() {
         <Route path="/objectifs/integration" element={<IntegrationOkrPage />} />
         <Route path="/objectifs/audit" element={<AuditOkrPage />} />
         {/* /cockpit-360 désormais wiré via READY (ligne ~258) */}
-        <Route path="/accueil" element={<WelcomeCockpitPage />} />
+        {/* /accueil + /landing sont hors AppLayout (déclarés tout en haut) */}
         <Route path="/whatif" element={<WhatIfSimulatorPage />} />
         <Route path="/whatif/compare" element={<WhatIfComparePage />} />
         <Route path="/evaluations/cycle-annuel" element={<CycleAnnuelEvalPage />} />

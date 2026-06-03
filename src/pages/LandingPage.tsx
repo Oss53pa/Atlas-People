@@ -57,6 +57,10 @@ export function LandingPage() {
             <button type="button" aria-label="Thème" className="hidden text-ink-400 transition-colors hover:text-ink sm:inline-flex">
               <Moon size={16} />
             </button>
+            <Link to="/accueil"
+              className="hidden items-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-2 text-[13px] font-bold text-ink transition-colors hover:border-amber-deep/40 hover:text-amber-deep sm:inline-flex">
+              Démo accueil
+            </Link>
             <Link to="/"
               className="inline-flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2 text-[13px] font-bold text-surface transition-shadow hover:shadow-lg">
               Mon espace <ArrowRight size={14} />

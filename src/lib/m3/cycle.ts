@@ -121,3 +121,115 @@ export function fullRecapByRubrique(rows: CycleBulletin[]): RubriqueRecap[] {
     order[a.section] - order[b.section] || Math.abs(b.total) - Math.abs(a.total) || a.code.localeCompare(b.code),
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Modèle « Livre de paie » horizontal (1 colonne par salarié)         */
+/* ------------------------------------------------------------------ */
+
+const SECTION_ORDER: Record<string, number> = { Gains: 0, Cotisations: 1, Retenues: 2, Patronal: 3 };
+
+export interface LivreRow {
+  code: string;
+  label: string;
+  section: string;                 // Gains | Cotisations | Retenues | Patronal | Synthèse
+  emphasis?: boolean;              // ligne d'agrégat (brut, net…) en gras
+  amounts: Record<string, number>; // empId -> montant (signé tel quel)
+  total: number;
+}
+
+export interface LivreDePaie {
+  emps: EmployeeRecord[];
+  lignes: LivreRow[];
+}
+
+/**
+ * Construit le livre de paie horizontal : une colonne par collaborateur, une
+ * ligne par rubrique mouvementée (union sur le cycle), suivie des agrégats de
+ * synthèse (brut, net imposable, net à payer). 100 % dérivé des bulletins du
+ * moteur déterministe.
+ */
+export function livreDePaie(rows: CycleBulletin[]): LivreDePaie {
+  const emps = rows.map((r) => r.emp);
+
+  // Métadonnées (label/section) des rubriques rencontrées, dans l'ordre légal.
+  const meta = new Map<string, { label: string; section: string }>();
+  for (const r of rows) {
+    const sectioned = [
+      ...r.bulletin.gains.map((l) => ({ l, section: 'Gains' })),
+      ...r.bulletin.cotisationsEmp.map((l) => ({ l, section: 'Cotisations' })),
+      ...r.bulletin.retenues.map((l) => ({ l, section: 'Retenues' })),
+      ...r.bulletin.patronal.map((l) => ({ l, section: 'Patronal' })),
+    ];
+    for (const { l, section } of sectioned) if (!meta.has(l.code)) meta.set(l.code, { label: l.label, section });
+  }
+  const codes = [...meta.entries()].sort((a, b) => SECTION_ORDER[a[1].section] - SECTION_ORDER[b[1].section]);
+
+  const amountFor = (r: CycleBulletin, code: string) => {
+    const all = [...r.bulletin.gains, ...r.bulletin.cotisationsEmp, ...r.bulletin.retenues, ...r.bulletin.patronal];
+    return all.find((l) => l.code === code)?.montant ?? 0;
+  };
+
+  const rubriqueRows: LivreRow[] = codes.map(([code, m]) => {
+    const amounts: Record<string, number> = {};
+    let total = 0;
+    for (const r of rows) { const v = amountFor(r, code); amounts[r.emp.id] = v; total += v; }
+    return { code, label: m.label, section: m.section, amounts, total };
+  });
+
+  const agg = (label: string, pick: (b: BulletinViewer) => number): LivreRow => {
+    const amounts: Record<string, number> = {};
+    let total = 0;
+    for (const r of rows) { const v = pick(r.bulletin); amounts[r.emp.id] = v; total += v; }
+    return { code: label, label, section: 'Synthèse', emphasis: true, amounts, total };
+  };
+
+  const synthese = [
+    agg('Brut total', (b) => b.brutTotal),
+    agg('Net imposable', (b) => b.baseIrpp),
+    agg('Net à payer', (b) => b.netAPayer),
+  ];
+
+  return { emps, lignes: [...rubriqueRows, ...synthese] };
+}
+
+/* ------------------------------------------------------------------ */
+/* Modèle « Journal de paie détaillé » par comptes                     */
+/* ------------------------------------------------------------------ */
+
+export interface JournalCompteCol { code: string; label: string; neg?: boolean }
+export interface JournalCompteRow { emp: EmployeeRecord; values: number[] }
+export interface JournalComptes {
+  colonnes: JournalCompteCol[];
+  lignes: JournalCompteRow[];
+  totals: number[];
+}
+
+/** Colonnes du journal détaillé (comptes SYSCOHADA indicatifs). */
+const JOURNAL_COLONNES: JournalCompteCol[] = [
+  { code: '661', label: 'Salaire de base' },
+  { code: '661', label: 'Salaire brut' },
+  { code: '431', label: 'Cotisations sal.', neg: true },
+  { code: '661', label: 'Salaire imposable' },
+  { code: '447', label: 'Impôt / IRPP', neg: true },
+  { code: '421', label: 'Retenues diverses', neg: true },
+  { code: '422', label: 'Net à payer' },
+  { code: '664', label: 'Charges patronales' },
+  { code: '—', label: 'Coût employeur' },
+];
+
+/**
+ * Journal de paie détaillé : une ligne par collaborateur, colonnes par comptes
+ * (base, brut, cotisations, imposable, impôt, retenues, net, charges, coût).
+ * Les valeurs sont reconstituées depuis les agrégats du bulletin déterministe.
+ */
+export function journalComptes(rows: CycleBulletin[]): JournalComptes {
+  const valuesFor = (b: BulletinViewer): number[] => {
+    const salaireBase = b.gains.find((l) => l.code === 'SAL_BASE')?.montant ?? 0;
+    const cotisSociales = b.baseCnps - b.baseIrpp;          // = total cotisations salariales
+    const impot = b.totalCotisationsEmp - cotisSociales;    // = IRPP seul
+    return [salaireBase, b.brutTotal, cotisSociales, b.baseIrpp, impot, b.totalRetenues, b.netAPayer, b.totalPatronal, b.coutEmployeur];
+  };
+  const lignes = rows.map((r) => ({ emp: r.emp, values: valuesFor(r.bulletin) }));
+  const totals = JOURNAL_COLONNES.map((_, i) => lignes.reduce((s, l) => s + l.values[i], 0));
+  return { colonnes: JOURNAL_COLONNES, lignes, totals };
+}

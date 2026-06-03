@@ -286,7 +286,7 @@ export function UnifiedCockpitDRHPage() {
         <div>
           <h1 className="font-display text-3xl text-ink">Cockpit DRH 360°</h1>
           <p className="mt-1 text-sm font-medium text-ink-500">
-            Synthèse cross-modules · {sections.length} blocs · destination DG &amp; Comex · données déterministes
+            Cross-modules · {sections.length} onglets · DG &amp; Comex · données déterministes
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -345,38 +345,9 @@ export function UnifiedCockpitDRHPage() {
         },
       }} />
 
-      {/* 8 SECTIONS MODULES */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {sections.map((s) => {
-          const SecIcon = s.icon;
-          return (
-            <Card key={s.title} inset={false}>
-              <div className="p-5 pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-xl bg-amber/12 p-2 text-amber-deep"><SecIcon size={18} /></span>
-                    <div>
-                      <h2 className="text-[14px] font-semibold leading-tight text-ink">{s.title}</h2>
-                      <p className="mt-0.5 text-[11px] font-medium text-ink-500">{s.subtitle}</p>
-                    </div>
-                  </div>
-                  <Link to={s.cta.to}><Button variant="ghost" size="sm">{s.cta.label} <ArrowUpRight size={12} /></Button></Link>
-                </div>
-              </div>
-              <div className="border-t border-line px-5 py-3">
-                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-                  {s.tiles.map((t, i) => <KpiTileView key={i} tile={t.tile} icon={t.icon} />)}
-                </div>
-                {s.alert && (
-                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/40 px-3 py-2 text-[11px] font-semibold text-amber-deep">
-                    <AlertTriangle size={12} /> {s.alert}
-                  </div>
-                )}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      {/* 8 SECTIONS MODULES — sous forme d'onglets */}
+      <SectionTabs sections={sections} />
+
 
       {/* TOP HAUTS POTENTIELS — focus rétention */}
       <Card>
@@ -432,3 +403,95 @@ export function UnifiedCockpitDRHPage() {
     </div>
   );
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * SectionTabs — 8 modules en onglets compacts (nav horizontale + 1 panel).
+ * Conserve l'intégralité du contenu des sections (KPI tiles + alertes + CTA)
+ * mais affiche un seul module à la fois pour économiser la hauteur visible.
+ * ─────────────────────────────────────────────────────────────────── */
+interface SectionTabsProps { sections: SectionBlock[] }
+
+function SectionTabs({ sections }: SectionTabsProps) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const active = sections[activeIdx];
+  if (!active) return null;
+  const ActiveIcon = active.icon;
+
+  return (
+    <div className="space-y-3">
+      {/* Nav onglets — pills horizontales scrollables */}
+      <nav
+        role="tablist"
+        aria-label="Modules DRH"
+        className="flex gap-1 overflow-x-auto rounded-2xl border border-line bg-surface p-1.5 no-scrollbar"
+      >
+        {sections.map((s, i) => {
+          const Icon = s.icon;
+          const isActive = i === activeIdx;
+          // Indicateur visuel d'alerte (point rouge) si la section a un message
+          const hasAlert = Boolean(s.alert);
+          return (
+            <button
+              key={s.title}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`drh-section-${i}`}
+              onClick={() => setActiveIdx(i)}
+              className={cn(
+                'relative flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-colors',
+                isActive
+                  ? 'bg-amber/12 text-amber-deep ring-1 ring-amber/30'
+                  : 'text-ink-500 hover:bg-ink/[0.04] hover:text-ink',
+              )}
+            >
+              <Icon size={14} />
+              <span>{s.title}</span>
+              {hasAlert && !isActive && (
+                <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-rose-500" aria-label="alerte" />
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Panneau actif */}
+      <Card key={active.title} id={`drh-section-${activeIdx}`} inset={false} className="animate-fade-up">
+        <div className="p-5 pb-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="rounded-xl bg-amber/12 p-2.5 text-amber-deep"><ActiveIcon size={20} /></span>
+              <div>
+                <h2 className="text-[16px] font-semibold leading-tight text-ink">{active.title}</h2>
+                <p className="mt-0.5 text-[11px] font-medium text-ink-500">{active.subtitle}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="hidden text-[10px] font-bold uppercase tracking-wider text-ink-400 sm:inline">
+                Onglet {activeIdx + 1} / {sections.length}
+              </span>
+              <Link to={active.cta.to}>
+                <Button variant="primary" size="sm">{active.cta.label} <ArrowUpRight size={12} /></Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-line px-5 py-4">
+          {/* Tiles KPI — 2 colonnes en mobile, jusqu'à 4-7 selon contenu (section M11 enrichie) */}
+          <div className={cn(
+            'grid grid-cols-2 gap-2',
+            active.tiles.length <= 4 ? 'lg:grid-cols-4' : active.tiles.length <= 6 ? 'lg:grid-cols-3 xl:grid-cols-6' : 'lg:grid-cols-4 xl:grid-cols-7',
+          )}>
+            {active.tiles.map((t, i) => <KpiTileView key={i} tile={t.tile} icon={t.icon} />)}
+          </div>
+          {active.alert && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50/40 px-3 py-2 text-[12px] font-semibold text-rose-700">
+              <AlertTriangle size={13} /> {active.alert}
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+

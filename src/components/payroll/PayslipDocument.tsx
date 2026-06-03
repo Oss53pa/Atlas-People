@@ -1,41 +1,53 @@
 /**
  * Template officiel du bulletin de paie (imprimable / PDF via window.print).
- * Présentation conforme aux usages SYSCOHADA / droit du travail local.
- * Les chiffres proviennent exclusivement du moteur déterministe.
+ * Trois modèles de présentation au choix, tous alimentés par le MÊME moteur
+ * déterministe (lib/payroll) — aucun chiffre n'est saisi en dur :
+ *   - 'standard'  : présentation OHADA d'origine (Gains / Retenues).
+ *   - 'clarifie'  : modèle « fiche de paie clarifiée » (part salarié + part employeur).
+ *   - 'classique' : modèle bulletin de salaire classique (taux & cotisations patronales).
  */
 import { ShieldCheck } from 'lucide-react';
 import { Money } from '../../lib/money';
 import type { PayslipComputation } from '../../lib/payroll';
+import type { PayslipLine } from '../../lib/payroll/types';
 import { matricule, mobileMoney, type EmployeeRecord } from '../../data/mock';
 import { countryByCode } from '../../data/countries';
+
+export type PayslipTemplate = 'standard' | 'clarifie' | 'classique';
+
+export const PAYSLIP_TEMPLATES: { key: PayslipTemplate; label: string }[] = [
+  { key: 'standard', label: 'Standard OHADA' },
+  { key: 'clarifie', label: 'Clarifié' },
+  { key: 'classique', label: 'Classique' },
+];
 
 export function PayslipDocument({
   employee,
   computation,
   period,
   tenantName = 'Atlas Demo SA',
+  template = 'standard',
 }: {
   employee: EmployeeRecord;
   computation: PayslipComputation;
   period: string;
   tenantName?: string;
+  template?: PayslipTemplate;
 }) {
   const { result, verification, accounting } = computation;
   const currency = result.currency;
   const M = (u: string) => Money.fromJSON({ units: u, currency });
+  const fmt = (n: number) => Money.of(Math.round(n), currency).format();
   const country = countryByCode(employee.countryCode);
 
   const earnings = result.lines.filter((l) => l.kind === 'earning');
-  const retenues = result.lines.filter(
-    (l) => l.kind === 'employee_contribution' || l.kind === 'tax' || l.kind === 'deduction',
-  );
-  const employerLines = result.lines.filter(
-    (l) => l.kind === 'employer_contribution' || l.kind === 'employer_tax',
-  );
+  const combos = combinedRows(result.lines);
 
   const totalGains = M(result.grossTotalUnits);
   const totalRetenues = totalGains.subtract(M(result.netToPayUnits));
+  const totalPatronal = M(result.totalEmployerContributionUnits).add(M(result.totalEmployerTaxUnits));
   const auditHash = pseudoHash(`${matricule(employee)}|${period}|${result.netToPayUnits}`);
+  const templateLabel = PAYSLIP_TEMPLATES.find((t) => t.key === template)?.label ?? '';
 
   return (
     <div className="payslip-print mx-auto w-full max-w-[780px] bg-white p-7 text-ink sm:p-9">
@@ -59,6 +71,7 @@ export function PayslipDocument({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-deep">Bulletin de paie</p>
           <p className="text-xl font-extrabold text-ink">{period}</p>
           <p className="text-[11px] font-medium text-ink-500">Devise : {currency} (FCFA)</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Modèle : {templateLabel}</p>
         </div>
       </div>
 
@@ -74,51 +87,10 @@ export function PayslipDocument({
         <Field label="Régime / Pays" value={`${country.socialFund} · ${employee.countryCode}`} />
       </div>
 
-      {/* Tableau des rubriques */}
-      <table className="mt-4 w-full border-collapse text-[12px]">
-        <thead>
-          <tr className="border-b border-ink text-left text-[10px] font-bold uppercase tracking-wider text-ink-500">
-            <th className="py-2">Désignation</th>
-            <th className="py-2 text-right">Base</th>
-            <th className="py-2 text-right">Taux</th>
-            <th className="py-2 text-right">Gains</th>
-            <th className="py-2 text-right">Retenues</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {earnings.map((l) => (
-            <tr key={l.code}>
-              <td className="py-1.5 font-semibold text-ink">{l.label}</td>
-              <td className="py-1.5 text-right font-mono text-ink-500">{M(l.baseUnits).format()}</td>
-              <td className="py-1.5 text-right text-ink-400">—</td>
-              <td className="py-1.5 text-right font-mono font-semibold text-ink">{M(l.amountUnits).format()}</td>
-              <td className="py-1.5 text-right text-ink-400">—</td>
-            </tr>
-          ))}
-          {retenues.map((l) => (
-            <tr key={l.code}>
-              <td className="py-1.5 font-semibold text-ink">{l.label}</td>
-              <td className="py-1.5 text-right font-mono text-ink-500">{M(l.baseUnits).format()}</td>
-              <td className="py-1.5 text-right font-mono text-ink-400">
-                {l.rateBps != null ? `${(l.rateBps / 100).toFixed(2)}%` : '—'}
-              </td>
-              <td className="py-1.5 text-right text-ink-400">—</td>
-              <td className="py-1.5 text-right font-mono font-semibold text-danger">
-                {M(l.amountUnits).format().replace('-', '')}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t-2 border-ink text-[12px] font-bold">
-            <td className="py-2" colSpan={3}>
-              Totaux
-            </td>
-            <td className="py-2 text-right font-mono">{totalGains.format()}</td>
-            <td className="py-2 text-right font-mono text-danger">{totalRetenues.format()}</td>
-          </tr>
-        </tfoot>
-      </table>
+      {/* Tableau des rubriques (selon le modèle) */}
+      {template === 'standard' && <StandardTable earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} />}
+      {template === 'clarifie' && <ClarifieTable earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} />}
+      {template === 'classique' && <ClassiqueTable earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} />}
 
       {/* Net à payer */}
       <div className="mt-5 flex flex-col items-stretch gap-3 sm:flex-row">
@@ -134,21 +106,21 @@ export function PayslipDocument({
       {/* Récap secondaire */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Recap label="Net imposable" value={M(result.grossTaxableUnits).subtract(M(result.totalEmployeeContributionUnits)).format()} />
-        <Recap label="Total charges patronales" value={M(result.totalEmployerContributionUnits).add(M(result.totalEmployerTaxUnits)).format()} />
+        <Recap label="Total charges patronales" value={totalPatronal.format()} />
         <Recap label="Coût total employeur" value={M(result.employerCostUnits).format()} accent />
       </div>
 
-      {/* Charges patronales (détail) */}
-      {employerLines.length > 0 && (
+      {/* Charges patronales (détail) — uniquement en modèle standard (intégrées au tableau sinon) */}
+      {template === 'standard' && combos.some((r) => r.patAmount != null) && (
         <div className="mt-4">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-ink-400">
             Charges patronales (information)
           </p>
           <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
-            {employerLines.map((l) => (
-              <div key={l.code} className="flex justify-between border-b border-line py-1 text-[11px]">
-                <span className="text-ink-500">{l.label}</span>
-                <span className="font-mono text-ink-700">{M(l.amountUnits).format()}</span>
+            {combos.filter((r) => r.patAmount != null).map((r) => (
+              <div key={`pat-${r.code}`} className="flex justify-between border-b border-line py-1 text-[11px]">
+                <span className="text-ink-500">{r.patLabel ?? r.label}</span>
+                <span className="font-mono text-ink-700">{fmt(r.patAmount!)}</span>
               </div>
             ))}
           </div>
@@ -170,6 +142,229 @@ export function PayslipDocument({
       </p>
     </div>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Modèle 1 — Standard OHADA (Gains / Retenues)                        */
+/* ------------------------------------------------------------------ */
+function StandardTable({ earnings, combos, fmt, M, totalGains, totalRetenues }: TableProps) {
+  const retenues = combos.filter((r) => r.empAmount != null);
+  return (
+    <table className="mt-4 w-full border-collapse text-[12px]">
+      <thead>
+        <tr className="border-b border-ink text-left text-[10px] font-bold uppercase tracking-wider text-ink-500">
+          <th className="py-2">Désignation</th>
+          <th className="py-2 text-right">Base</th>
+          <th className="py-2 text-right">Taux</th>
+          <th className="py-2 text-right">Gains</th>
+          <th className="py-2 text-right">Retenues</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-line">
+        {earnings.map((l) => (
+          <tr key={l.code}>
+            <td className="py-1.5 font-semibold text-ink">{l.label}</td>
+            <td className="py-1.5 text-right font-mono text-ink-500">{M(l.baseUnits).format()}</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+            <td className="py-1.5 text-right font-mono font-semibold text-ink">{M(l.amountUnits).format()}</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+          </tr>
+        ))}
+        {retenues.map((r) => (
+          <tr key={r.code}>
+            <td className="py-1.5 font-semibold text-ink">{r.label}</td>
+            <td className="py-1.5 text-right font-mono text-ink-500">{r.base != null ? fmt(r.base) : '—'}</td>
+            <td className="py-1.5 text-right font-mono text-ink-400">{r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—'}</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+            <td className="py-1.5 text-right font-mono font-semibold text-danger">{fmt(r.empAmount!)}</td>
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr className="border-t-2 border-ink text-[12px] font-bold">
+          <td className="py-2" colSpan={3}>Totaux</td>
+          <td className="py-2 text-right font-mono">{totalGains.format()}</td>
+          <td className="py-2 text-right font-mono text-danger">{totalRetenues.format()}</td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Modèle 2 — Fiche de paie clarifiée (part salarié + part employeur)  */
+/* ------------------------------------------------------------------ */
+function ClarifieTable({ earnings, combos, fmt, M, totalGains, totalRetenues, totalPatronal }: TableProps) {
+  return (
+    <table className="mt-4 w-full border-collapse text-[11.5px]">
+      <thead>
+        <tr className="border-b border-ink text-left text-[9.5px] font-bold uppercase tracking-wider text-ink-500">
+          <th className="py-2">Désignation</th>
+          <th className="py-2 text-right">Base</th>
+          <th className="py-2 text-right">Taux sal.</th>
+          <th className="py-2 text-right text-ok">Gain</th>
+          <th className="py-2 text-right text-danger">Retenue</th>
+          <th className="py-2 text-right text-ink-400">Part employeur</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-line">
+        {earnings.map((l) => (
+          <tr key={l.code}>
+            <td className="py-1.5 font-semibold text-ink">{l.label}</td>
+            <td className="py-1.5 text-right font-mono text-ink-500">{M(l.baseUnits).format()}</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+            <td className="py-1.5 text-right font-mono font-semibold text-ink">{M(l.amountUnits).format()}</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+          </tr>
+        ))}
+        {combos.map((r) => (
+          <tr key={r.code} className={r.empAmount == null ? 'text-ink-500' : ''}>
+            <td className="py-1.5 font-semibold text-ink">{r.label}</td>
+            <td className="py-1.5 text-right font-mono text-ink-500">{r.base != null ? fmt(r.base) : '—'}</td>
+            <td className="py-1.5 text-right font-mono text-ink-400">{r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—'}</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+            <td className="py-1.5 text-right font-mono font-semibold text-danger">{r.empAmount != null ? fmt(r.empAmount) : '—'}</td>
+            <td className="py-1.5 text-right font-mono text-ink-600">{r.patAmount != null ? fmt(r.patAmount) : '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr className="border-t-2 border-ink text-[12px] font-bold">
+          <td className="py-2" colSpan={3}>Totaux</td>
+          <td className="py-2 text-right font-mono">{totalGains.format()}</td>
+          <td className="py-2 text-right font-mono text-danger">{totalRetenues.format()}</td>
+          <td className="py-2 text-right font-mono text-ink-600">{totalPatronal!.format()}</td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Modèle 3 — Bulletin de salaire classique (taux & cotisations pat.)  */
+/* ------------------------------------------------------------------ */
+function ClassiqueTable({ earnings, combos, fmt, M, totalGains, totalRetenues, totalPatronal }: TableProps) {
+  return (
+    <table className="mt-4 w-full border-collapse text-[11.5px]">
+      <thead>
+        <tr className="border-b border-ink text-left text-[9.5px] font-bold uppercase tracking-wider text-ink-500">
+          <th className="py-2">Rubriques</th>
+          <th className="py-2 text-right">Base</th>
+          <th className="py-2 text-right">Taux sal.</th>
+          <th className="py-2 text-right">Montant sal.</th>
+          <th className="py-2 text-right">Taux pat.</th>
+          <th className="py-2 text-right">Cot. patronales</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-line">
+        {earnings.map((l) => (
+          <tr key={l.code}>
+            <td className="py-1.5 font-semibold text-ink">{l.label}</td>
+            <td className="py-1.5 text-right font-mono text-ink-500">{M(l.baseUnits).format()}</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+            <td className="py-1.5 text-right font-mono font-semibold text-ink">{M(l.amountUnits).format()}</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+            <td className="py-1.5 text-right text-ink-400">—</td>
+          </tr>
+        ))}
+        {combos.map((r) => (
+          <tr key={r.code}>
+            <td className="py-1.5 font-semibold text-ink">{r.label}</td>
+            <td className="py-1.5 text-right font-mono text-ink-500">{r.base != null ? fmt(r.base) : '—'}</td>
+            <td className="py-1.5 text-right font-mono text-ink-400">{r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—'}</td>
+            <td className="py-1.5 text-right font-mono font-semibold text-danger">{r.empAmount != null ? fmt(r.empAmount) : '—'}</td>
+            <td className="py-1.5 text-right font-mono text-ink-400">{r.patRate != null ? `${r.patRate.toFixed(2)}%` : '—'}</td>
+            <td className="py-1.5 text-right font-mono text-ink-600">{r.patAmount != null ? fmt(r.patAmount) : '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr className="border-t-2 border-ink text-[12px] font-bold">
+          <td className="py-2">Totaux</td>
+          <td className="py-2" colSpan={2} />
+          <td className="py-2 text-right font-mono text-danger">{totalRetenues.format()}</td>
+          <td className="py-2 text-right font-mono text-ink-400">brut {totalGains.format()}</td>
+          <td className="py-2 text-right font-mono text-ink-600">{totalPatronal!.format()}</td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+interface ComboRow {
+  code: string;
+  label: string;
+  patLabel?: string;
+  base?: number;
+  empRate?: number;
+  empAmount?: number; // magnitude positive de la retenue salariale
+  patRate?: number;
+  patAmount?: number; // part patronale (positive)
+}
+
+interface TableProps {
+  earnings: PayslipLine[];
+  combos: ComboRow[];
+  fmt: (n: number) => string;
+  M: (u: string) => Money;
+  totalGains: Money;
+  totalRetenues: Money;
+  totalPatronal?: Money;
+}
+
+/**
+ * Apparie les lignes salariales (cotisations, impôt, retenues diverses) avec
+ * leur contrepartie patronale (`${code}_PAT`). Les taxes purement patronales
+ * (FDFP…) et cotisations sans part salariale apparaissent en lignes patronales
+ * seules. Tout est dérivé des lignes signées du moteur — aucun recalcul.
+ */
+function combinedRows(lines: PayslipLine[]): ComboRow[] {
+  const num = (u: string) => Number(BigInt(u));
+  const baseOf = (l: PayslipLine) =>
+    l.kind === 'employer_contribution' && l.code.endsWith('_PAT') ? l.code.slice(0, -4) : l.code;
+
+  const employerLines = lines.filter((l) => l.kind === 'employer_contribution' || l.kind === 'employer_tax');
+  const employerByBase = new Map<string, PayslipLine>();
+  for (const l of employerLines) employerByBase.set(baseOf(l), l);
+
+  const rows: ComboRow[] = [];
+  const pairedBases = new Set<string>();
+
+  for (const l of lines) {
+    if (l.kind !== 'employee_contribution' && l.kind !== 'tax' && l.kind !== 'deduction') continue;
+    const pat = employerByBase.get(l.code);
+    if (pat) pairedBases.add(l.code);
+    rows.push({
+      code: l.code,
+      label: l.label,
+      patLabel: pat?.label.replace(' (part patronale)', ''),
+      base: l.baseUnits ? num(l.baseUnits) : undefined,
+      empRate: l.rateBps ? l.rateBps / 100 : undefined,
+      empAmount: Math.abs(num(l.amountUnits)),
+      patRate: pat?.rateBps ? pat.rateBps / 100 : undefined,
+      patAmount: pat ? num(pat.amountUnits) : undefined,
+    });
+  }
+
+  // Lignes patronales sans contrepartie salariale (taxes FDFP, cotisations 100 % employeur).
+  for (const l of employerLines) {
+    const base = baseOf(l);
+    if (pairedBases.has(base)) continue;
+    rows.push({
+      code: `${l.code}__patonly`,
+      label: l.label.replace(' (part patronale)', ''),
+      base: l.baseUnits ? num(l.baseUnits) : undefined,
+      patRate: l.rateBps ? l.rateBps / 100 : undefined,
+      patAmount: num(l.amountUnits),
+    });
+  }
+
+  return rows;
 }
 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
