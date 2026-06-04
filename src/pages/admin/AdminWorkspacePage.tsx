@@ -15,13 +15,13 @@
  * Style Atlas Studio : palette neutre + accent teal/ink (différenciation visuelle
  * volontaire avec Atlas People amber-deep pour signaler que c'est une couche au-dessus).
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Settings2, Users, Building2, Shield, ScrollText, ArrowRight,
   Plus, Search, MoreVertical, CheckCircle2, AlertCircle,
   ExternalLink, ChevronRight, Lock, Globe, Coins, FileText,
-  Key,
+  Key, ChevronDown, Inbox, Home, LayoutGrid, Compass,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -72,9 +72,38 @@ const TABS: { key: AdminTab; label: string; icon: typeof Building2 }[] = [
   { key: 'security', label: 'Sécurité & audit',  icon: Shield },
 ];
 
+interface Workspace {
+  key: string;
+  to: string;
+  label: string;
+  sub: string;
+  icon: typeof Building2;
+  external?: boolean; // hors AppLayout (page meta)
+}
+const WORKSPACES: Workspace[] = [
+  { key: 'admin',   to: '/admin',    label: 'Console Admin',    sub: 'Atlas Studio · vous êtes ici',   icon: Settings2, external: true  },
+  { key: 'app',     to: '/',         label: 'Atlas People',     sub: 'Le SIRH · sidebar + 14 modules', icon: LayoutGrid                    },
+  { key: 'cockpit', to: '/cockpit-360', label: 'Cockpit DRH 360°', sub: 'Vue synthèse 8 onglets',     icon: Compass                       },
+  { key: 'queue',   to: '/hr/queue', label: 'File d\'attente',  sub: 'Back-office agent HR + DRH',      icon: Inbox                         },
+  { key: 'welcome', to: '/accueil',  label: 'Démo accueil',     sub: 'Welcome cockpit hors-app',        icon: Home,      external: true     },
+  { key: 'landing', to: '/landing',  label: 'Landing publique', sub: 'Page commerciale',                icon: ExternalLink, external: true  },
+];
+
 export function AdminWorkspacePage() {
   const [tab, setTab] = useState<AdminTab>('users');
   const [search, setSearch] = useState('');
+  const [wsOpen, setWsOpen] = useState(false);
+  const wsRef = useRef<HTMLDivElement>(null);
+
+  // Click outside → close workspaces dropdown
+  useEffect(() => {
+    if (!wsOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (wsRef.current && !wsRef.current.contains(e.target as Node)) setWsOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [wsOpen]);
 
   const filtered = USERS.filter((u) =>
     !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
@@ -96,10 +125,83 @@ export function AdminWorkspacePage() {
           </Link>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Workspace switcher dropdown */}
+            <div className="relative" ref={wsRef}>
+              <button
+                type="button"
+                onClick={() => setWsOpen((o) => !o)}
+                aria-haspopup="menu"
+                aria-expanded={wsOpen}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[12px] font-bold transition-colors',
+                  wsOpen
+                    ? 'border-teal-400/60 bg-teal-500/15 text-teal-200'
+                    : 'border-white/15 bg-white/[0.06] text-white/80 hover:border-teal-400/40 hover:bg-white/[0.10] hover:text-white'
+                )}
+              >
+                <LayoutGrid size={13} />
+                <span className="hidden sm:inline">Workspaces</span>
+                <ChevronDown size={12} className={cn('transition-transform', wsOpen && 'rotate-180')} />
+              </button>
+              {wsOpen && (
+                <div role="menu" className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5">
+                  <p className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Workspaces Atlas People
+                  </p>
+                  <ul className="divide-y divide-slate-100">
+                    {WORKSPACES.map((w) => {
+                      const Icon = w.icon;
+                      const isCurrent = w.key === 'admin';
+                      return (
+                        <li key={w.key}>
+                          <Link
+                            to={w.to}
+                            onClick={() => setWsOpen(false)}
+                            className={cn(
+                              'flex items-start gap-3 px-4 py-3 transition-colors',
+                              isCurrent ? 'bg-teal-50' : 'hover:bg-slate-50'
+                            )}
+                          >
+                            <span className={cn(
+                              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                              isCurrent ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'
+                            )}>
+                              <Icon size={16} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={cn('text-[13px] font-bold', isCurrent ? 'text-teal-900' : 'text-slate-900')}>
+                                  {w.label}
+                                </span>
+                                {w.external && !isCurrent && (
+                                  <ExternalLink size={10} className="text-slate-400" />
+                                )}
+                                {isCurrent && (
+                                  <span className="rounded-full bg-teal-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">Actif</span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500">{w.sub}</p>
+                            </div>
+                            {!isCurrent && <ChevronRight size={13} className="mt-2 shrink-0 text-slate-400" />}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="border-t border-slate-200 bg-slate-50 px-4 py-2.5">
+                    <p className="text-[10px] font-medium leading-relaxed text-slate-500">
+                      Le rôle admin est attribué via le compte tenant <strong>depuis Atlas Studio</strong>.
+                      Vous accédez ici aux autres espaces de l'application.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-3 py-1 text-[11px] font-semibold text-white/80 ring-1 ring-white/10">
               <Globe size={11} /> Tenant <strong className="ml-0.5 text-white">atlas-demo</strong>
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
+            <span className="hidden items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-400/30 md:inline-flex">
               <CheckCircle2 size={11} /> Système OK
             </span>
             <div className="hidden h-6 w-px bg-white/10 sm:block" />
