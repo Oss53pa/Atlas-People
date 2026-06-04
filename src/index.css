@@ -127,7 +127,13 @@
       gardant le contenu, format A4 paysage par défaut.
    ────────────────────────────────────────────────────────────── */
 @media print {
-  /* — Mode 1 : bulletin de paie — A4 portrait, 1 page garantie — */
+  /* ════════════════════════════════════════════════════════════════
+   * Mode 1 — BULLETIN DE PAIE : A4 portrait STRICT, 1 page garantie.
+   * Strat?gie en 3 couches :
+   *   1) visibility: hidden sur tout sauf .payslip-print
+   *   2) compaction font + paddings + line-height
+   *   3) overflow: hidden sur le wrapper + auto-fit scale via JS
+   * ════════════════════════════════════════════════════════════════ */
   body.print-payslip * {
     visibility: hidden;
   }
@@ -135,48 +141,62 @@
   body.print-payslip .payslip-print * {
     visibility: visible;
   }
-  body.print-payslip .payslip-print {
-    position: absolute;
-    inset: 0;
-    margin: 0;
-    max-width: none;
-    box-shadow: none;
-    padding: 8mm 10mm;
-    /* Tenir absolument sur 1 page A4 portrait : font-size de base réduit */
-    font-size: 9pt;
-    line-height: 1.2;
-  }
-  /* Tableaux compactés à l'impression */
-  body.print-payslip .payslip-print table,
-  body.print-payslip .payslip-print .payslip-table {
-    font-size: 8pt !important;
-    line-height: 1.15 !important;
-  }
-  body.print-payslip .payslip-print td,
-  body.print-payslip .payslip-print th {
-    padding-top: 1.5px !important;
-    padding-bottom: 1.5px !important;
-  }
-  body.print-payslip .payslip-print thead th {
-    font-size: 7pt !important;
-  }
-  body.print-payslip .payslip-print tfoot td {
-    font-size: 8.5pt !important;
-    padding-top: 2.5px !important;
-    padding-bottom: 2.5px !important;
-  }
-  /* Forcer A4 portrait pour le bulletin (override le landscape par défaut) */
   body.print-payslip {
     background: white !important;
   }
-  body.print-payslip {
-    /* @page n'est pas appliqué via body, mais via nested rule ci-dessous */
+  body.print-payslip .payslip-print {
+    position: absolute;
+    inset: 0;
+    margin: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    /* Force la zone exacte A4 utile (297mm - 6mm × 2 = 285mm) */
+    max-height: 285mm !important;
+    height: 285mm !important;
+    box-shadow: none;
+    padding: 4mm 6mm !important;
+    /* Compaction texte agressive */
+    font-size: 8.5pt !important;
+    line-height: 1.15 !important;
+    /* Auto-fit : si le scale JS n'a pas suffi, on cache le débordement */
+    overflow: hidden !important;
+  }
+  /* Tableaux ultra-compacts à l'impression */
+  body.print-payslip .payslip-print table,
+  body.print-payslip .payslip-print .payslip-table {
+    font-size: 7.5pt !important;
+    line-height: 1.1 !important;
+  }
+  body.print-payslip .payslip-print td,
+  body.print-payslip .payslip-print th {
+    padding-top: 0.8px !important;
+    padding-bottom: 0.8px !important;
+  }
+  body.print-payslip .payslip-print thead th {
+    font-size: 6.5pt !important;
+    padding-top: 1.5px !important;
+    padding-bottom: 1.5px !important;
+  }
+  body.print-payslip .payslip-print tfoot td {
+    font-size: 8pt !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+  /* SectionHeader (lignes intercalaires "Gains" / "Cotisations") */
+  body.print-payslip .payslip-print tbody tr td[colspan] {
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+    font-size: 6.5pt !important;
   }
   /* Pas de coupure dans le bulletin */
   body.print-payslip .payslip-print,
   body.print-payslip .payslip-print > * {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+  /* Désactiver tout transform JS à l'impression — le CSS print gère le fit */
+  body.print-payslip .payslip-print {
+    transform: none !important;
   }
 
   /* — Mode 2 : pages stratégiques (DEFAULT print mode) — */
@@ -265,10 +285,10 @@
     margin: 12mm;
   }
 
-  /* Bulletin de paie : A4 portrait, marges réduites, 1 page garantie */
+  /* Bulletin de paie : A4 portrait, marges minimales 6mm, 1 page garantie */
   @page payslipPage {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 6mm;
   }
   body.print-payslip {
     page: payslipPage;

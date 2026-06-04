@@ -66,6 +66,8 @@ import { MonDeveloppementPage } from './pages/portal/MonDeveloppementPage';
 import { MonSuiviSantePage } from './pages/portal/MonSuiviSantePage';
 import { MonOnboardingPage } from './pages/portal/MonOnboardingPage';
 import { MesParametresPage } from './pages/portal/MesParametresPage';
+import { MesDocumentsPage } from './pages/portal/MesDocumentsPage';
+import { MesSanctionsPage } from './pages/portal/MesSanctionsPage';
 import { MonPlanningPage } from './pages/ess/MonPlanningPage';
 import { MesHeuresSupPage } from './pages/ess/MesHeuresSupPage';
 import { MesDelegationPage } from './pages/ess/MesDelegationPage';
@@ -473,6 +475,8 @@ function App() {
         <Route path="/espace/sante" element={<MonSuiviSantePage />} />
         <Route path="/espace/onboarding" element={<MonOnboardingPage />} />
         <Route path="/espace/parametres" element={<MesParametresPage />} />
+        <Route path="/espace/documents" element={<MesDocumentsPage />} />
+        <Route path="/espace/sanctions" element={<MesSanctionsPage />} />
         <Route path="/me/time" element={<MonTempsPage />} />
         <Route path="/me/time/leave" element={<MesCongesPage />} />
         <Route path="/me/time/leave/request/new" element={<PoserDemandePage />} />

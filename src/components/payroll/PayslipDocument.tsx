@@ -1,23 +1,27 @@
 /**
  * Template officiel du bulletin de paie (imprimable / PDF via window.print).
  *
- * Design refait : épuré, monochrome, dense, type DOCUMENT LÉGAL plutôt que
- * card premium. Garanti 1 page A4 portrait à l'impression grâce à :
- *   • Police 8-10pt à l'écran, 7-9pt à l'impression
- *   • Tableau unique central avec sections (gains / cotisations / impôts / taxes)
- *   • Bandeau net à payer sobre, pas de gradient amber agressif
- *   • Récap 6 cases ligne unique
- *   • Footer 2 lignes denses
+ * Garantie 1 page A4 portrait QUEL QUE SOIT le nombre de lignes :
+ *   • Compaction structurelle extrême (paddings 0.5px en table)
+ *   • CSS print zoom 0.85 + marges page 6mm
+ *   • Auto-fit via useLayoutEffect : si overflow détecté, transform scale
+ *     dynamiquement pour rentrer dans 1062px (= 281mm @ 96 DPI = A4 utile)
  *
  * Trois modèles de présentation au choix, tous alimentés par le MÊME moteur
  * déterministe (lib/payroll) — aucun chiffre n'est saisi en dur.
  */
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { Money } from '../../lib/money';
 import type { PayslipComputation } from '../../lib/payroll';
 import type { PayslipLine } from '../../lib/payroll/types';
 import { matricule, mobileMoney, type EmployeeRecord } from '../../data/mock';
 import { countryByCode } from '../../data/countries';
+
+/** Hauteur utile A4 portrait à 96 DPI moins marges 6mm × 2.
+ *  A4 = 297mm × 210mm = 1123px × 794px @ 96dpi. Marges 6mm = 23px chacune.
+ *  Zone utile = 1123 − 46 = 1077px. On vise 1060px pour sécurité. */
+const A4_USABLE_HEIGHT_PX = 1060;
 
 export type PayslipTemplate = 'standard' | 'clarifie' | 'classique';
 
@@ -58,33 +62,62 @@ export function PayslipDocument({
   const templateLabel = PAYSLIP_TEMPLATES.find((t) => t.key === template)?.label ?? '';
   const bulletinRef = `BUL-${period.replace(/[^A-Z0-9]/gi, '').slice(0, 6)}-${matricule(employee).slice(-3)}`;
 
+  // Auto-fit : mesure la hauteur réelle et applique un scale pour garantir 1 page.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const measure = () => {
+      const h = el.scrollHeight;
+      if (h > A4_USABLE_HEIGHT_PX) {
+        // Petit buffer 0.99 pour absorber les arrondis de rendu navigateur.
+        setScale(Math.max(0.5, (A4_USABLE_HEIGHT_PX / h) * 0.99));
+      } else {
+        setScale(1);
+      }
+    };
+    measure();
+    // Re-mesure aux changements de fonts/layouts/printers.
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [template, result.lines.length]);
+
   return (
-    <div className="payslip-print mx-auto w-full max-w-[760px] bg-white px-6 py-5 text-[11px] leading-snug text-ink">
+    <div
+      ref={wrapperRef}
+      className="payslip-print mx-auto w-full max-w-[760px] bg-white px-5 py-3.5 text-[11px] leading-snug text-ink"
+      style={{
+        transform: scale !== 1 ? `scale(${scale})` : undefined,
+        transformOrigin: 'top center',
+      }}
+    >
 
       {/* ═══ EN-TÊTE — Identité société + référence bulletin ═══ */}
-      <header className="flex items-start justify-between gap-4 border-b-2 border-ink pb-2">
-        <div className="flex items-start gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-deep/10 ring-1 ring-amber-deep/20">
-            <svg viewBox="0 0 64 64" className="h-5 w-5">
+      <header className="flex items-start justify-between gap-3 border-b-2 border-ink pb-1.5">
+        <div className="flex items-start gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-deep/10 ring-1 ring-amber-deep/20">
+            <svg viewBox="0 0 64 64" className="h-4 w-4">
               <path d="M32 14 L50 50 H41 L32 31 L23 50 H14 Z" fill="#C97E12" />
             </svg>
           </div>
           <div>
-            <p className="text-[13px] font-bold uppercase leading-tight tracking-wide text-ink">{tenantName}</p>
-            <p className="text-[10px] font-medium leading-tight text-ink-700">{country.name} · {country.socialFund}</p>
-            <p className="text-[9px] font-medium leading-tight text-ink-500">NCC ——— · RCCM ——— · BP ———, {country.name}</p>
+            <p className="text-[12px] font-bold uppercase leading-tight tracking-wide text-ink">{tenantName}</p>
+            <p className="text-[9px] font-medium leading-tight text-ink-700">{country.name} · {country.socialFund}</p>
+            <p className="text-[8.5px] font-medium leading-tight text-ink-500">NCC ——— · RCCM ——— · BP ———, {country.name}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-deep">Bulletin de paie</p>
-          <p className="font-mono text-[16px] font-extrabold leading-tight text-ink">{period}</p>
-          <p className="mono text-[9px] font-medium text-ink-500">N° {bulletinRef}</p>
-          <p className="text-[8px] font-semibold uppercase tracking-wider text-ink-400">Modèle : {templateLabel} · {currency}</p>
+          <p className="text-[8.5px] font-bold uppercase tracking-[0.2em] text-amber-deep">Bulletin de paie</p>
+          <p className="font-mono text-[14px] font-extrabold leading-tight text-ink">{period}</p>
+          <p className="mono text-[8.5px] font-medium text-ink-500">N° {bulletinRef}</p>
+          <p className="text-[7.5px] font-semibold uppercase tracking-wider text-ink-400">Modèle : {templateLabel} · {currency}</p>
         </div>
       </header>
 
       {/* ═══ IDENTITÉ SALARIÉ — bloc compact 2 colonnes ═══ */}
-      <section className="grid grid-cols-2 gap-x-6 gap-y-0.5 border-b border-ink/30 py-2 text-[10px]">
+      <section className="grid grid-cols-2 gap-x-5 gap-y-0 border-b border-ink/30 py-1 text-[9.5px]">
         <IdRow label="Matricule"      value={matricule(employee)} mono />
         <IdRow label="Date d'embauche" value={new Date(employee.hireDate).toLocaleDateString('fr-FR')} />
         <IdRow label="Nom &amp; prénom" value={`${employee.lastName} ${employee.firstName}`} />
@@ -101,18 +134,18 @@ export function PayslipDocument({
       {template === 'classique' && <ClassiqueTable earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} />}
 
       {/* ═══ NET À PAYER — bandeau sobre ═══ */}
-      <section className="mt-3 flex items-center justify-between border-y-[1.5px] border-amber-deep bg-amber-deep/[0.05] px-4 py-2">
+      <section className="mt-2 flex items-center justify-between border-y-[1.5px] border-amber-deep bg-amber-deep/[0.05] px-3 py-1.5">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-amber-deep">Net à payer</p>
-          <p className="text-[10px] font-medium text-ink-700">Versé sur Mobile Money {mobileMoney(employee)}</p>
+          <p className="text-[8.5px] font-bold uppercase tracking-[0.18em] text-amber-deep">Net à payer</p>
+          <p className="text-[9px] font-medium text-ink-700">Versé sur Mobile Money {mobileMoney(employee)}</p>
         </div>
-        <p className="mono text-[22px] font-extrabold leading-none text-amber-deep">
+        <p className="mono text-[19px] font-extrabold leading-none text-amber-deep">
           {M(result.netToPayUnits).formatWithCurrency()}
         </p>
       </section>
 
       {/* ═══ RÉCAP — 6 cases en ligne ═══ */}
-      <section className="mt-2 grid grid-cols-3 gap-x-3 gap-y-0.5 border-b border-ink/15 py-2 text-[10px] sm:grid-cols-6">
+      <section className="mt-1.5 grid grid-cols-3 gap-x-3 gap-y-0 border-b border-ink/15 py-1 text-[9.5px] sm:grid-cols-6">
         <RecapItem label="Net imposable"    value={netImposable.format()} />
         <RecapItem label="Total gains"      value={totalGains.format()} />
         <RecapItem label="Total retenues"   value={totalRetenues.format()} tone="danger" />
@@ -123,13 +156,13 @@ export function PayslipDocument({
 
       {/* ═══ CHARGES PATRONALES (info) — affichage standard uniquement ═══ */}
       {template === 'standard' && combos.some((r) => r.patAmount != null) && (
-        <section className="mt-2 border-b border-ink/15 pb-2">
-          <p className="mb-0.5 text-[8px] font-bold uppercase tracking-wider text-ink-500">
+        <section className="mt-1.5 border-b border-ink/15 pb-1.5">
+          <p className="mb-0 text-[7.5px] font-bold uppercase tracking-wider text-ink-500">
             Charges patronales (information employeur)
           </p>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-0 text-[10px] sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-x-5 gap-y-0 text-[9.5px] sm:grid-cols-3">
             {combos.filter((r) => r.patAmount != null).map((r) => (
-              <div key={`pat-${r.code}`} className="flex items-baseline justify-between border-b border-dotted border-ink/15 py-0.5">
+              <div key={`pat-${r.code}`} className="flex items-baseline justify-between border-b border-dotted border-ink/15 py-0">
                 <span className="truncate text-ink-700">{r.patLabel ?? r.label}</span>
                 <span className="mono font-semibold text-ink">{fmt(r.patAmount!)}</span>
               </div>
@@ -139,17 +172,17 @@ export function PayslipDocument({
       )}
 
       {/* ═══ FOOTER — intégrité + mention légale ═══ */}
-      <footer className="mt-2 flex flex-col gap-1 text-[8.5px] text-ink-500">
-        <div className="flex items-center justify-between border-t border-ink/30 pt-1.5">
+      <footer className="mt-1.5 flex flex-col gap-0.5 text-[8px] text-ink-500">
+        <div className="flex items-center justify-between border-t border-ink/30 pt-1">
           <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-bold ${verification.ok ? 'bg-ok/10 text-ok' : 'bg-danger/10 text-danger'}`}>
-              <ShieldCheck size={10} /> {verification.ok ? 'Double vérification OK' : 'Écart détecté'}
+            <span className={`inline-flex items-center gap-1 rounded-sm px-1.5 py-0 font-bold ${verification.ok ? 'bg-ok/10 text-ok' : 'bg-danger/10 text-danger'}`}>
+              <ShieldCheck size={9} /> {verification.ok ? 'Double vérification OK' : 'Écart détecté'}
             </span>
             <span className="text-ink-600">Écriture comptable {accounting.balanced ? 'équilibrée' : 'déséquilibrée'}</span>
           </div>
           <span className="mono">Empreinte audit · <span className="font-semibold text-ink-700">{auditHash}</span></span>
         </div>
-        <p className="leading-snug">
+        <p className="leading-tight">
           Bulletin établi conformément au régime {country.socialFund} ({country.name}). À conserver sans limitation de durée.
           Document généré par <span className="font-bold text-amber-deep">Atlas People</span> · Atlas Studio · OHADA 17 États.
         </p>

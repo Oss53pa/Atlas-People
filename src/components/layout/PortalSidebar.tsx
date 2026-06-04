@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   X, ShieldCheck, Home, User, Wallet, CalendarClock, Target, GraduationCap,
-  ReceiptText, Inbox, Mail, HeartPulse, Settings, Rocket,
+  ReceiptText, Inbox, Mail, HeartPulse, Settings, Rocket, FolderOpen, AlertTriangle,
 } from 'lucide-react';
 import { Brand } from '../ui/Brand';
 import { useAppStore } from '../../store/useAppStore';
@@ -20,8 +20,10 @@ const ITEMS: Item[] = [
   { label: 'Ma performance', to: '/espace/performance', icon: Target },
   { label: 'Mon développement', to: '/espace/developpement', icon: GraduationCap },
   { label: 'Mes notes de frais', to: '/espace/frais', icon: ReceiptText },
+  { label: 'Mes documents', to: '/espace/documents', icon: FolderOpen },
   { label: 'Mes demandes', to: '/espace/demandes', icon: Inbox },
   { label: 'Mon courrier', to: '/espace/courrier', icon: Mail, badgeKey: 'courrier' },
+  { label: 'Mes sanctions', to: '/espace/sanctions', icon: AlertTriangle },
   { label: 'Mon suivi santé', to: '/espace/sante', icon: HeartPulse },
   { label: 'Mon intégration', to: '/espace/onboarding', icon: Rocket },
   { label: 'Mes paramètres', to: '/espace/parametres', icon: Settings },
