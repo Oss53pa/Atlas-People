@@ -128,11 +128,13 @@
    ────────────────────────────────────────────────────────────── */
 @media print {
   /* ════════════════════════════════════════════════════════════════
-   * Mode 1 — BULLETIN DE PAIE : A4 portrait STRICT, 1 page garantie.
-   * Strat?gie en 3 couches :
-   *   1) visibility: hidden sur tout sauf .payslip-print
-   *   2) compaction font + paddings + line-height
-   *   3) overflow: hidden sur le wrapper + auto-fit scale via JS
+   * Mode 1 — BULLETIN DE PAIE : A4 portrait, contenu PLEINE PAGE adapté
+   *  - Le wrapper occupe TOUTE la largeur (210mm − 5mm × 2 = 200mm)
+   *  - La table s'étire sur toute la largeur (width 100%)
+   *  - Densité (font-size, padding, line-height) dynamique selon le nombre
+   *    de lignes, via data-density appliqué inline par le composant React
+   *  - Pas de transform : la densité gère le fit, pas un scale
+   *  - max-height: contraint à la page A4 utile
    * ════════════════════════════════════════════════════════════════ */
   body.print-payslip * {
     visibility: hidden;
@@ -148,55 +150,98 @@
     position: absolute;
     inset: 0;
     margin: 0 !important;
+    /* CLEF DU FIX : prend toute la largeur A4 — pas de max-w-[760px] en print */
     max-width: none !important;
     width: 100% !important;
-    /* Force la zone exacte A4 utile (297mm - 6mm × 2 = 285mm) */
-    max-height: 285mm !important;
-    height: 285mm !important;
+    /* Force la zone A4 utile (297mm - 5mm × 2 = 287mm) */
+    min-height: 287mm !important;
+    max-height: 287mm !important;
+    height: 287mm !important;
     box-shadow: none;
-    padding: 4mm 6mm !important;
-    /* Compaction texte agressive */
-    font-size: 8.5pt !important;
-    line-height: 1.15 !important;
-    /* Auto-fit : si le scale JS n'a pas suffi, on cache le débordement */
+    padding: 5mm 6mm !important;
+    line-height: 1.2 !important;
+    /* Désactive le scale JS — le CSS print gère le fit via la densité */
+    transform: none !important;
+    /* Garde-fou : rien ne déborde sur une 2e page */
     overflow: hidden !important;
   }
-  /* Tableaux ultra-compacts à l'impression */
+
+  /* Tableaux : pleine largeur + table-layout auto pour bien remplir */
   body.print-payslip .payslip-print table,
   body.print-payslip .payslip-print .payslip-table {
-    font-size: 7.5pt !important;
-    line-height: 1.1 !important;
+    width: 100% !important;
+    table-layout: auto !important;
   }
   body.print-payslip .payslip-print td,
   body.print-payslip .payslip-print th {
-    padding-top: 0.8px !important;
-    padding-bottom: 0.8px !important;
-  }
-  body.print-payslip .payslip-print thead th {
-    font-size: 6.5pt !important;
-    padding-top: 1.5px !important;
-    padding-bottom: 1.5px !important;
-  }
-  body.print-payslip .payslip-print tfoot td {
-    font-size: 8pt !important;
-    padding-top: 2px !important;
-    padding-bottom: 2px !important;
-  }
-  /* SectionHeader (lignes intercalaires "Gains" / "Cotisations") */
-  body.print-payslip .payslip-print tbody tr td[colspan] {
     padding-top: 1px !important;
     padding-bottom: 1px !important;
-    font-size: 6.5pt !important;
   }
+  body.print-payslip .payslip-print tfoot td {
+    padding-top: 2.5px !important;
+    padding-bottom: 2.5px !important;
+  }
+
+  /* ──────────────────────────────────────────────────────────────
+   * Densité dynamique : 6 paliers selon data-density appliqué par
+   * le composant React (basé sur le nombre de lignes du bulletin).
+   * Chaque palier ajuste font-size base + tableau pour remplir
+   * exactement la hauteur A4 utile.
+   * ─────────────────────────────────────────────────────────── */
+
+  /* Densité 1.20 : 0-8 lignes → bulletin "court" très aéré */
+  body.print-payslip .payslip-print[data-density="1.20"]              { font-size: 11.5pt !important; }
+  body.print-payslip .payslip-print[data-density="1.20"] table        { font-size: 10pt !important; }
+  body.print-payslip .payslip-print[data-density="1.20"] thead th     { font-size: 8pt !important; }
+  body.print-payslip .payslip-print[data-density="1.20"] tfoot td     { font-size: 10.5pt !important; }
+  body.print-payslip .payslip-print[data-density="1.20"] td,
+  body.print-payslip .payslip-print[data-density="1.20"] th           { padding-top: 3px !important; padding-bottom: 3px !important; }
+
+  /* Densité 1.08 : 9-12 lignes → léger surfilling */
+  body.print-payslip .payslip-print[data-density="1.08"]              { font-size: 10.5pt !important; }
+  body.print-payslip .payslip-print[data-density="1.08"] table        { font-size: 9pt !important; }
+  body.print-payslip .payslip-print[data-density="1.08"] thead th     { font-size: 7.5pt !important; }
+  body.print-payslip .payslip-print[data-density="1.08"] tfoot td     { font-size: 9.5pt !important; }
+  body.print-payslip .payslip-print[data-density="1.08"] td,
+  body.print-payslip .payslip-print[data-density="1.08"] th           { padding-top: 2px !important; padding-bottom: 2px !important; }
+
+  /* Densité 1.00 : 13-16 lignes → standard */
+  body.print-payslip .payslip-print[data-density="1.00"]              { font-size: 9.5pt !important; }
+  body.print-payslip .payslip-print[data-density="1.00"] table        { font-size: 8.5pt !important; }
+  body.print-payslip .payslip-print[data-density="1.00"] thead th     { font-size: 7pt !important; }
+  body.print-payslip .payslip-print[data-density="1.00"] tfoot td     { font-size: 9pt !important; }
+  body.print-payslip .payslip-print[data-density="1.00"] td,
+  body.print-payslip .payslip-print[data-density="1.00"] th           { padding-top: 1.5px !important; padding-bottom: 1.5px !important; }
+
+  /* Densité 0.92 : 17-20 lignes → légèrement resserré */
+  body.print-payslip .payslip-print[data-density="0.92"]              { font-size: 9pt !important; }
+  body.print-payslip .payslip-print[data-density="0.92"] table        { font-size: 8pt !important; }
+  body.print-payslip .payslip-print[data-density="0.92"] thead th     { font-size: 6.5pt !important; }
+  body.print-payslip .payslip-print[data-density="0.92"] tfoot td     { font-size: 8.5pt !important; }
+  body.print-payslip .payslip-print[data-density="0.92"] td,
+  body.print-payslip .payslip-print[data-density="0.92"] th           { padding-top: 1px !important; padding-bottom: 1px !important; }
+
+  /* Densité 0.85 : 21-24 lignes → resserré */
+  body.print-payslip .payslip-print[data-density="0.85"]              { font-size: 8.5pt !important; line-height: 1.15 !important; }
+  body.print-payslip .payslip-print[data-density="0.85"] table        { font-size: 7.5pt !important; line-height: 1.1 !important; }
+  body.print-payslip .payslip-print[data-density="0.85"] thead th     { font-size: 6pt !important; }
+  body.print-payslip .payslip-print[data-density="0.85"] tfoot td     { font-size: 8pt !important; }
+  body.print-payslip .payslip-print[data-density="0.85"] td,
+  body.print-payslip .payslip-print[data-density="0.85"] th           { padding-top: 0.6px !important; padding-bottom: 0.6px !important; }
+
+  /* Densité 0.78 : 25+ lignes → extreme compaction (limite légale) */
+  body.print-payslip .payslip-print[data-density="0.78"]              { font-size: 8pt !important; line-height: 1.1 !important; }
+  body.print-payslip .payslip-print[data-density="0.78"] table        { font-size: 7pt !important; line-height: 1.05 !important; }
+  body.print-payslip .payslip-print[data-density="0.78"] thead th     { font-size: 5.5pt !important; }
+  body.print-payslip .payslip-print[data-density="0.78"] tfoot td     { font-size: 7.5pt !important; }
+  body.print-payslip .payslip-print[data-density="0.78"] td,
+  body.print-payslip .payslip-print[data-density="0.78"] th           { padding-top: 0.3px !important; padding-bottom: 0.3px !important; }
+
   /* Pas de coupure dans le bulletin */
   body.print-payslip .payslip-print,
   body.print-payslip .payslip-print > * {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
-  }
-  /* Désactiver tout transform JS à l'impression — le CSS print gère le fit */
-  body.print-payslip .payslip-print {
-    transform: none !important;
   }
 
   /* — Mode 2 : pages stratégiques (DEFAULT print mode) — */

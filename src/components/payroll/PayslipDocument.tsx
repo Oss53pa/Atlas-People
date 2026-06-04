@@ -62,36 +62,57 @@ export function PayslipDocument({
   const templateLabel = PAYSLIP_TEMPLATES.find((t) => t.key === template)?.label ?? '';
   const bulletinRef = `BUL-${period.replace(/[^A-Z0-9]/gi, '').slice(0, 6)}-${matricule(employee).slice(-3)}`;
 
-  // Auto-fit : mesure la hauteur réelle et applique un scale pour garantir 1 page.
+  // Auto-fit BIDIRECTIONNEL : densité ajustée selon le nombre de lignes du bulletin.
+  // - Bulletin peu rempli (peu de cotisations) → density > 1 : texte plus aéré pour
+  //   occuper toute la page
+  // - Bulletin dense (beaucoup de cotisations) → density < 1 : texte resserré pour
+  //   tenir sur 1 page
+  // Le but : remplir la page A4 portrait quel que soit le nombre de lignes.
+  const totalRows = earnings.length + combos.length;
+  const density = totalRows <= 8  ? 1.20
+                : totalRows <= 12 ? 1.08
+                : totalRows <= 16 ? 1.00
+                : totalRows <= 20 ? 0.92
+                : totalRows <= 24 ? 0.85
+                : 0.78;
+
+  // Mesure post-render : si malgré la densité le contenu dépasse, on applique
+  // un scale de sécurité (jamais d'agrandissement, juste réduction garantie).
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [safetyScale, setSafetyScale] = useState(1);
   useLayoutEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
     const measure = () => {
       const h = el.scrollHeight;
       if (h > A4_USABLE_HEIGHT_PX) {
-        // Petit buffer 0.99 pour absorber les arrondis de rendu navigateur.
-        setScale(Math.max(0.5, (A4_USABLE_HEIGHT_PX / h) * 0.99));
+        setSafetyScale(Math.max(0.5, (A4_USABLE_HEIGHT_PX / h) * 0.99));
       } else {
-        setScale(1);
+        setSafetyScale(1);
       }
     };
     measure();
-    // Re-mesure aux changements de fonts/layouts/printers.
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [template, result.lines.length]);
+  }, [template, totalRows, density]);
 
   return (
     <div
       ref={wrapperRef}
-      className="payslip-print mx-auto w-full max-w-[760px] bg-white px-5 py-3.5 text-[11px] leading-snug text-ink"
+      className="payslip-print mx-auto w-full max-w-[760px] bg-white px-5 py-3.5 text-ink"
       style={{
-        transform: scale !== 1 ? `scale(${scale})` : undefined,
+        // Densité dynamique appliquée via font-size, line-height et padding.
+        // Tous les enfants utilisent des unités em ou héritent de cette base.
+        fontSize: `${10.5 * density}px`,
+        lineHeight: 1.25,
+        // Scale de sécurité uniquement à l'écran si toujours débordement
+        // (le CSS print désactive ce transform pour éviter le double-effet).
+        transform: safetyScale !== 1 ? `scale(${safetyScale})` : undefined,
         transformOrigin: 'top center',
       }}
+      data-density={density.toFixed(2)}
+      data-rows={totalRows}
     >
 
       {/* ═══ EN-TÊTE — Identité société + référence bulletin ═══ */}
