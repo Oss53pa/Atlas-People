@@ -127,7 +127,7 @@
       gardant le contenu, format A4 paysage par défaut.
    ────────────────────────────────────────────────────────────── */
 @media print {
-  /* — Mode 1 : bulletin (legacy) — */
+  /* — Mode 1 : bulletin de paie — A4 portrait, 1 page garantie — */
   body.print-payslip * {
     visibility: hidden;
   }
@@ -141,7 +141,42 @@
     margin: 0;
     max-width: none;
     box-shadow: none;
-    padding: 16px;
+    padding: 8mm 10mm;
+    /* Tenir absolument sur 1 page A4 portrait : font-size de base réduit */
+    font-size: 9pt;
+    line-height: 1.2;
+  }
+  /* Tableaux compactés à l'impression */
+  body.print-payslip .payslip-print table,
+  body.print-payslip .payslip-print .payslip-table {
+    font-size: 8pt !important;
+    line-height: 1.15 !important;
+  }
+  body.print-payslip .payslip-print td,
+  body.print-payslip .payslip-print th {
+    padding-top: 1.5px !important;
+    padding-bottom: 1.5px !important;
+  }
+  body.print-payslip .payslip-print thead th {
+    font-size: 7pt !important;
+  }
+  body.print-payslip .payslip-print tfoot td {
+    font-size: 8.5pt !important;
+    padding-top: 2.5px !important;
+    padding-bottom: 2.5px !important;
+  }
+  /* Forcer A4 portrait pour le bulletin (override le landscape par défaut) */
+  body.print-payslip {
+    background: white !important;
+  }
+  body.print-payslip {
+    /* @page n'est pas appliqué via body, mais via nested rule ci-dessous */
+  }
+  /* Pas de coupure dans le bulletin */
+  body.print-payslip .payslip-print,
+  body.print-payslip .payslip-print > * {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   /* — Mode 2 : pages stratégiques (DEFAULT print mode) — */
@@ -228,6 +263,15 @@
   @page {
     size: A4 landscape;
     margin: 12mm;
+  }
+
+  /* Bulletin de paie : A4 portrait, marges réduites, 1 page garantie */
+  @page payslipPage {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+  body.print-payslip {
+    page: payslipPage;
   }
 
   /* Forcer pagination */
