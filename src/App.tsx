@@ -4,6 +4,8 @@ import { CockpitPage } from './pages/CockpitPage';
 import { UnifiedCockpitDRHPage } from './pages/UnifiedCockpitPage';
 import { LandingPage } from './pages/LandingPage';
 import { WelcomeCockpitPage } from './pages/WelcomeCockpitPage';
+import { AdminWorkspacePage } from './pages/admin/AdminWorkspacePage';
+import { BackOfficeQueuePage } from './pages/backoffice/BackOfficeQueuePage';
 import { WhatIfSimulatorPage } from './pages/WhatIfSimulatorPage';
 import { WhatIfComparePage } from './pages/WhatIfComparePage';
 import {
@@ -265,6 +267,8 @@ function App() {
       {/* Pages "marketing/welcome" hors AppLayout (sans sidebar / sans topbar) */}
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/accueil" element={<WelcomeCockpitPage />} />
+      {/* Console méta-admin Atlas Studio — hors AppLayout */}
+      <Route path="/admin" element={<AdminWorkspacePage />} />
 
       <Route element={<AppLayout />}>
         {ALL_MODULES.map((m) => (
@@ -414,6 +418,8 @@ function App() {
         <Route path="/objectifs/audit" element={<AuditOkrPage />} />
         {/* /cockpit-360 désormais wiré via READY (ligne ~258) */}
         {/* /accueil + /landing sont hors AppLayout (déclarés tout en haut) */}
+        {/* Back-office Queue — agents HR + DRH */}
+        <Route path="/hr/queue" element={<BackOfficeQueuePage />} />
         <Route path="/whatif" element={<WhatIfSimulatorPage />} />
         <Route path="/whatif/compare" element={<WhatIfComparePage />} />
         <Route path="/evaluations/cycle-annuel" element={<CycleAnnuelEvalPage />} />

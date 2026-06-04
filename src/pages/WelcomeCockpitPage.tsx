@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import {
   Home, Users, Briefcase, Route as RouteIcon, GraduationCap, BarChart3,
   AlertTriangle, Sparkles, ArrowUpRight, Calendar, ExternalLink, LogIn,
+  Inbox, Settings2,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { Money } from '../lib/money';
@@ -42,9 +43,14 @@ const QUICK: QuickAccess[] = [
   { to: '/cockpit-360', label: 'Le Cockpit',     icon: Home,           tone: 'amber'   },
   { to: '/collaborateurs', label: 'Collaborateurs', icon: Users,        tone: 'emerald' },
   { to: '/paie',         label: 'Paie & Bulletins', icon: Briefcase,    tone: 'blue'    },
-  { to: '/carrieres',    label: 'Carrières',      icon: RouteIcon,      tone: 'violet'  },
-  { to: '/formation',    label: 'Formation',      icon: GraduationCap,  tone: 'rose'    },
-  { to: '/objectifs',    label: 'Reporting & OKR', icon: BarChart3,     tone: 'indigo'  },
+  { to: '/hr/queue',     label: 'File d\'attente', icon: Inbox,         tone: 'rose'    },
+  { to: '/formation',    label: 'Formation',      icon: GraduationCap,  tone: 'violet'  },
+  { to: '/carrieres',    label: 'Carrières',      icon: RouteIcon,      tone: 'indigo'  },
+];
+
+const ADMIN_QUICK: QuickAccess[] = [
+  { to: '/admin',        label: 'Admin Atlas Studio',  icon: Settings2,  tone: 'amber'   },
+  { to: '/objectifs',    label: 'Reporting & OKR',     icon: BarChart3,  tone: 'indigo'  },
 ];
 
 const TONE_BG: Record<QuickAccess['tone'], string> = {
@@ -205,8 +211,8 @@ export function WelcomeCockpitPage() {
         </div>
       </section>
 
-      {/* ───────── 4. 6 accès rapides ───────── */}
-      <section className="mx-auto max-w-7xl px-6 pb-16">
+      {/* ───────── 4. 6 accès rapides (opérationnels) ───────── */}
+      <section className="mx-auto max-w-7xl px-6 pb-10">
         <p className="mb-4 text-center text-[10px] font-bold uppercase tracking-[0.22em] text-ink-400">Accès rapide</p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {QUICK.map((q) => {
@@ -223,6 +229,34 @@ export function WelcomeCockpitPage() {
                 <span className="text-[13px] font-semibold text-ink transition-colors group-hover:text-amber-deep">
                   {q.label}
                 </span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ───────── 4b. 2 accès admin (méta) ───────── */}
+      <section className="mx-auto max-w-7xl px-6 pb-16">
+        <p className="mb-4 text-center text-[10px] font-bold uppercase tracking-[0.22em] text-ink-400">Espace administration</p>
+        <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
+          {ADMIN_QUICK.map((q) => {
+            const Icon = q.icon;
+            return (
+              <Link
+                key={q.to}
+                to={q.to}
+                className="group flex items-center gap-4 rounded-2xl border border-line bg-gradient-to-br from-amber/[0.04] to-transparent px-5 py-5 text-left transition-all hover:-translate-y-0.5 hover:border-amber-deep/30 hover:shadow-md"
+              >
+                <span className={cn('flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ring-1 ring-line/60', TONE_BG[q.tone])}>
+                  <Icon size={22} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-semibold text-ink transition-colors group-hover:text-amber-deep">{q.label}</p>
+                  <p className="text-[11px] font-medium text-ink-500">
+                    {q.to === '/admin' ? 'Console méta · utilisateurs · tenant · paramètres' : 'Indicateurs cycle · KPI stratégiques'}
+                  </p>
+                </div>
+                <ArrowUpRight size={16} className="shrink-0 text-ink-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </Link>
             );
           })}
