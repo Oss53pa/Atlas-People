@@ -10,7 +10,7 @@
  * Trois modèles de présentation au choix, tous alimentés par le MÊME moteur
  * déterministe (lib/payroll) — aucun chiffre n'est saisi en dur.
  */
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { Money } from '../../lib/money';
 import type { PayslipComputation } from '../../lib/payroll';
@@ -96,6 +96,30 @@ export function PayslipDocument({
     ro.observe(el);
     return () => ro.disconnect();
   }, [template, totalRows, density]);
+
+  // Auto-tag body.print-payslip lors de l'aperçu/impression natif (Ctrl+P).
+  // Sans ce hook, les utilisateurs qui font Ctrl+P directement ne déclenchent
+  // pas la classe (seul le bouton Imprimer du modal le faisait), et les
+  // règles @media print + body.print-payslip ne s'appliquent pas → bulletin
+  // rendu à 760px max au lieu de pleine page A4.
+  useEffect(() => {
+    const onBefore = () => document.body.classList.add('print-payslip');
+    const onAfter  = () => document.body.classList.remove('print-payslip');
+    window.addEventListener('beforeprint', onBefore);
+    window.addEventListener('afterprint',  onAfter);
+    // matchMedia print : couvre certains navigateurs qui n'émettent pas before/after
+    const mq = window.matchMedia('print');
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) onBefore(); else onAfter();
+    };
+    mq.addEventListener?.('change', onChange);
+    return () => {
+      window.removeEventListener('beforeprint', onBefore);
+      window.removeEventListener('afterprint',  onAfter);
+      mq.removeEventListener?.('change', onChange);
+      document.body.classList.remove('print-payslip');
+    };
+  }, []);
 
   return (
     <div
