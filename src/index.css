@@ -147,23 +147,38 @@
     background: white !important;
   }
   body.print-payslip .payslip-print {
-    position: absolute;
-    inset: 0;
-    margin: 0 !important;
-    /* CLEF DU FIX : prend toute la largeur A4 — pas de max-w-[760px] en print */
+    /* CLEF DU FIX v2 : position FIXED pour ignorer les modal/wrappers parents
+       qui sont en position: fixed eux-mêmes (PayslipModal a fixed inset-0).
+       Avec absolute, le payslip se cale dans le modal -> moitié page.
+       Avec fixed + 100vw/100vh + z-index 9999, le payslip se cale
+       directement sur le viewport print = pleine page A4. */
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
     max-width: none !important;
-    width: 100% !important;
-    /* Force la zone A4 utile (297mm - 5mm × 2 = 287mm) */
-    min-height: 287mm !important;
-    max-height: 287mm !important;
-    height: 287mm !important;
-    box-shadow: none;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    z-index: 9999 !important;
+    background: white !important;
+    box-shadow: none !important;
     padding: 5mm 6mm !important;
     line-height: 1.2 !important;
-    /* Désactive le scale JS — le CSS print gère le fit via la densité */
     transform: none !important;
-    /* Garde-fou : rien ne déborde sur une 2e page */
     overflow: hidden !important;
+  }
+  /* Force display sur les ancêtres pour que le payslip puisse s'afficher */
+  body.print-payslip .payslip-print {
+    display: block !important;
+  }
+  /* Cache le modal overlay sombre du PayslipModal (backdrop ink/50) */
+  body.print-payslip [class*="bg-ink/50"],
+  body.print-payslip .no-print {
+    display: none !important;
   }
 
   /* Tableaux : pleine largeur + table-layout auto pour bien remplir */
