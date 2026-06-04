@@ -1,5 +1,8 @@
 import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
+import { LoginPage } from './pages/LoginPage';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { RegimesParametresPage } from './pages/payroll/RegimesParametresPage';
 import { CockpitPage } from './pages/CockpitPage';
 import { UnifiedCockpitDRHPage } from './pages/UnifiedCockpitPage';
 import { LandingPage } from './pages/LandingPage';
@@ -267,13 +270,16 @@ const READY: Record<string, JSX.Element> = {
 function App() {
   return (
     <Routes>
+      {/* Auth — hors AppLayout */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/invitation" element={<LoginPage />} />
       {/* Pages "marketing/welcome" hors AppLayout (sans sidebar / sans topbar) */}
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/accueil" element={<WelcomeCockpitPage />} />
       {/* Console méta-admin Atlas Studio — hors AppLayout */}
       <Route path="/admin" element={<AdminWorkspacePage />} />
 
-      <Route element={<AppLayout />}>
+      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         {ALL_MODULES.map((m) => (
           <Route
             key={m.code}
@@ -309,6 +315,7 @@ function App() {
         <Route path="/paie/reporting" element={<ReportingPaiePage />} />
         <Route path="/paie/audit" element={<AuditPaiePage />} />
         <Route path="/paie/parametres" element={<ParametresPaiePage />} />
+        <Route path="/paie/regimes" element={<RegimesParametresPage />} />
         <Route path="/audit" element={<JournalAuditPage />} />
         {/* M4 ADMIN RH — back-office Administration du personnel OHADA */}
         <Route path="/hr/actes/contrats" element={<ContratsAdminPage />} />
