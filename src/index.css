@@ -354,6 +354,27 @@
     page: payslipPage;
   }
 
+  /* ════════════════════════════════════════════════════════════════
+   * Mode 3 — Module REPORTING (REPORTING_STANDARD §10) :
+   *  - .report-print-area : la zone qui doit être imprimée
+   *  - .no-print : tout ce qui ne doit pas l'être (éditeur, header app)
+   *  - Format A4 portrait par défaut (overridé par le builder PDF si paysage)
+   * ════════════════════════════════════════════════════════════════ */
+  @page reportPage {
+    size: A4 portrait;
+    margin: 14mm;
+  }
+  body.print-report {
+    background: white !important;
+  }
+  body.print-report .no-print { display: none !important; }
+  body.print-report .report-print-area {
+    page: reportPage;
+    margin: 0;
+    box-shadow: none;
+    background: white;
+  }
+
   /* Forcer pagination */
   .print-page-break {
     break-before: page;

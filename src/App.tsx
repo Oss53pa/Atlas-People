@@ -6,6 +6,7 @@ import { LandingPage } from './pages/LandingPage';
 import { WelcomeCockpitPage } from './pages/WelcomeCockpitPage';
 import { AdminWorkspacePage } from './pages/admin/AdminWorkspacePage';
 import { BackOfficeQueuePage } from './pages/backoffice/BackOfficeQueuePage';
+import { ReportsPage } from './pages/Reports';
 import { WhatIfSimulatorPage } from './pages/WhatIfSimulatorPage';
 import { WhatIfComparePage } from './pages/WhatIfComparePage';
 import {
@@ -422,6 +423,8 @@ function App() {
         {/* /accueil + /landing sont hors AppLayout (déclarés tout en haut) */}
         {/* Back-office Queue — agents HR + DRH */}
         <Route path="/hr/queue" element={<BackOfficeQueuePage />} />
+        {/* Module Reporting (REPORTING_STANDARD.md v1.0) */}
+        <Route path="/reports" element={<ReportsPage />} />
         <Route path="/whatif" element={<WhatIfSimulatorPage />} />
         <Route path="/whatif/compare" element={<WhatIfComparePage />} />
         <Route path="/evaluations/cycle-annuel" element={<CycleAnnuelEvalPage />} />
