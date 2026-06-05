@@ -3,7 +3,7 @@
  */
 import { isBackendConfigured, supabase } from '../supabase';
 
-const TENANT_DEMO = '11111111-1111-1111-1111-111111111111';
+
 
 export interface M7LiveKpis {
   objectivesTotal: number;
@@ -17,14 +17,14 @@ export interface M7LiveKpis {
   fetchedAt: string;
 }
 
-export async function fetchM7Live(): Promise<M7LiveKpis | null> {
+export async function fetchM7Live(tenantId = '11111111-1111-1111-1111-111111111111'): Promise<M7LiveKpis | null> {
   if (!isBackendConfigured || !supabase) return null;
   try {
     const sb = supabase.schema('atlas_people');
     const [objs, krs, cis] = await Promise.all([
-      sb.from('m7_objectives').select('status, final_score').eq('tenant_id', TENANT_DEMO),
-      sb.from('m7_key_results').select('score, confidence').eq('tenant_id', TENANT_DEMO),
-      sb.from('m7_check_ins').select('occurred_at, confidence').eq('tenant_id', TENANT_DEMO),
+      sb.from('m7_objectives').select('status, final_score').eq('tenant_id', tenantId),
+      sb.from('m7_key_results').select('score, confidence').eq('tenant_id', tenantId),
+      sb.from('m7_check_ins').select('occurred_at, confidence').eq('tenant_id', tenantId),
     ]);
     if (objs.error || krs.error || cis.error) return null;
 

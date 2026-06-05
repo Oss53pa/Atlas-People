@@ -3,7 +3,7 @@
  */
 import { isBackendConfigured, supabase } from '../supabase';
 
-const TENANT_DEMO = '11111111-1111-1111-1111-111111111111';
+
 
 export interface M9LiveKpis {
   skillsTotal: number;
@@ -19,19 +19,19 @@ export interface M9LiveKpis {
   fetchedAt: string;
 }
 
-export async function fetchM9Live(): Promise<M9LiveKpis | null> {
+export async function fetchM9Live(tenantId = '11111111-1111-1111-1111-111111111111'): Promise<M9LiveKpis | null> {
   if (!isBackendConfigured || !supabase) return null;
   try {
     const sb = supabase.schema('atlas_people');
     const [skills, matrix, pdc, actions, certCat, certEmp, patterns, discrim] = await Promise.all([
-      sb.from('m9_skills').select('id').eq('tenant_id', TENANT_DEMO),
-      sb.from('m9_skill_matrix').select('id').eq('tenant_id', TENANT_DEMO),
-      sb.from('m9_pdc').select('status, signed_at').eq('tenant_id', TENANT_DEMO),
-      sb.from('m9_pdc_actions').select('status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m9_certifications_catalog').select('id').eq('tenant_id', TENANT_DEMO),
-      sb.from('m9_certifications_employees').select('status, expires_at').eq('tenant_id', TENANT_DEMO),
-      sb.from('m9_suspicious_patterns').select('severity, status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m9_anti_discrim_alerts').select('status').eq('tenant_id', TENANT_DEMO),
+      sb.from('m9_skills').select('id').eq('tenant_id', tenantId),
+      sb.from('m9_skill_matrix').select('id').eq('tenant_id', tenantId),
+      sb.from('m9_pdc').select('status, signed_at').eq('tenant_id', tenantId),
+      sb.from('m9_pdc_actions').select('status').eq('tenant_id', tenantId),
+      sb.from('m9_certifications_catalog').select('id').eq('tenant_id', tenantId),
+      sb.from('m9_certifications_employees').select('status, expires_at').eq('tenant_id', tenantId),
+      sb.from('m9_suspicious_patterns').select('severity, status').eq('tenant_id', tenantId),
+      sb.from('m9_anti_discrim_alerts').select('status').eq('tenant_id', tenantId),
     ]);
     if (skills.error || matrix.error || pdc.error || actions.error || certCat.error || certEmp.error || patterns.error || discrim.error) return null;
 

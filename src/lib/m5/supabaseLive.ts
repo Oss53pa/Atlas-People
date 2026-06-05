@@ -3,7 +3,7 @@
  */
 import { isBackendConfigured, supabase } from '../supabase';
 
-const TENANT_DEMO = '11111111-1111-1111-1111-111111111111';
+
 
 export interface M5LiveKpis {
   jobsOpen: number;
@@ -17,17 +17,17 @@ export interface M5LiveKpis {
   fetchedAt: string;
 }
 
-export async function fetchM5Live(): Promise<M5LiveKpis | null> {
+export async function fetchM5Live(tenantId = '11111111-1111-1111-1111-111111111111'): Promise<M5LiveKpis | null> {
   if (!isBackendConfigured || !supabase) return null;
   try {
     const sb = supabase.schema('atlas_people');
     const [jobs, apps, intvs, offers, cands, refs] = await Promise.all([
-      sb.from('m5_jobs').select('status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m5_applications').select('stage').eq('tenant_id', TENANT_DEMO),
-      sb.from('m5_interviews').select('status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m5_offers').select('status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m5_candidates').select('id').eq('tenant_id', TENANT_DEMO),
-      sb.from('m5_referrals').select('id').eq('tenant_id', TENANT_DEMO),
+      sb.from('m5_jobs').select('status').eq('tenant_id', tenantId),
+      sb.from('m5_applications').select('stage').eq('tenant_id', tenantId),
+      sb.from('m5_interviews').select('status').eq('tenant_id', tenantId),
+      sb.from('m5_offers').select('status').eq('tenant_id', tenantId),
+      sb.from('m5_candidates').select('id').eq('tenant_id', tenantId),
+      sb.from('m5_referrals').select('id').eq('tenant_id', tenantId),
     ]);
     if (jobs.error || apps.error || intvs.error || offers.error || cands.error || refs.error) return null;
 

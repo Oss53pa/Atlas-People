@@ -3,7 +3,7 @@
  */
 import { isBackendConfigured, supabase } from '../supabase';
 
-const TENANT_DEMO = '11111111-1111-1111-1111-111111111111';
+
 
 export interface M10LiveKpis {
   criticalRoles: number;
@@ -18,16 +18,16 @@ export interface M10LiveKpis {
   fetchedAt: string;
 }
 
-export async function fetchM10Live(): Promise<M10LiveKpis | null> {
+export async function fetchM10Live(tenantId = '11111111-1111-1111-1111-111111111111'): Promise<M10LiveKpis | null> {
   if (!isBackendConfigured || !supabase) return null;
   try {
     const sb = supabase.schema('atlas_people');
     const [cr, sc, tp, mp, pr] = await Promise.all([
-      sb.from('m10_critical_roles').select('id').eq('tenant_id', TENANT_DEMO),
-      sb.from('m10_succession_successors').select('critical_role_id, readiness').eq('tenant_id', TENANT_DEMO),
-      sb.from('m10_talent_pools').select('annual_budget').eq('tenant_id', TENANT_DEMO),
-      sb.from('m10_mentorat_pairs').select('status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m10_promotions').select('status').eq('tenant_id', TENANT_DEMO),
+      sb.from('m10_critical_roles').select('id').eq('tenant_id', tenantId),
+      sb.from('m10_succession_successors').select('critical_role_id, readiness').eq('tenant_id', tenantId),
+      sb.from('m10_talent_pools').select('annual_budget').eq('tenant_id', tenantId),
+      sb.from('m10_mentorat_pairs').select('status').eq('tenant_id', tenantId),
+      sb.from('m10_promotions').select('status').eq('tenant_id', tenantId),
     ]);
     if (cr.error || sc.error || tp.error || mp.error || pr.error) return null;
 

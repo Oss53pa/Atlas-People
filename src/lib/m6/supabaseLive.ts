@@ -3,7 +3,7 @@
  */
 import { isBackendConfigured, supabase } from '../supabase';
 
-const TENANT_DEMO = '11111111-1111-1111-1111-111111111111';
+
 
 export interface M6LiveKpis {
   arrivantsTotal: number;
@@ -16,15 +16,15 @@ export interface M6LiveKpis {
   fetchedAt: string;
 }
 
-export async function fetchM6Live(): Promise<M6LiveKpis | null> {
+export async function fetchM6Live(tenantId = '11111111-1111-1111-1111-111111111111'): Promise<M6LiveKpis | null> {
   if (!isBackendConfigured || !supabase) return null;
   try {
     const sb = supabase.schema('atlas_people');
     const [arrivants, jalons, pulses, tasks] = await Promise.all([
-      sb.from('m6_arrivants').select('status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m6_jalons').select('status, due_date').eq('tenant_id', TENANT_DEMO),
-      sb.from('m6_pulses').select('score').eq('tenant_id', TENANT_DEMO),
-      sb.from('m6_tasks').select('status').eq('tenant_id', TENANT_DEMO),
+      sb.from('m6_arrivants').select('status').eq('tenant_id', tenantId),
+      sb.from('m6_jalons').select('status, due_date').eq('tenant_id', tenantId),
+      sb.from('m6_pulses').select('score').eq('tenant_id', tenantId),
+      sb.from('m6_tasks').select('status').eq('tenant_id', tenantId),
     ]);
     if (arrivants.error || jalons.error || pulses.error || tasks.error) return null;
 

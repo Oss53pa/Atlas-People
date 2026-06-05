@@ -3,7 +3,7 @@
  */
 import { isBackendConfigured, supabase } from '../supabase';
 
-const TENANT_DEMO = '11111111-1111-1111-1111-111111111111';
+
 
 export interface M8LiveKpis {
   evalTotal: number;
@@ -18,15 +18,15 @@ export interface M8LiveKpis {
   fetchedAt: string;
 }
 
-export async function fetchM8Live(): Promise<M8LiveKpis | null> {
+export async function fetchM8Live(tenantId = '11111111-1111-1111-1111-111111111111'): Promise<M8LiveKpis | null> {
   if (!isBackendConfigured || !supabase) return null;
   try {
     const sb = supabase.schema('atlas_people');
     const [evals, fb, bias, devs] = await Promise.all([
-      sb.from('m8_evaluations').select('status, note_finale, classe, signed_at, calibrated_at').eq('tenant_id', TENANT_DEMO),
-      sb.from('m8_feedback_360').select('id').eq('tenant_id', TENANT_DEMO),
-      sb.from('m8_bias_alerts').select('resolved_at').eq('tenant_id', TENANT_DEMO),
-      sb.from('m8_dev_plans').select('status').eq('tenant_id', TENANT_DEMO),
+      sb.from('m8_evaluations').select('status, note_finale, classe, signed_at, calibrated_at').eq('tenant_id', tenantId),
+      sb.from('m8_feedback_360').select('id').eq('tenant_id', tenantId),
+      sb.from('m8_bias_alerts').select('resolved_at').eq('tenant_id', tenantId),
+      sb.from('m8_dev_plans').select('status').eq('tenant_id', tenantId),
     ]);
     if (evals.error || fb.error || bias.error || devs.error) return null;
 

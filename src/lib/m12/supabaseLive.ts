@@ -3,7 +3,7 @@
  */
 import { isBackendConfigured, supabase } from '../supabase';
 
-const TENANT_DEMO = '11111111-1111-1111-1111-111111111111';
+
 
 export interface M12LiveKpis {
   duerRisksTotal: number;
@@ -19,16 +19,16 @@ export interface M12LiveKpis {
   fetchedAt: string;
 }
 
-export async function fetchM12Live(): Promise<M12LiveKpis | null> {
+export async function fetchM12Live(tenantId = '11111111-1111-1111-1111-111111111111'): Promise<M12LiveKpis | null> {
   if (!isBackendConfigured || !supabase) return null;
   try {
     const sb = supabase.schema('atlas_people');
     const [risks, ats, rps, decls, auths] = await Promise.all([
-      sb.from('m12_risks').select('level').eq('tenant_id', TENANT_DEMO),
-      sb.from('m12_work_incidents').select('severity, status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m12_rps_surveys').select('status, burnout_risk_pct').eq('tenant_id', TENANT_DEMO),
-      sb.from('m12_social_declarations').select('status, due_date').eq('tenant_id', TENANT_DEMO),
-      sb.from('m12_authorizations').select('expires_at, status').eq('tenant_id', TENANT_DEMO),
+      sb.from('m12_risks').select('level').eq('tenant_id', tenantId),
+      sb.from('m12_work_incidents').select('severity, status').eq('tenant_id', tenantId),
+      sb.from('m12_rps_surveys').select('status, burnout_risk_pct').eq('tenant_id', tenantId),
+      sb.from('m12_social_declarations').select('status, due_date').eq('tenant_id', tenantId),
+      sb.from('m12_authorizations').select('expires_at, status').eq('tenant_id', tenantId),
     ]);
     if (risks.error || ats.error || rps.error || decls.error || auths.error) return null;
 

@@ -275,9 +275,9 @@ function App() {
       <Route path="/auth/invitation" element={<LoginPage />} />
       {/* Pages "marketing/welcome" hors AppLayout (sans sidebar / sans topbar) */}
       <Route path="/landing" element={<LandingPage />} />
-      <Route path="/accueil" element={<WelcomeCockpitPage />} />
+      <Route path="/accueil" element={<ProtectedRoute><WelcomeCockpitPage /></ProtectedRoute>} />
       {/* Console méta-admin Atlas Studio — hors AppLayout */}
-      <Route path="/admin" element={<AdminWorkspacePage />} />
+      <Route path="/admin" element={<ProtectedRoute requireRole="super_admin"><AdminWorkspacePage /></ProtectedRoute>} />
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         {ALL_MODULES.map((m) => (
@@ -472,8 +472,8 @@ function App() {
         <Route path="*" element={<ComingSoonPage />} />
       </Route>
 
-      {/* PORTAIL COLLABORATEUR — coquille séparée (aucun élément du back-office) */}
-      <Route element={<PortalLayout />}>
+      {/* PORTAIL COLLABORATEUR — accès réservé aux employés authentifiés */}
+      <Route element={<ProtectedRoute requireRole="employee"><PortalLayout /></ProtectedRoute>}>
         <Route path="/espace" element={<PortalHomePage />} />
         <Route path="/espace/profil" element={<MonProfilPage />} />
         <Route path="/espace/paie" element={<MaPaiePage />} />
@@ -496,8 +496,8 @@ function App() {
         <Route path="/me/time/delegation" element={<MesDelegationPage />} />
       </Route>
 
-      {/* PORTAIL MANAGER (MSS) — coquille séparée, périmètre managérial strict (R1) */}
-      <Route element={<ManagerLayout />}>
+      {/* PORTAIL MANAGER (MSS) — accès réservé aux managers authentifiés */}
+      <Route element={<ProtectedRoute requireRole="manager"><ManagerLayout /></ProtectedRoute>}>
         <Route path="/team" element={<ManagerHomePage />} />
         <Route path="/team/equipe" element={<MonEquipePage />} />
         <Route path="/team/equipe/mouvements" element={<TeamMovementsPage />} />

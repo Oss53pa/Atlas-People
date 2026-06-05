@@ -10,7 +10,7 @@
  */
 import { isBackendConfigured, supabase } from '../supabase';
 
-const TENANT_DEMO = '11111111-1111-1111-1111-111111111111';
+
 
 export interface M11CockpitLive {
   parcoursActifs: number;
@@ -38,13 +38,13 @@ export async function fetchM11CockpitLive(): Promise<M11CockpitLive | null> {
     const sb = supabase.schema('atlas_people');
 
     const [parcoursR, enrollR, pifR, lmsR, badgesR, formateursR, patternsR] = await Promise.all([
-      sb.from('m11_parcours').select('active').eq('tenant_id', TENANT_DEMO),
-      sb.from('m11_parcours_enrollments').select('status').eq('tenant_id', TENANT_DEMO),
-      sb.from('m11_pif').select('status, budget_individual, budget_consumed').eq('tenant_id', TENANT_DEMO),
-      sb.from('m11_lms_progress').select('status, employee_id').eq('tenant_id', TENANT_DEMO),
-      sb.from('m11_badge_attributions').select('awarded_at').eq('tenant_id', TENANT_DEMO),
-      sb.from('m11_formateurs').select('active').eq('tenant_id', TENANT_DEMO),
-      sb.from('m11_suspicious_patterns').select('severity, status').eq('tenant_id', TENANT_DEMO),
+      sb.from('m11_parcours').select('active').eq('tenant_id', tenantId),
+      sb.from('m11_parcours_enrollments').select('status').eq('tenant_id', tenantId),
+      sb.from('m11_pif').select('status, budget_individual, budget_consumed').eq('tenant_id', tenantId),
+      sb.from('m11_lms_progress').select('status, employee_id').eq('tenant_id', tenantId),
+      sb.from('m11_badge_attributions').select('awarded_at').eq('tenant_id', tenantId),
+      sb.from('m11_formateurs').select('active').eq('tenant_id', tenantId),
+      sb.from('m11_suspicious_patterns').select('severity, status').eq('tenant_id', tenantId),
     ]);
 
     if (parcoursR.error || enrollR.error || pifR.error || lmsR.error || badgesR.error || formateursR.error || patternsR.error) {
