@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarPlus, Wallet, RefreshCw, Stethoscope, Download, Plane } from 'lucide-react';
+import { CalendarPlus, Wallet, RefreshCw, Stethoscope, Download, Plane, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -14,6 +14,10 @@ import { computeSelfLeaveBalance } from '../../lib/m2/selfBalance';
 import { leaveTypeByCode } from '../../lib/m2/leaveTypes';
 import { employeeById } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useMyLeaveRequests, isBackendConfigured } from '../../lib/ess/supabaseLive';
+import { useAuth } from '../../lib/auth';
+
+const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002';
 
 const SELF_ID = 'e2';
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info'> = { pending: 'warn', approved: 'ok', refused: 'danger', info_requested: 'info' };
@@ -30,8 +34,11 @@ export function MesCongesPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const [tab, setTab] = useState('balances');
+  const { tenantId } = useAuth();
+  const { data: liveRequests } = useMyLeaveRequests(tenantId ?? undefined, DEMO_EMP_ID);
   const employee = employeeById(SELF_ID)!;
-  const requests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
+  const mockRequests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
+  const requests = mockRequests;
   const balance = useMemo(() => computeSelfLeaveBalance(employee, requests), [employee, requests]);
 
   const sickDays = requests.filter((r) => r.code === 'MAL').reduce((s, r) => s + r.countedDays, 0);
@@ -85,10 +92,29 @@ export function MesCongesPage() {
       {tab === 'history' && (
         <Card inset={false}>
           <div className="flex items-center justify-between p-5 pb-3">
-            <CardHeader title="Mon historique" subtitle={`${history.length} demande(s)`} className="mb-0" />
+            <CardHeader title="Mon historique" subtitle={isBackendConfigured && liveRequests ? `${liveRequests.length} demande(s) · Live DB` : `${history.length} demande(s)`} action={isBackendConfigured && liveRequests ? <Wifi size={13} className="text-emerald-500" /> : undefined} className="mb-0" />
             <Button variant="ghost" size="sm"><Download size={14} /> Exporter (PDF)</Button>
           </div>
-          {history.length > 0 ? (
+          {/* Live history from DB */}
+          {isBackendConfigured && liveRequests && liveRequests.length > 0 ? (
+            <div className="divide-y divide-line">
+              {liveRequests.map((r) => {
+                const cat = leaveTypeByCode(r.leave_type_code)?.category;
+                return (
+                  <div key={r.id} className="flex items-center gap-3 px-5 py-3">
+                    <span className={cn('flex h-9 w-9 items-center justify-center rounded-xl', cat === 'health' ? 'bg-info/12 text-info' : 'bg-amber/12 text-amber-deep')}>
+                      {cat === 'health' ? <Stethoscope size={16} /> : <Plane size={16} />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-ink">{r.leave_type_code} — {r.counted_days} j</p>
+                      <p className="text-[11px] font-medium text-ink-400">{new Date(r.start_date + 'T00:00').toLocaleDateString('fr-FR')} → {new Date(r.end_date + 'T00:00').toLocaleDateString('fr-FR')}</p>
+                    </div>
+                    <StatusPill tone={STATUS_TONE[r.status] ?? 'neutral'} dot={false}>{STATUS_LABEL[r.status] ?? r.status}</StatusPill>
+                  </div>
+                );
+              })}
+            </div>
+          ) : history.length > 0 ? (
             <div className="divide-y divide-line">
               {history.map((r) => {
                 const cat = leaveTypeByCode(r.code)?.category;

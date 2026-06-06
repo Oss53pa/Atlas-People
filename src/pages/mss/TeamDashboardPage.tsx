@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Inbox, Plane, CalendarClock, AlertTriangle, ArrowRight, Stethoscope, Megaphone, GraduationCap } from 'lucide-react';
+import { Users, Inbox, Plane, CalendarClock, AlertTriangle, ArrowRight, Stethoscope, Megaphone, GraduationCap, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -14,6 +14,8 @@ import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { leaveTypeByCode } from '../../lib/m2/leaveTypes';
 import { employeeName, employeeById } from '../../data/mock';
+import { useMssTeamStats, usePendingApprovals, isBackendConfigured } from '../../lib/mss/supabaseLive';
+import { useAuth } from '../../lib/auth';
 
 const TODAY = '2026-05-28';
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
@@ -38,12 +40,16 @@ export function TeamDashboardPage() {
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
   const teamIds = new Set(team.map((e) => e.id));
   const requests = useTimeOff((s) => s.requests).filter((r) => teamIds.has(r.employeeId));
+  const { tenantId } = useAuth();
+  const { data: liveStats } = useMssTeamStats(tenantId ?? undefined);
+  const { data: livePending } = usePendingApprovals(tenantId ?? undefined);
 
-  const pending = requests.filter((r) => r.status === 'pending');
+  const pending = isBackendConfigured && livePending ? livePending : requests.filter((r) => r.status === 'pending');
   const onLeaveToday = requests.filter((r) => r.status === 'approved' && r.start <= TODAY && r.end >= TODAY);
   const onLeaveIds = new Set(onLeaveToday.map((r) => r.employeeId));
   const upcoming = requests.filter((r) => r.status === 'approved' && r.start > TODAY && r.start <= isoAdd(TODAY, 7));
-  const present = team.length - onLeaveIds.size;
+  const teamSize = isBackendConfigured && liveStats ? liveStats.teamSize : team.length;
+  const present = isBackendConfigured && liveStats ? liveStats.activeCount : team.length - onLeaveIds.size;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -51,13 +57,16 @@ export function TeamDashboardPage() {
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-info">Espace Manager · Temps de l'équipe</p>
         <h1 className="text-2xl font-semibold text-ink">Tableau de bord équipe</h1>
-        <p className="text-sm font-medium text-ink-500">{new Date(`${TODAY}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · {team.length} collaborateurs</p>
+        <p className="text-sm font-medium text-ink-500">
+          {new Date(`${TODAY}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · {teamSize} collaborateurs
+          {isBackendConfigured && liveStats && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span>}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Présents" value={String(present)} unit={`/ ${team.length}`} icon={Users} tone="amber" />
-        <StatCard label="En congé / absents" value={String(onLeaveIds.size)} unit="aujourd'hui" icon={Plane} />
-        <StatCard label="À valider" value={String(pending.length)} unit="demandes" icon={Inbox} tone="amber" />
+        <StatCard label="Présents" value={String(present)} unit={`/ ${teamSize}`} icon={Users} tone="amber" />
+        <StatCard label="En congé / absents" value={String(isBackendConfigured && liveStats ? liveStats.onLeaveCount : onLeaveIds.size)} unit="aujourd'hui" icon={Plane} />
+        <StatCard label="À valider" value={String(isBackendConfigured && livePending ? livePending.length : pending.length)} unit="demandes" icon={Inbox} tone="amber" />
         <StatCard label="Congés à venir" value={String(upcoming.length)} unit="7 jours" icon={CalendarClock} />
       </div>
 

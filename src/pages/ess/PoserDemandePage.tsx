@@ -15,6 +15,11 @@ import { countLeaveDays } from '../../lib/m2/leaveEngine';
 import { LEAVE_CATALOG, leaveTypeByCode, COUNT_UNIT_LABEL } from '../../lib/m2/leaveTypes';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useSubmitLeaveRequest } from '../../lib/ess/supabaseLive';
+import { useAuth } from '../../lib/auth';
+import { isBackendConfigured } from '../../lib/supabase';
+
+const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002';
 
 const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
@@ -26,6 +31,8 @@ type Check = { status: 'ok' | 'warn' | 'block'; message: string };
 export function PoserDemandePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { tenantId } = useAuth();
+  const submitToDb = useSubmitLeaveRequest();
   const employee = employeeById(SELF_ID)!;
   const requests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
   const requestLeave = useTimeOff((s) => s.requestLeave);
@@ -65,13 +72,26 @@ export function PoserDemandePage() {
 
   const blocking = checks.some((c) => c.status === 'block');
 
-  const submit = () => {
+  const submit = async () => {
     if (blocking) return;
+    // Toujours écrire dans le store local (optimistic)
     requestLeave({
       id: `to_${Date.now()}`, employeeId: SELF_ID, code, label: type.label,
       start, end, countedDays: counted, status: 'pending', reason: reason || undefined,
       approver: employee.manager ?? 'Valentina Okou', surface: 'ess', createdAt: TODAY,
     });
+    // En plus : persistance Supabase si backend configuré
+    if (isBackendConfigured && tenantId) {
+      try {
+        await submitToDb.mutateAsync({
+          tenantId, employeeId: DEMO_EMP_ID,
+          leaveTypeCode: code, startDate: start, endDate: end,
+          countedDays: counted, reason: reason || undefined,
+        });
+      } catch {
+        // Echec silencieux — le store local garantit la cohérence UI
+      }
+    }
     toast({ variant: 'success', title: 'Demande envoyée', description: `${type.label} · ${counted} j · transmise à ${employee.manager ?? 'votre manager'} pour validation.` });
     navigate('/me/time');
   };
