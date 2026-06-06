@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileSignature, Search, AlertTriangle, ArrowUpRight, CheckCircle2, Filter, Plus } from 'lucide-react';
+import { FileSignature, Search, AlertTriangle, ArrowUpRight, CheckCircle2, Filter, Plus, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -13,9 +13,13 @@ import { CONTRACT_TYPES, CONTRACT_STATUS_META, CONTRACT_WIZARD_STEPS, CONTRACT_S
 import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
 import type { ContractTypeCode, ContractStatus } from '../../lib/m4/types';
 import { cn } from '../../lib/cn';
+import { useM4Contracts, isBackendConfigured } from '../../lib/m4/supabaseLive';
+import { useAuth } from '../../lib/auth';
 
 export function ContratsPage() {
   const { toast } = useToast();
+  const { tenantId } = useAuth();
+  const { data: liveContracts } = useM4Contracts(tenantId ?? undefined);
   const [q, setQ] = useState('');
   const [typeF, setTypeF] = useState<'all' | ContractTypeCode>('all');
   const [statF, setStatF] = useState<'all' | ContractStatus>('all');
@@ -40,13 +44,17 @@ export function ContratsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Contrats</h1>
-          <p className="text-sm font-medium text-ink-500">{CONTRACTS.length} contrats · 11 types · signature ADVIST OHADA · bibliothèque modèles par pays/CCN</p>
+          <p className="text-sm font-medium text-ink-500">
+            {isBackendConfigured && liveContracts
+              ? <><span className="inline-flex items-center gap-1 text-emerald-600 font-bold"><Wifi size={10} /> {liveContracts.length} contrats DB</span> · 11 types OHADA</>
+              : <>{CONTRACTS.length} contrats · 11 types · signature ADVIST OHADA · bibliothèque modèles par pays/CCN</>}
+          </p>
         </div>
         <Button size="sm" onClick={() => setWizard(true)}><Plus size={14} /> Nouveau contrat</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Actifs" value={String(CONTRACTS.filter(c=>c.status==='active').length)} unit="signés 2 parties" icon={CheckCircle2} />
+        <StatCard label="Actifs" value={String(isBackendConfigured && liveContracts ? liveContracts.filter(c=>c.status==='active').length : CONTRACTS.filter(c=>c.status==='active').length)} unit="signés 2 parties" icon={CheckCircle2} />
         <StatCard label="CDD à surveiller" value={String(cddAlerts.length)} unit={`J-${CONTRACT_SURVEILLANCE_THRESHOLDS.cdd_end.join('/')}`} icon={AlertTriangle} tone={cddAlerts.length ? 'amber' : 'default'} />
         <StatCard label="Période d'essai" value={String(probAlerts.length)} unit="décision proche" icon={AlertTriangle} tone={probAlerts.length ? 'amber' : 'default'} />
         <StatCard label="Types de contrat" value="11" unit="OHADA" icon={FileSignature} />

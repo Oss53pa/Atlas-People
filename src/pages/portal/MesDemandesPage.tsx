@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Send, MessageCircle, Star, Inbox } from 'lucide-react';
+import { Plus, Send, MessageCircle, Star, Inbox, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -11,6 +11,10 @@ import { useToast } from '../../components/ui/Toast';
 import { useSurface } from '../../store/useSurface';
 import { useServiceRequests, type RequestCategory } from '../../store/useServiceRequests';
 import { cn } from '../../lib/cn';
+import { useMyServiceRequests, useCreateServiceRequest, isBackendConfigured } from '../../lib/ess/serviceRequestsLive';
+import { useAuth } from '../../lib/auth';
+
+const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002';
 
 const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
@@ -44,7 +48,10 @@ export function MesDemandesPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const { toast } = useToast();
-  const requests = useServiceRequests((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
+  const { tenantId } = useAuth();
+  const { data: liveRequests } = useMyServiceRequests(tenantId ?? undefined, DEMO_EMP_ID);
+  const createLive = useCreateServiceRequest();
+  const mockRequests = useServiceRequests((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
   const create = useServiceRequests((s) => s.create);
   const addMessage = useServiceRequests((s) => s.addMessage);
   const rate = useServiceRequests((s) => s.rate);
@@ -70,14 +77,26 @@ export function MesDemandesPage() {
 
   const detail = requests.find((r) => r.id === detailId) ?? null;
 
-  const submitNew = () => {
+  const submitNew = async () => {
     const type = TYPES.find((t) => t.code === typeCode)!;
-    const seq = String(143 + requests.length).padStart(4, '0');
+    const seq = String(143 + mockRequests.length).padStart(4, '0');
+    // Zustand store (toujours)
     create({
       id: `req_${Date.now()}`, reference: `REQ-2026-${seq}`, employeeId: SELF_ID, typeCode, typeLabel: type.label, category,
       subject: subject || type.label, description, urgency, status: 'submitted', referent: 'Valentina Okou', createdAt: TODAY, slaHours: 48,
       messages: [{ id: `m_${Date.now()}`, author: 'employee', authorName: 'Moi', content: description || subject, at: new Date().toISOString() }],
     });
+    // DB si backend configuré
+    if (isBackendConfigured && tenantId) {
+      try {
+        await createLive.mutateAsync({
+          tenantId, employeeId: DEMO_EMP_ID,
+          typeCode, subject: subject || type.label,
+          description: description || subject || type.label,
+          urgency,
+        });
+      } catch {}
+    }
     toast({ variant: 'success', title: 'Demande envoyée', description: `${type.label} — transmise à Valentina Okou.` });
     setNewOpen(false); setSubject(''); setDescription('');
   };
@@ -91,7 +110,15 @@ export function MesDemandesPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-semibold text-ink">Mes demandes</h1><p className="text-sm font-medium text-ink-500">Vos sollicitations auprès des RH</p></div>
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">Mes demandes</h1>
+          <p className="text-sm font-medium text-ink-500">
+            Vos sollicitations auprès des RH
+            {isBackendConfigured && liveRequests && liveRequests.length > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> {liveRequests.length} en DB</span>
+            )}
+          </p>
+        </div>
         <Button size="sm" onClick={() => setNewOpen(true)}><Plus size={14} /> Nouvelle demande</Button>
       </div>
       <Tabs tabs={TABS} value={tab} onChange={setTab} />

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, AlertTriangle, ArrowUpRight, ArrowDownRight, ShieldCheck, UserCheck } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, ArrowUpRight, ArrowDownRight, ShieldCheck, UserCheck, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
@@ -10,15 +10,22 @@ import { employeeName } from '../../data/mock';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
 import { cn } from '../../lib/cn';
+import { usePayrollCycles, useValidateCycle, isBackendConfigured } from '../../lib/m3/supabaseLive';
+import { useAuth } from '../../lib/auth';
 
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
 export function ValidationPaiePage() {
   const { cycle, variables, statuses, prevNet } = usePayrollCycle();
   const { toast } = useToast();
+  const { tenantId } = useAuth();
+  const { data: liveCycles } = usePayrollCycles(tenantId ?? undefined);
+  const validateCycleMut = useValidateCycle();
   const rows = useMemo(() => cycleBulletins(variables, statuses, prevNet), [variables, statuses, prevNet]);
   const [n1, setN1] = useState(false);
   const [n2, setN2] = useState(false);
+  // Cycle live en cours de validation (le premier non clôturé)
+  const liveCycleEnCours = liveCycles?.find((c) => !['closed','archived'].includes(c.status));
 
   const significant = rows.filter((r) => r.prevNet > 0 && Math.abs((r.bulletin.netAPayer - r.prevNet) / r.prevNet) > 0.15);
   const blocking = rows.filter((r) => r.bulletin.emissionBlocked);
@@ -28,7 +35,10 @@ export function ValidationPaiePage() {
       <PaieSubNav />
       <div>
         <h1 className="text-2xl font-semibold text-ink">Validation des bulletins</h1>
-        <p className="text-sm font-medium text-ink-500">Cycle {cycle.label} · comparaison M-1 · validation à 4 yeux (R5/R15)</p>
+        <p className="text-sm font-medium text-ink-500">
+          Cycle {liveCycleEnCours?.label ?? cycle.label} · comparaison M-1 · validation à 4 yeux (R5/R15)
+          {isBackendConfigured && liveCycleEnCours && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span>}
+        </p>
       </div>
 
       {/* 4-eyes */}
@@ -45,7 +55,14 @@ export function ValidationPaiePage() {
           <div className={cn('rounded-2xl border px-4 py-3', n2 ? 'border-ok/30 bg-ok/[0.05]' : 'border-line bg-surface2')}>
             <p className="text-[11px] font-bold uppercase tracking-wider text-ink-400">Niveau 2 — DRH / DAF</p>
             <p className="mt-1 text-sm font-semibold text-ink">{n2 ? 'Signé par la DRH' : n1 ? 'En attente' : 'Bloqué (N1 requis)'}</p>
-            <Button variant={n2 ? 'ghost' : 'outline'} size="sm" className="mt-2" disabled={!n1 || n2} onClick={() => { setN2(true); toast({ variant: 'success', title: 'Signature finale', description: 'Cycle validé — prêt pour diffusion.' }); }}>
+            <Button variant={n2 ? 'ghost' : 'outline'} size="sm" className="mt-2" disabled={!n1 || n2} onClick={async () => {
+              setN2(true);
+              // Persist validation dans la DB si backend configuré
+              if (isBackendConfigured && tenantId && liveCycleEnCours) {
+                try { await validateCycleMut.mutateAsync({ cycleId: liveCycleEnCours.id, tenantId }); } catch {}
+              }
+              toast({ variant: 'success', title: 'Signature finale', description: 'Cycle validé — prêt pour diffusion.' });
+            }}>
               <CheckCircle2 size={14} /> {n2 ? 'Signé' : 'Signer (N2)'}
             </Button>
           </div>
