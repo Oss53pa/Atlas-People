@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Search, Plus, List, Network, Inbox, MoreVertical, Eye, FileSignature, LogOut,
-  ArrowUp, ArrowDown, Clock, ShieldAlert, AlertTriangle, X, Upload, Settings,
+  ArrowUp, ArrowDown, Clock, ShieldAlert, AlertTriangle, X, Upload, Settings, Wifi,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { SectionHeader } from '../components/ui/SectionHeader';
@@ -15,6 +15,8 @@ import { DEPARTMENTS, employeeName, employeeAlerts, employeeProtectedUntil, type
 import { useDirectory } from '../store/useDirectory';
 import { useRequests } from '../store/useRequests';
 import { cn } from '../lib/cn';
+import { useEmployees, useEmployeeStats, isBackendConfigured } from '../lib/m1/supabaseLive';
+import { useAuth } from '../lib/auth';
 
 const STATUS: Record<EmployeeRecord['status'], { label: string; tone: 'ok' | 'info' | 'warn' | 'danger' }> = {
   active: { label: 'Actif', tone: 'ok' },
@@ -37,8 +39,33 @@ function seniority(e: EmployeeRecord): { months: number; label: string } {
 
 export function CollaborateursPage() {
   const navigate = useNavigate();
-  const employees = useDirectory((s) => s.employees);
+  const mockEmployees = useDirectory((s) => s.employees);
   const pendingRequests = useRequests((s) => s.requests.filter((r) => r.status === 'pending').length);
+  const { tenantId } = useAuth();
+  const { data: liveStats } = useEmployeeStats(tenantId ?? undefined);
+  const { data: liveEmps } = useEmployees(tenantId ?? undefined);
+
+  // Live-first : si backend actif et données DB disponibles, les convertir en EmployeeRecord
+  const employees: EmployeeRecord[] = useMemo(() => {
+    if (!isBackendConfigured || !liveEmps || liveEmps.length === 0) return mockEmployees;
+    return liveEmps.map((e) => ({
+      id: e.id,
+      firstName: e.first_name,
+      lastName: e.last_name,
+      role: e.role_title ?? '',
+      department: e.department ?? '',
+      countryCode: e.country_code,
+      email: e.email ?? '',
+      contractType: (e.contract as 'CDI' | 'CDD' | 'Stage') ?? 'CDI',
+      hireDate: e.hire_date ?? '',
+      status: (e.status as EmployeeRecord['status']) ?? 'active',
+      baseSalary: e.base_salary,
+      taxableAllowances: e.taxable_allowances,
+      nonTaxableAllowances: e.non_taxable_allowances,
+      fiscalParts: Number(e.fiscal_parts),
+      retentionAttention: 0,
+    }));
+  }, [liveEmps, mockEmployees]);
   const [query, setQuery] = useState('');
   const [dept, setDept] = useState<string | null>(null);
   const [status, setStatus] = useState<EmployeeRecord['status'] | null>(null);

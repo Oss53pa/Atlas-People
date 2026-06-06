@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, X, MessageCircle, Stethoscope, Plane, Megaphone, GraduationCap, Paperclip, AlertTriangle, CheckCheck, ShieldCheck } from 'lucide-react';
+import { Check, X, MessageCircle, Stethoscope, Plane, Megaphone, GraduationCap, Paperclip, AlertTriangle, CheckCheck, ShieldCheck, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -16,6 +16,8 @@ import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { leaveTypeByCode } from '../../lib/m2/leaveTypes';
 import { employeeName, employeeById } from '../../data/mock';
+import { usePendingApprovals, useDecideLeave, isBackendConfigured } from '../../lib/mss/supabaseLive';
+import { useAuth } from '../../lib/auth';
 
 const TODAY = '2026-05-28';
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
@@ -39,10 +41,14 @@ export function TeamApprovalsPage() {
   const { toast } = useToast();
   const employees = useDirectory((s) => s.employees);
   const allRequests = useTimeOff((s) => s.requests);
-  const decide = useTimeOff((s) => s.decide);
+  const decideMock = useTimeOff((s) => s.decide);
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
   const teamIds = useMemo(() => new Set(team.map((e) => e.id)), [team]);
+  const { tenantId } = useAuth();
+  const { data: liveApprovals } = usePendingApprovals(tenantId ?? undefined);
+  const decideLife = useDecideLeave();
+  const hasLive = isBackendConfigured && liveApprovals && liveApprovals.length > 0;
 
   const [tab, setTab] = useState('pending');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -54,7 +60,14 @@ export function TeamApprovalsPage() {
   const requests = allRequests.filter((r) => teamIds.has(r.employeeId));
   const shown = requests.filter((r) => tab === 'pending' ? r.status === 'pending' : tab === 'done' ? r.status !== 'pending' : true)
     .sort((a, b) => (a.start < b.start ? 1 : -1));
-  const pendingCount = requests.filter((r) => r.status === 'pending').length;
+  const pendingCount = hasLive ? liveApprovals!.length : requests.filter((r) => r.status === 'pending').length;
+  const decide = (id: string, status: 'approved' | 'refused' | 'info_requested') => {
+    if (isBackendConfigured && tenantId) {
+      decideLife.mutate({ requestId: id, decision: status as 'approved' | 'rejected', tenantId });
+    } else {
+      decideMock(id, status);
+    }
+  };
 
   // Sélection limitée aux demandes en attente actuellement affichées.
   const selectablePending = shown.filter((r) => r.status === 'pending');

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Download, Wallet, ShieldCheck, Sparkles, TrendingUp, Landmark } from 'lucide-react';
+import { FileText, Download, Wallet, ShieldCheck, Sparkles, TrendingUp, Landmark, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -12,8 +12,17 @@ import { computePayslip, getRegime } from '../../lib/payroll';
 import { useSurface } from '../../store/useSurface';
 import { useCorrespondence } from '../../store/useCorrespondence';
 import { employeeById, employeeName, mobileMoney, employeeCompensation, employeeCurrency } from '../../data/mock';
+import { useMyBulletins, isBackendConfigured } from '../../lib/ess/supabaseLive';
+import { useAuth } from '../../lib/auth';
 
 const SELF_ID = 'e2';
+const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002'; // Kouadio N'Guessan dans la DB démo
+
+const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
+const STATUS_LABEL_BUL: Record<string, string> = {
+  calculated: 'Calculé', validated_n1: 'Validé N+1', validated_n2: 'Validé N+2',
+  signed: 'Signé', diffused: 'Diffusé', closed: 'Clôturé', draft: 'Brouillon',
+};
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai'];
 const TABS = [
   { key: 'bulletins', label: 'Mes bulletins' },
@@ -39,10 +48,12 @@ export function MaPaiePage() {
 
   const [tab, setTab] = useState('bulletins');
   const [showSlip, setShowSlip] = useState<string | null>(null);
+  const { tenantId } = useAuth();
+  const { data: liveBulletins } = useMyBulletins(tenantId ?? undefined, DEMO_EMP_ID);
 
   const attestations = useCorrespondence((s) => s.items).filter((c) => c.employeeId === SELF_ID && (c.type.startsWith('CUR-ATT') || c.typeLabel.toLowerCase().includes('attestation')));
   const compLines = employeeCompensation(employee);
-  const fmt = (n: number) => Money.of(n, cur).format();
+  const fmtMoney = (n: number) => Money.of(n, cur).format();
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -50,12 +61,42 @@ export function MaPaiePage() {
 
       <div>
         <h1 className="text-2xl font-semibold text-ink">Ma paie</h1>
-        <p className="text-sm font-medium text-ink-500">Net du mois : <span className="mono font-bold text-amber-deep">{fmt(net)} FCFA</span> · prochain versement 25 mai 2026 · Mobile Money {mobileMoney(employee)}</p>
+        <p className="text-sm font-medium text-ink-500">
+          Net du mois : <span className="mono font-bold text-amber-deep">{fmtMoney(net)} FCFA</span> · prochain versement 25 mai 2026 · Mobile Money {mobileMoney(employee)}
+          {isBackendConfigured && liveBulletins && liveBulletins.length > 0 && (
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+              <Wifi size={9} /> {liveBulletins.length} bulletins en DB
+            </span>
+          )}
+        </p>
       </div>
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
 
-      {/* BULLETINS */}
-      {tab === 'bulletins' && (
+      {/* BULLETINS LIVE */}
+      {tab === 'bulletins' && isBackendConfigured && liveBulletins && liveBulletins.length > 0 && (
+        <div className="space-y-2">
+          {liveBulletins.map((b) => (
+            <Card key={b.id}>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber/12 text-amber-deep"><FileText size={18} /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-ink">{b.cycle_label ?? b.cycle_period}</p>
+                  <p className="text-[11px] font-medium text-ink-400">
+                    Net : <span className="mono font-bold text-ink">{fmt(b.net_a_payer)} FCFA</span> · Brut : {fmt(b.brut_total)} · N° {b.numero}
+                  </p>
+                </div>
+                <StatusPill tone={b.status === 'diffused' || b.status === 'closed' ? 'ok' : 'amber'} dot={false}>
+                  {STATUS_LABEL_BUL[b.status] ?? b.status}
+                </StatusPill>
+                <Button size="sm" variant="ghost" onClick={() => setShowSlip(b.cycle_label ?? b.cycle_period ?? 'Bulletin')}><Download size={14} /></Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* BULLETINS MOCK (fallback ou si onglet bulletins sans live) */}
+      {tab === 'bulletins' && (!isBackendConfigured || !liveBulletins || liveBulletins.length === 0) && (
         <div className="space-y-2">
           {MONTHS.slice().reverse().map((m, i) => {
             const monthNet = net - i * 4000;
@@ -90,7 +131,7 @@ export function MaPaiePage() {
                   <span className="mono text-[11px] font-bold text-ink-500">{l.code}</span>
                   <span className="text-sm font-semibold text-ink">{l.label}</span>
                   <span className="text-[11px] font-medium text-ink-400">{l.category}</span>
-                  <span className="mono text-right text-sm font-semibold text-ink">{fmt(l.amount)}</span>
+                  <span className="mono text-right text-sm font-semibold text-ink">{fmtMoney(l.amount)}</span>
                 </div>
               ))}
             </div>
@@ -103,10 +144,10 @@ export function MaPaiePage() {
         <Card>
           <CardHeader title="Mon cumul annuel" subtitle={`Janvier → Mai 2026 (${months} mois)`} action={<Wallet size={16} className="text-ink-400" />} />
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Brut cumulé" value={fmt(gross * months)} />
-            <Stat label="Cotisations" value={`−${fmt(contrib * months)}`} />
-            <Stat label="Net cumulé" value={fmt(net * months)} accent />
-            <Stat label="Coût employeur" value={fmt(Money.fromJSON({ units: computation.result.employerCostUnits, currency: cur }).toInt() * months)} />
+            <Stat label="Brut cumulé" value={fmtMoney(gross * months)} />
+            <Stat label="Cotisations" value={`−${fmtMoney(contrib * months)}`} />
+            <Stat label="Net cumulé" value={fmtMoney(net * months)} accent />
+            <Stat label="Coût employeur" value={fmtMoney(Money.fromJSON({ units: computation.result.employerCostUnits, currency: cur }).toInt() * months)} />
           </div>
           <Button variant="outline" size="sm" className="mt-4" onClick={() => toast({ variant: 'success', title: 'Récapitulatif annuel', description: 'Récap 2026.pdf généré.' })}><Download size={14} /> Télécharger le récap annuel</Button>
         </Card>

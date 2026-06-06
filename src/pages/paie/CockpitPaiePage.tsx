@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Wallet, Users, Landmark, Building2, CalendarClock, AlertTriangle, ArrowRight, PencilLine, Calculator, CheckCircle2, Banknote, Sparkles } from 'lucide-react';
+import { Wallet, Users, Landmark, Building2, CalendarClock, AlertTriangle, ArrowRight, PencilLine, Calculator, CheckCircle2, Banknote, Sparkles, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
@@ -10,6 +10,10 @@ import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
 import { cycleBulletins, cycleTotals } from '../../lib/m3/cycle';
 import { EMPLOYEES } from '../../data/mock';
+import { useM3Live, isBackendConfigured } from '../../lib/m3/supabaseLive';
+import { useAuth } from '../../lib/auth';
+
+const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n));
 
 const PHASES = [
   { key: 'preparation', label: 'Préparation' },
@@ -23,12 +27,20 @@ const kfmt = (n: number) => `${(Math.round(n) / 1_000_000).toFixed(1)} M`;
 
 export function CockpitPaiePage() {
   const { cycle, variables, statuses, prevNet } = usePayrollCycle();
+  const { tenantId } = useAuth();
+  const { data: liveKpis } = useM3Live(tenantId ?? undefined);
   const rows = useMemo(() => cycleBulletins(variables, statuses, prevNet), [variables, statuses, prevNet]);
   const totals = useMemo(() => cycleTotals(rows), [rows]);
   const seized = EMPLOYEES.filter((e) => ['seized', 'locked'].includes(statuses[e.id])).length;
   const pct = Math.round((seized / EMPLOYEES.length) * 100);
   const phaseIdx = PHASES.findIndex((p) => p.key === cycle.phase);
   const alerts = rows.filter((r) => r.bulletin.anomalies.length > 0);
+
+  // Live-first : si backend actif, on prend les vrais KPIs de DB
+  const brut = liveKpis?.totalBrut ?? totals.brut;
+  const net = liveKpis?.totalNet ?? totals.net;
+  const cout = liveKpis?.coutEmployeur ?? totals.coutEmployeur;
+  const effectif = liveKpis?.activeEmployees ?? EMPLOYEES.length;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -38,7 +50,10 @@ export function CockpitPaiePage() {
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-deep">Module M3 · Paie & déclarations</p>
           <h1 className="text-2xl font-semibold text-ink">Cockpit paie</h1>
-          <p className="text-sm font-medium text-ink-500">Cycle {cycle.label} · {cycle.companyLabel} · paie le {new Date(`${cycle.payDate}T00:00:00`).toLocaleDateString('fr-FR')}</p>
+          <p className="text-sm font-medium text-ink-500">
+          Cycle {liveKpis?.lastPeriod ?? cycle.label} · {cycle.companyLabel} · paie le {new Date(`${cycle.payDate}T00:00:00`).toLocaleDateString('fr-FR')}
+          {isBackendConfigured && liveKpis && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live DB</span>}
+        </p>
         </div>
         <div className="flex gap-2">
           <Link to="/paie/saisie"><Button size="sm"><PencilLine size={14} /> Saisie variables</Button></Link>
@@ -67,10 +82,10 @@ export function CockpitPaiePage() {
 
       {/* KPI masse salariale */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Masse brute" value={kfmt(totals.brut)} unit="XOF" mono icon={Wallet} tone="amber" />
-        <StatCard label="Net à payer" value={kfmt(totals.net)} unit="XOF" mono icon={Banknote} />
-        <StatCard label="Coût employeur" value={kfmt(totals.coutEmployeur)} unit="XOF" mono icon={Building2} />
-        <StatCard label="Effectif paie" value={String(EMPLOYEES.length)} unit="collab." icon={Users} />
+        <StatCard label="Masse brute" value={`${(brut/1_000_000).toFixed(1)} M`} unit="XOF" mono icon={Wallet} tone="amber" />
+        <StatCard label="Net à payer" value={`${(net/1_000_000).toFixed(1)} M`} unit="XOF" mono icon={Banknote} />
+        <StatCard label="Coût employeur" value={`${(cout/1_000_000).toFixed(1)} M`} unit="XOF" mono icon={Building2} />
+        <StatCard label="Effectif paie" value={String(effectif)} unit="collab." icon={Users} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
