@@ -18,6 +18,9 @@ import { computeM3Bulletin, m3PayrollInput, mergeModel } from '../../lib/m3/engi
 import { describeCalc } from '../../lib/m3/rubriques';
 import { computePayslip, getRegime } from '../../lib/payroll';
 import { EMPLOYEES, employeeById, employeeName, matricule } from '../../data/mock';
+import { useUpsertPayrollInput, isBackendConfigured } from '../../lib/m3/payrollInputsLive';
+import { usePayrollCycles } from '../../lib/m3/supabaseLive';
+import { useAuth } from '../../lib/auth';
 import { currencyOf } from '../../data/countries';
 import { Money } from '../../lib/money';
 import type { SaisieStatus, PayrollVariables, BulletinRow, PrimePonctuelle, RetenueExceptionnelle } from '../../lib/m3/types';
@@ -37,6 +40,11 @@ type Tab = typeof TABS[number];
 export function SaisieVariablesPage() {
   const { cycle, variables, models, statuses, prevNet, setVariables, setModel, markReady, lock } = usePayrollCycle();
   const { toast } = useToast();
+  const { tenantId } = useAuth();
+  const { data: liveCycles } = usePayrollCycles(tenantId ?? undefined);
+  const upsertInput = useUpsertPayrollInput();
+  // Récupère l'ID du cycle live en cours (pour persistance DB)
+  const activeLiveCycle = liveCycles?.find((c) => !['closed','archived'].includes(c.status));
   const [selectedId, setSelectedId] = useState('e2');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | SaisieStatus>('all');
@@ -348,12 +356,28 @@ export function SaisieVariablesPage() {
           </Card>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="flex-1" disabled={bulletin.emissionBlocked} onClick={() => { markReady(selectedId); toast({ variant: 'success', title: 'Marqué saisi', description: employeeName(emp) }); }}>
+            <Button variant="outline" size="sm" className="flex-1" disabled={bulletin.emissionBlocked} onClick={async () => {
+              markReady(selectedId);
+              if (isBackendConfigured && tenantId && activeLiveCycle) {
+                const emp = employeeById(selectedId);
+                const dbEmpId = `e1000001-0000-0000-0000-${String(EMPLOYEES.findIndex(e=>e.id===selectedId)+1).padStart(12,'0')}`;
+                try { await upsertInput.mutateAsync({ tenantId, cycleId: activeLiveCycle.id, employeeId: dbEmpId, status: 'ready' }); } catch {}
+              }
+              toast({ variant: 'success', title: 'Marqué saisi', description: employeeName(emp) });
+            }}>
               <CheckCircle2 size={14} /> Marquer saisi
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { lock(selectedId); toast({ variant: 'success', title: 'Verrouillé', description: employeeName(emp) }); }}>
+            <Button variant="ghost" size="sm" onClick={async () => {
+              lock(selectedId);
+              if (isBackendConfigured && tenantId && activeLiveCycle) {
+                const dbEmpId = `e1000001-0000-0000-0000-${String(EMPLOYEES.findIndex(e=>e.id===selectedId)+1).padStart(12,'0')}`;
+                try { await upsertInput.mutateAsync({ tenantId, cycleId: activeLiveCycle.id, employeeId: dbEmpId, status: 'locked' }); } catch {}
+              }
+              toast({ variant: 'success', title: 'Verrouillé', description: employeeName(emp) });
+            }}>
               <Lock size={14} /> Verrouiller
             </Button>
+
           </div>
         </div>
       </div>
