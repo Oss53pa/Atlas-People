@@ -52,6 +52,7 @@ export function MesDemandesPage() {
   const { data: liveRequests } = useMyServiceRequests(tenantId ?? undefined, DEMO_EMP_ID);
   const createLive = useCreateServiceRequest();
   const mockRequests = useServiceRequests((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
+  const requests = mockRequests;
   const create = useServiceRequests((s) => s.create);
   const addMessage = useServiceRequests((s) => s.addMessage);
   const rate = useServiceRequests((s) => s.rate);
