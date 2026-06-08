@@ -13,7 +13,6 @@ import { PropheticHint } from '../components/ui/feedback';
 import { Card, CardHeader } from '../components/ui/Card';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { StatusPill } from '../components/ui/StatusPill';
-import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
 import { ProgressBar } from '../components/charts/ProgressBar';
 import { Money } from '../lib/money';
@@ -76,112 +75,142 @@ function TabButton({ active, onClick, icon: Icon, children }: { active: boolean;
   );
 }
 
-// ---------------- Onglet Congés ----------------
+// ---------------- Onglet Congés (traitement RH) ----------------
 function CongesTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
-  const [empId, setEmpId] = useState(roster[0]?.id ?? '');
-  const [type, setType] = useState('annual');
-  const [start, setStart] = useState('2026-06-01');
-  const [end, setEnd] = useState('2026-06-05');
   const [requests, setRequests] = useState<LeaveRequest[]>(LEAVE_REQUESTS);
+  const [filter, setFilter] = useState<'pending' | 'treated' | 'all'>('pending');
 
-  const employee = employeeById(empId) ?? roster[0];
-  const days = useMemo(() => workingDaysBetween(start, end, country), [start, end, country]);
-  const accrued = employee ? accruedAnnualLeave(employee.hireDate, country) : 0;
-  const taken = requests.filter((r) => r.employeeId === empId && r.status !== 'refused' && r.type === 'annual').reduce((s, r) => s + workingDaysBetween(r.start, r.end, country), 0);
-  const remaining = Math.round((accrued - taken) * 10) / 10;
-  const insufficient = type === 'annual' && days > remaining;
+  const rosterIds = useMemo(() => new Set(roster.map((e) => e.id)), [roster]);
+  const scoped = useMemo(() => requests.filter((r) => rosterIds.has(r.employeeId)), [requests, rosterIds]);
+
+  const pendingCount = scoped.filter((r) => r.status === 'pending').length;
+  const approvedCount = scoped.filter((r) => r.status === 'approved').length;
+  const refusedCount = scoped.filter((r) => r.status === 'refused').length;
 
   const decide = (id: string, status: 'approved' | 'refused') =>
     setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
 
-  return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      {/* Demande */}
-      <Card>
-        <CardHeader title="Poser un congé" subtitle="Décompte automatique des jours ouvrés" />
-        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Collaborateur</label>
-        <select value={empId} onChange={(e) => setEmpId(e.target.value)} className="mb-3 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
-          {roster.map((e) => (
-            <option key={e.id} value={e.id}>{employeeName(e)}</option>
-          ))}
-        </select>
-        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Type</label>
-        <select value={type} onChange={(e) => setType(e.target.value)} className="mb-3 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
-          {LEAVE_TYPES.map((t) => (
-            <option key={t.code} value={t.code}>{t.label}</option>
-          ))}
-        </select>
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Du</label>
-            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-2 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" />
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Au</label>
-            <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-2 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" />
-          </div>
-        </div>
-        <div className="rounded-2xl bg-surface2 p-3.5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-ink-700">Jours ouvrés décomptés</span>
-            <span className="mono text-lg font-bold text-ink">{days}</span>
-          </div>
-          {type === 'annual' && (
-            <>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="font-medium text-ink-500">Solde restant après pose</span>
-                <span className={cn('mono font-bold', insufficient ? 'text-danger' : 'text-ok')}>{Math.round((remaining - days) * 10) / 10} j</span>
-              </div>
-              <ProgressBar className="mt-2" value={Math.max(0, remaining - days)} max={accrued} tone={insufficient ? 'danger' : 'ok'} />
-            </>
-          )}
-        </div>
-        <Button className="mt-3 w-full" disabled={insufficient || days === 0}>
-          <CalendarPlus size={14} /> {insufficient ? 'Solde insuffisant' : 'Envoyer la demande'}
-        </Button>
-        {insufficient && (
-          <p className="mt-2 text-[11px] font-semibold text-danger">
-            Solde de congé insuffisant — dérogation RH requise (auditée).
-          </p>
-        )}
-      </Card>
+  const balanceFor = (empId: string) => {
+    const emp = employeeById(empId);
+    if (!emp) return { accrued: 0, remaining: 0 };
+    const accrued = accruedAnnualLeave(emp.hireDate, country);
+    const taken = scoped
+      .filter((r) => r.employeeId === empId && r.status === 'approved' && r.type === 'annual')
+      .reduce((s, r) => s + workingDaysBetween(r.start, r.end, country), 0);
+    return { accrued, remaining: Math.round((accrued - taken) * 10) / 10 };
+  };
 
-      {/* File de validation */}
-      <Card className="lg:col-span-2">
+  const overlapsFor = (r: LeaveRequest) =>
+    scoped.filter((o) => o.id !== r.id && o.status !== 'refused' && o.start <= r.end && o.end >= r.start).length;
+
+  const shown = scoped.filter((r) =>
+    filter === 'pending' ? r.status === 'pending' : filter === 'treated' ? r.status !== 'pending' : true,
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatTile icon={Clock} tone="warn" label="En attente de traitement" value={pendingCount} />
+        <StatTile icon={ShieldCheck} tone="ok" label="Validés" value={approvedCount} />
+        <StatTile icon={ShieldX} tone="danger" label="Refusés" value={refusedCount} />
+      </div>
+
+      <Card>
         <CardHeader
           title="File de validation"
-          subtitle="Manager → RH"
-          action={<StatusPill tone="warn">{requests.filter((r) => r.status === 'pending').length} en attente</StatusPill>}
+          subtitle="Manager → RH · traitez les demandes posées par les collaborateurs"
+          action={
+            <div className="flex items-center gap-1.5">
+              {(['pending', 'treated', 'all'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={cn(
+                    'rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors',
+                    filter === f ? 'bg-amber text-night' : 'bg-surface2 text-ink-500 hover:text-ink',
+                  )}
+                >
+                  {f === 'pending' ? 'En attente' : f === 'treated' ? 'Traitées' : 'Toutes'}
+                </button>
+              ))}
+            </div>
+          }
         />
-        <div className="space-y-2">
-          {requests.map((r) => {
-            const emp = employeeById(r.employeeId);
-            if (!emp || emp.countryCode !== country) return null;
-            const lt = LEAVE_TYPES.find((t) => t.code === r.type);
-            const d = workingDaysBetween(r.start, r.end, country);
-            return (
-              <div key={r.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface2 p-3">
-                <Avatar name={employeeName(emp)} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-ink">{employeeName(emp)}</p>
-                  <p className="text-[11px] font-medium text-ink-400">
-                    {lt?.label} · {new Date(r.start).toLocaleDateString('fr-FR')} → {new Date(r.end).toLocaleDateString('fr-FR')} · {d}j
-                  </p>
-                </div>
-                {r.status === 'pending' ? (
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => decide(r.id, 'approved')} className="rounded-lg bg-ok/12 p-2 text-ok hover:bg-ok/20"><Check size={15} /></button>
-                    <button onClick={() => decide(r.id, 'refused')} className="rounded-lg bg-danger/10 p-2 text-danger hover:bg-danger/20"><X size={15} /></button>
+        {shown.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+            <ShieldCheck className="text-ok" size={28} />
+            <p className="text-sm font-semibold text-ink-500">
+              {filter === 'pending' ? 'Aucune demande en attente — tout est traité.' : 'Aucune demande sur ce filtre.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {shown.map((r) => {
+              const emp = employeeById(r.employeeId);
+              if (!emp) return null;
+              const lt = LEAVE_TYPES.find((t) => t.code === r.type);
+              const d = workingDaysBetween(r.start, r.end, country);
+              const { accrued, remaining } = balanceFor(r.employeeId);
+              const insufficient = r.type === 'annual' && d > remaining;
+              const overlaps = r.status === 'pending' ? overlapsFor(r) : 0;
+              return (
+                <div key={r.id} className="rounded-2xl border border-line bg-surface2 p-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={employeeName(emp)} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-ink">{employeeName(emp)}</p>
+                      <p className="text-[11px] font-medium text-ink-400">
+                        {lt?.label} · {new Date(r.start).toLocaleDateString('fr-FR')} → {new Date(r.end).toLocaleDateString('fr-FR')} · {d}j
+                      </p>
+                    </div>
+                    {r.status === 'pending' ? (
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => decide(r.id, 'approved')} className="inline-flex items-center gap-1 rounded-lg bg-ok/12 px-2.5 py-2 text-xs font-bold text-ok hover:bg-ok/20"><Check size={14} /> Valider</button>
+                        <button onClick={() => decide(r.id, 'refused')} className="inline-flex items-center gap-1 rounded-lg bg-danger/10 px-2.5 py-2 text-xs font-bold text-danger hover:bg-danger/20"><X size={14} /> Refuser</button>
+                      </div>
+                    ) : (
+                      <StatusPill tone={r.status === 'approved' ? 'ok' : 'danger'}>{r.status === 'approved' ? 'Validé' : 'Refusé'}</StatusPill>
+                    )}
                   </div>
-                ) : (
-                  <StatusPill tone={r.status === 'approved' ? 'ok' : 'danger'}>{r.status === 'approved' ? 'Validé' : 'Refusé'}</StatusPill>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  {r.status === 'pending' && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line pt-2.5 text-[11px] font-medium">
+                      {r.type === 'annual' && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="text-ink-400">Solde</span>
+                          <span className={cn('mono font-bold', insufficient ? 'text-danger' : 'text-ink')}>{remaining}j</span>
+                          <ProgressBar className="w-24" value={Math.max(0, remaining)} max={Math.max(accrued, 1)} tone={insufficient ? 'danger' : 'ok'} />
+                        </span>
+                      )}
+                      {insufficient && (
+                        <span className="inline-flex items-center gap-1 font-bold text-danger"><ShieldX size={12} /> Solde insuffisant — dérogation requise</span>
+                      )}
+                      {overlaps > 0 && (
+                        <span className="inline-flex items-center gap-1 font-bold text-amber-deep"><CalendarDays size={12} /> {overlaps} chevauchement(s) d'équipe</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </div>
+  );
+}
+
+function StatTile({ icon: Icon, tone, label, value }: { icon: typeof Clock; tone: 'warn' | 'ok' | 'danger'; label: string; value: number }) {
+  const toneCls = tone === 'ok' ? 'text-ok' : tone === 'danger' ? 'text-danger' : 'text-amber-deep';
+  return (
+    <Card className="flex items-center gap-3">
+      <div className={cn('grid h-10 w-10 place-items-center rounded-xl bg-surface2', toneCls)}>
+        <Icon size={18} />
+      </div>
+      <div>
+        <p className="mono text-2xl font-bold text-ink">{value}</p>
+        <p className="text-[11px] font-semibold text-ink-400">{label}</p>
+      </div>
+    </Card>
   );
 }
 
