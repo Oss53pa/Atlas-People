@@ -1,4 +1,5 @@
 import { LayoutDashboard, Users, Smartphone, type LucideIcon } from 'lucide-react';
+import { isNativeApp } from './platform';
 
 /**
  * Architecture des espaces (surfaces). Atlas People = un backend unique servant
@@ -31,11 +32,13 @@ export type Role =
 
 const BACKOFFICE_ROLES: Role[] = ['hr', 'drh', 'payroll', 'compliance', 'occupational_doctor', 'admin', 'security_admin'];
 
-/** Espaces accessibles selon les rôles (tout le monde a ESS). Ordre stable. */
+/** Espaces accessibles selon les rôles (tout le monde a ESS). Ordre stable.
+ *  Dans l'APK (coque native), le back-office RH est exclu : l'app mobile est
+ *  un outil self-service Employé + Manager, pas une console d'administration. */
 export function spacesForRoles(roles: Role[]): SurfaceKey[] {
   const set = new Set<SurfaceKey>(['ess']);
   if (roles.includes('manager')) set.add('mss');
-  if (roles.some((r) => BACKOFFICE_ROLES.includes(r))) set.add('backoffice');
+  if (!isNativeApp() && roles.some((r) => BACKOFFICE_ROLES.includes(r))) set.add('backoffice');
   return (['backoffice', 'mss', 'ess'] as SurfaceKey[]).filter((k) => set.has(k));
 }
 
