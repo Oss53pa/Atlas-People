@@ -155,10 +155,14 @@
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
+    right: auto !important;
+    bottom: auto !important;
+    /* Dimensions physiques EXACTES d'une page A4 (avec @page margin:0).
+       On évite 100vw/100vh : en média paginé leur référence (page vs zone
+       imprimable) varie selon le navigateur et provoque un débordement
+       de quelques mm → 2e page. 210×297mm + margin:0 = 1 page certaine. */
+    width: 210mm !important;
+    height: 297mm !important;
     max-width: none !important;
     max-height: none !important;
     min-height: 0 !important;
@@ -166,7 +170,7 @@
     z-index: 9999 !important;
     background: white !important;
     box-shadow: none !important;
-    padding: 5mm 6mm !important;
+    padding: 8mm 9mm !important;
     line-height: 1.2 !important;
     transform: none !important;
     overflow: hidden !important;
@@ -345,10 +349,13 @@
     margin: 12mm;
   }
 
-  /* Bulletin de paie : A4 portrait, marges minimales 6mm, 1 page garantie */
+  /* Bulletin de paie : A4 portrait, marge @page à 0 — la zone de sécurité
+     est gérée par le padding interne de .payslip-print (8mm 9mm). Ainsi
+     l'élément 210×297mm correspond EXACTEMENT à une page physique, sans
+     décalage de marge qui ferait déborder sur une 2e page. */
   @page payslipPage {
     size: A4 portrait;
-    margin: 6mm;
+    margin: 0;
   }
   body.print-payslip {
     page: payslipPage;

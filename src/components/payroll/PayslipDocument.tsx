@@ -1,27 +1,22 @@
 /**
- * Template officiel du bulletin de paie (imprimable / PDF via window.print).
+ * Template officiel du bulletin de paie — Page A4 portrait exacte.
  *
- * Garantie 1 page A4 portrait QUEL QUE SOIT le nombre de lignes :
- *   • Compaction structurelle extrême (paddings 0.5px en table)
- *   • CSS print zoom 0.85 + marges page 6mm
- *   • Auto-fit via useLayoutEffect : si overflow détecté, transform scale
- *     dynamiquement pour rentrer dans 1062px (= 281mm @ 96 DPI = A4 utile)
- *
- * Trois modèles de présentation au choix, tous alimentés par le MÊME moteur
- * déterministe (lib/payroll) — aucun chiffre n'est saisi en dur.
+ * Architecture :
+ *   Container : width=210mm, height=297mm (fixe, toujours une page A4).
+ *   Layout    : flex-col — la section TABLEAU prend tout l'espace restant
+ *               (flex-1 + overflow: hidden) → le bulletin remplit TOUJOURS
+ *               la feuille quelle que soit la quantité de rubriques.
+ *   Impression : @page payslipPage { size: A4 portrait; margin: 6mm; }
+ *               + body.print-payslip → 1 page garantie.
+ *   Aperçu    : PayslipModal affiche la page A4 à une échelle adaptée à l'écran.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { Money } from '../../lib/money';
 import type { PayslipComputation } from '../../lib/payroll';
 import type { PayslipLine } from '../../lib/payroll/types';
 import { matricule, mobileMoney, type EmployeeRecord } from '../../data/mock';
 import { countryByCode } from '../../data/countries';
-
-/** Hauteur utile A4 portrait à 96 DPI moins marges 6mm × 2.
- *  A4 = 297mm × 210mm = 1123px × 794px @ 96dpi. Marges 6mm = 23px chacune.
- *  Zone utile = 1123 − 46 = 1077px. On vise 1060px pour sécurité. */
-const A4_USABLE_HEIGHT_PX = 1060;
 
 export type PayslipTemplate = 'standard' | 'clarifie' | 'classique';
 
@@ -62,56 +57,14 @@ export function PayslipDocument({
   const templateLabel = PAYSLIP_TEMPLATES.find((t) => t.key === template)?.label ?? '';
   const bulletinRef = `BUL-${period.replace(/[^A-Z0-9]/gi, '').slice(0, 6)}-${matricule(employee).slice(-3)}`;
 
-  // Auto-fit BIDIRECTIONNEL : densité ajustée selon le nombre de lignes du bulletin.
-  // - Bulletin peu rempli (peu de cotisations) → density > 1 : texte plus aéré pour
-  //   occuper toute la page
-  // - Bulletin dense (beaucoup de cotisations) → density < 1 : texte resserré pour
-  //   tenir sur 1 page
-  // Le but : remplir la page A4 portrait quel que soit le nombre de lignes.
-  const totalRows = earnings.length + combos.length;
-  const density = totalRows <= 8  ? 1.20
-                : totalRows <= 12 ? 1.08
-                : totalRows <= 16 ? 1.00
-                : totalRows <= 20 ? 0.92
-                : totalRows <= 24 ? 0.85
-                : 0.78;
-
-  // Mesure post-render : si malgré la densité le contenu dépasse, on applique
-  // un scale de sécurité (jamais d'agrandissement, juste réduction garantie).
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const [safetyScale, setSafetyScale] = useState(1);
-  useLayoutEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const measure = () => {
-      const h = el.scrollHeight;
-      if (h > A4_USABLE_HEIGHT_PX) {
-        setSafetyScale(Math.max(0.5, (A4_USABLE_HEIGHT_PX / h) * 0.99));
-      } else {
-        setSafetyScale(1);
-      }
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [template, totalRows, density]);
-
-  // Auto-tag body.print-payslip lors de l'aperçu/impression natif (Ctrl+P).
-  // Sans ce hook, les utilisateurs qui font Ctrl+P directement ne déclenchent
-  // pas la classe (seul le bouton Imprimer du modal le faisait), et les
-  // règles @media print + body.print-payslip ne s'appliquent pas → bulletin
-  // rendu à 760px max au lieu de pleine page A4.
+  // Auto-tag body.print-payslip sur Ctrl+P
   useEffect(() => {
     const onBefore = () => document.body.classList.add('print-payslip');
     const onAfter  = () => document.body.classList.remove('print-payslip');
     window.addEventListener('beforeprint', onBefore);
     window.addEventListener('afterprint',  onAfter);
-    // matchMedia print : couvre certains navigateurs qui n'émettent pas before/after
     const mq = window.matchMedia('print');
-    const onChange = (e: MediaQueryListEvent) => {
-      if (e.matches) onBefore(); else onAfter();
-    };
+    const onChange = (e: MediaQueryListEvent) => { if (e.matches) onBefore(); else onAfter(); };
     mq.addEventListener?.('change', onChange);
     return () => {
       window.removeEventListener('beforeprint', onBefore);
@@ -121,164 +74,192 @@ export function PayslipDocument({
     };
   }, []);
 
+  // Nombre de lignes pour adapter la taille de police dans la section tableau
+  const totalRows = earnings.length + combos.length;
+  const tableFontPt = totalRows <= 8  ? 10
+                    : totalRows <= 12 ? 9
+                    : totalRows <= 16 ? 8.5
+                    : totalRows <= 20 ? 8
+                    : totalRows <= 24 ? 7.5
+                    : 7;
+
   return (
+    /*
+     * ════════════════════════════════════════════════════════════════
+     * PAGE A4 PORTRAIT — 210 × 297 mm (fixe, toujours pleine page).
+     * display: flex + flex-direction: column + overflow: hidden
+     * → le contenu NE PEUT PAS dépasser la feuille A4.
+     * → la section tableau (flex-1) remplit tout l'espace disponible.
+     * ════════════════════════════════════════════════════════════════
+     */
     <div
-      ref={wrapperRef}
-      className="payslip-print mx-auto w-full max-w-[760px] bg-white px-5 py-3.5 text-ink"
+      className="payslip-print"
       style={{
-        // Densité dynamique appliquée via font-size, line-height et padding.
-        // Tous les enfants utilisent des unités em ou héritent de cette base.
-        fontSize: `${10.5 * density}px`,
-        lineHeight: 1.25,
-        // Scale de sécurité uniquement à l'écran si toujours débordement
-        // (le CSS print désactive ce transform pour éviter le double-effet).
-        transform: safetyScale !== 1 ? `scale(${safetyScale})` : undefined,
-        transformOrigin: 'top center',
+        width: '210mm',
+        height: '297mm',
+        overflow: 'hidden',
+        background: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '6mm 7mm',
+        fontFamily: '"Inter", "Segoe UI", sans-serif',
+        color: '#1a1a1a',
+        boxSizing: 'border-box',
       }}
-      data-density={density.toFixed(2)}
       data-rows={totalRows}
     >
 
-      {/* ═══ EN-TÊTE — Identité société + référence bulletin ═══ */}
-      <header className="flex items-start justify-between gap-3 border-b-2 border-ink pb-1.5">
-        <div className="flex items-start gap-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-deep/10 ring-1 ring-amber-deep/20">
-            <svg viewBox="0 0 64 64" className="h-4 w-4">
+      {/* ═══ EN-TÊTE — Identité société + référence ═══ */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', borderBottom:'2px solid #1a1a1a', paddingBottom:'3mm', marginBottom:'2.5mm', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'flex-start', gap:'3mm' }}>
+          <div style={{ width:'7mm', height:'7mm', background:'#fef3e2', borderRadius:'1.5mm', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg viewBox="0 0 64 64" style={{ width:'4.5mm', height:'4.5mm' }}>
               <path d="M32 14 L50 50 H41 L32 31 L23 50 H14 Z" fill="#C97E12" />
             </svg>
           </div>
           <div>
-            <p className="text-[12px] font-bold uppercase leading-tight tracking-wide text-ink">{tenantName}</p>
-            <p className="text-[9px] font-medium leading-tight text-ink-700">{country.name} · {country.socialFund}</p>
-            <p className="text-[8.5px] font-medium leading-tight text-ink-500">NCC ——— · RCCM ——— · BP ———, {country.name}</p>
+            <p style={{ fontSize:'10pt', fontWeight:700, lineHeight:1.2, textTransform:'uppercase', letterSpacing:'0.02em', margin:0 }}>{tenantName}</p>
+            <p style={{ fontSize:'7.5pt', color:'#555', margin:0, lineHeight:1.2 }}>{country.name} · {country.socialFund}</p>
+            <p style={{ fontSize:'7pt', color:'#888', margin:0, lineHeight:1.2 }}>NCC ——— · RCCM ——— · {country.name}</p>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-[8.5px] font-bold uppercase tracking-[0.2em] text-amber-deep">Bulletin de paie</p>
-          <p className="font-mono text-[14px] font-extrabold leading-tight text-ink">{period}</p>
-          <p className="mono text-[8.5px] font-medium text-ink-500">N° {bulletinRef}</p>
-          <p className="text-[7.5px] font-semibold uppercase tracking-wider text-ink-400">Modèle : {templateLabel} · {currency}</p>
+        <div style={{ textAlign:'right' }}>
+          <p style={{ fontSize:'7.5pt', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.15em', color:'#C97E12', margin:0 }}>Bulletin de paie</p>
+          <p style={{ fontFamily:'monospace', fontSize:'14pt', fontWeight:800, lineHeight:1.2, margin:0 }}>{period}</p>
+          <p style={{ fontFamily:'monospace', fontSize:'7pt', color:'#888', margin:0 }}>N° {bulletinRef}</p>
+          <p style={{ fontSize:'6.5pt', textTransform:'uppercase', letterSpacing:'0.1em', color:'#aaa', margin:0 }}>Modèle : {templateLabel} · {currency}</p>
         </div>
-      </header>
+      </div>
 
-      {/* ═══ IDENTITÉ SALARIÉ — bloc compact 2 colonnes ═══ */}
-      <section className="grid grid-cols-2 gap-x-5 gap-y-0 border-b border-ink/30 py-1 text-[9.5px]">
-        <IdRow label="Matricule"      value={matricule(employee)} mono />
-        <IdRow label="Date d'embauche" value={new Date(employee.hireDate).toLocaleDateString('fr-FR')} />
-        <IdRow label="Nom &amp; prénom" value={`${employee.lastName} ${employee.firstName}`} />
-        <IdRow label="Type de contrat" value={employee.contractType} />
-        <IdRow label="Emploi"          value={employee.role} />
-        <IdRow label="Parts fiscales"  value={String(employee.fiscalParts)} mono />
-        <IdRow label="Département"     value={employee.department} />
-        <IdRow label="Régime / Pays"   value={`${country.socialFund} · ${employee.countryCode}`} />
-      </section>
+      {/* ═══ IDENTITÉ SALARIÉ — grille 2 colonnes ═══ */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', columnGap:'5mm', borderBottom:'1px solid #ccc', paddingBottom:'2mm', marginBottom:'2mm', flexShrink:0 }}>
+        {[
+          ['Matricule', matricule(employee), true],
+          ["Date d'embauche", new Date(employee.hireDate).toLocaleDateString('fr-FR'), false],
+          ['Nom & prénom', `${employee.lastName} ${employee.firstName}`, false],
+          ['Type de contrat', employee.contractType, false],
+          ['Emploi', employee.role, false],
+          ['Parts fiscales', String(employee.fiscalParts), true],
+          ['Département', employee.department, false],
+          ['Régime / Pays', `${country.socialFund} · ${employee.countryCode}`, false],
+        ].map(([label, value, mono]) => (
+          <div key={label as string} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:'2mm', borderBottom:'1px dotted #e0e0e0', paddingTop:'0.8mm', paddingBottom:'0.8mm' }}>
+            <span style={{ fontSize:'7pt', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'#888', flexShrink:0 }}>{label as string}</span>
+            <span style={{ fontSize:'8.5pt', fontWeight:600, fontFamily: mono ? 'monospace' : 'inherit', textAlign:'right', color:'#1a1a1a' }}>{value as string}</span>
+          </div>
+        ))}
+      </div>
 
-      {/* ═══ TABLEAU DES RUBRIQUES — selon modèle ═══ */}
-      {template === 'standard'  && <StandardTable  earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} />}
-      {template === 'clarifie'  && <ClarifieTable  earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} />}
-      {template === 'classique' && <ClassiqueTable earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} />}
+      {/* ═══ TABLEAU DES RUBRIQUES — flex-1, remplit tout l'espace libre ═══ */}
+      <div style={{ flex:1, overflow:'hidden', marginBottom:'2mm' }}>
+        {template === 'standard'  && <StandardTable  earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} fontPt={tableFontPt} />}
+        {template === 'clarifie'  && <ClarifieTable  earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} fontPt={tableFontPt} />}
+        {template === 'classique' && <ClassiqueTable earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} fontPt={tableFontPt} />}
+      </div>
 
       {/* ═══ NET À PAYER — bandeau sobre ═══ */}
-      <section className="mt-2 flex items-center justify-between border-y-[1.5px] border-amber-deep bg-amber-deep/[0.05] px-3 py-1.5">
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', borderTop:'2px solid #C97E12', borderBottom:'2px solid #C97E12', background:'rgba(201,126,18,0.04)', padding:'3mm', marginBottom:'2mm', flexShrink:0 }}>
         <div>
-          <p className="text-[8.5px] font-bold uppercase tracking-[0.18em] text-amber-deep">Net à payer</p>
-          <p className="text-[9px] font-medium text-ink-700">Versé sur Mobile Money {mobileMoney(employee)}</p>
+          <p style={{ fontSize:'7.5pt', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.15em', color:'#C97E12', margin:0 }}>Net à payer</p>
+          <p style={{ fontSize:'8pt', color:'#666', margin:0 }}>Versé sur Mobile Money {mobileMoney(employee)}</p>
         </div>
-        <p className="mono text-[19px] font-extrabold leading-none text-amber-deep">
+        <p style={{ fontFamily:'monospace', fontSize:'18pt', fontWeight:800, color:'#C97E12', lineHeight:1, margin:0 }}>
           {M(result.netToPayUnits).formatWithCurrency()}
         </p>
-      </section>
+      </div>
 
-      {/* ═══ RÉCAP — 6 cases en ligne ═══ */}
-      <section className="mt-1.5 grid grid-cols-3 gap-x-3 gap-y-0 border-b border-ink/15 py-1 text-[9.5px] sm:grid-cols-6">
-        <RecapItem label="Net imposable"    value={netImposable.format()} />
-        <RecapItem label="Total gains"      value={totalGains.format()} />
-        <RecapItem label="Total retenues"   value={totalRetenues.format()} tone="danger" />
-        <RecapItem label="Charges patron."  value={totalPatronal.format()} />
-        <RecapItem label="Coût employeur"   value={employeurCost.format()} tone="accent" />
-        <RecapItem label="Heures travail."  value="173,33 h" mono />
-      </section>
+      {/* ═══ RÉCAP — 6 cases ═══ */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:'2mm', borderBottom:'1px solid #e0e0e0', paddingBottom:'2mm', marginBottom:'2mm', flexShrink:0 }}>
+        {[
+          ['Net imposable', netImposable.format(), '#1a1a1a'],
+          ['Total gains', totalGains.format(), '#1a1a1a'],
+          ['Total retenues', totalRetenues.format(), '#b91c1c'],
+          ['Charg. patronales', totalPatronal.format(), '#1a1a1a'],
+          ['Coût employeur', employeurCost.format(), '#C97E12'],
+          ['Heures travail.', '173,33 h', '#1a1a1a'],
+        ].map(([label, value, color]) => (
+          <div key={label as string} style={{ borderRight:'1px dotted #e0e0e0', paddingRight:'1.5mm', paddingLeft:'0.5mm' }}>
+            <p style={{ fontSize:'6.5pt', fontWeight:700, textTransform:'uppercase', color:'#888', margin:0, lineHeight:1.2 }}>{label as string}</p>
+            <p style={{ fontSize:'8.5pt', fontWeight:700, fontFamily:'monospace', color:color as string, margin:0, lineHeight:1.3 }}>{value as string}</p>
+          </div>
+        ))}
+      </div>
 
-      {/* ═══ CHARGES PATRONALES (info) — affichage standard uniquement ═══ */}
+      {/* ═══ CHARGES PATRONALES info (standard seulement) ═══ */}
       {template === 'standard' && combos.some((r) => r.patAmount != null) && (
-        <section className="mt-1.5 border-b border-ink/15 pb-1.5">
-          <p className="mb-0 text-[7.5px] font-bold uppercase tracking-wider text-ink-500">
-            Charges patronales (information employeur)
-          </p>
-          <div className="grid grid-cols-2 gap-x-5 gap-y-0 text-[9.5px] sm:grid-cols-3">
+        <div style={{ borderBottom:'1px solid #e0e0e0', paddingBottom:'1.5mm', marginBottom:'1.5mm', flexShrink:0 }}>
+          <p style={{ fontSize:'6.5pt', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'#888', margin:'0 0 1mm 0' }}>Charges patronales (information)</p>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5mm 4mm' }}>
             {combos.filter((r) => r.patAmount != null).map((r) => (
-              <div key={`pat-${r.code}`} className="flex items-baseline justify-between border-b border-dotted border-ink/15 py-0">
-                <span className="truncate text-ink-700">{r.patLabel ?? r.label}</span>
-                <span className="mono font-semibold text-ink">{fmt(r.patAmount!)}</span>
+              <div key={`pat-${r.code}`} style={{ display:'flex', justifyContent:'space-between', fontSize:'7.5pt' }}>
+                <span style={{ color:'#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'60%' }}>{r.patLabel ?? r.label}</span>
+                <span style={{ fontFamily:'monospace', fontWeight:600, color:'#1a1a1a' }}>{fmt(r.patAmount!)}</span>
               </div>
             ))}
           </div>
-        </section>
+        </div>
       )}
 
       {/* ═══ FOOTER — intégrité + mention légale ═══ */}
-      <footer className="mt-1.5 flex flex-col gap-0.5 text-[8px] text-ink-500">
-        <div className="flex items-center justify-between border-t border-ink/30 pt-1">
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center gap-1 rounded-sm px-1.5 py-0 font-bold ${verification.ok ? 'bg-ok/10 text-ok' : 'bg-danger/10 text-danger'}`}>
-              <ShieldCheck size={9} /> {verification.ok ? 'Double vérification OK' : 'Écart détecté'}
+      <div style={{ borderTop:'1px solid #ccc', paddingTop:'1.5mm', flexShrink:0 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1mm' }}>
+          <div style={{ display:'flex', gap:'3mm', alignItems:'center' }}>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:'1mm', background: verification.ok ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)', color: verification.ok ? '#15803d' : '#dc2626', fontSize:'7pt', fontWeight:700, padding:'0.5mm 1.5mm', borderRadius:'1mm' }}>
+              <ShieldCheck size={8} /> {verification.ok ? 'Double vérification OK' : 'Écart détecté'}
             </span>
-            <span className="text-ink-600">Écriture comptable {accounting.balanced ? 'équilibrée' : 'déséquilibrée'}</span>
+            <span style={{ fontSize:'7pt', color:'#666' }}>Écriture comptable {accounting.balanced ? 'équilibrée' : 'déséquilibrée'}</span>
           </div>
-          <span className="mono">Empreinte audit · <span className="font-semibold text-ink-700">{auditHash}</span></span>
+          <span style={{ fontFamily:'monospace', fontSize:'7pt', color:'#888' }}>Audit · <strong style={{ color:'#555' }}>{auditHash}</strong></span>
         </div>
-        <p className="leading-tight">
+        <p style={{ fontSize:'7pt', color:'#999', lineHeight:1.35, margin:0 }}>
           Bulletin établi conformément au régime {country.socialFund} ({country.name}). À conserver sans limitation de durée.
-          Document généré par <span className="font-bold text-amber-deep">Atlas People</span> · Atlas Studio · OHADA 17 États.
+          Document généré par <strong style={{ color:'#C97E12' }}>Atlas People</strong> · Atlas Studio · OHADA 17 États.
         </p>
-      </footer>
+      </div>
+
     </div>
   );
 }
 
 /* ══════════════════════════════════════════════════════════════════
- * Modèle 1 — STANDARD OHADA (Gains / Retenues séparées)
+ * Modèle 1 — STANDARD OHADA
  * ══════════════════════════════════════════════════════════════════ */
-function StandardTable({ earnings, combos, fmt, M, totalGains, totalRetenues }: TableProps) {
+function StandardTable({ earnings, combos, fmt, M, totalGains, totalRetenues, fontPt }: TableProps) {
   const retenues = combos.filter((r) => r.empAmount != null);
+  const thStyle = (right = false): React.CSSProperties => ({
+    fontSize: `${fontPt * 0.78}pt`, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+    color: '#555', padding: '1.2mm 1mm', textAlign: right ? 'right' : 'left', borderBottom: '1px solid #1a1a1a',
+  });
   return (
-    <table className="payslip-table mt-2 w-full border-collapse text-[10px]">
+    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:`${fontPt}pt` }}>
       <thead>
-        <tr className="border-y border-ink text-left text-[8px] font-bold uppercase tracking-wider text-ink-700">
-          <th className="w-[42%] py-1">Désignation</th>
-          <th className="py-1 text-right">Base</th>
-          <th className="py-1 text-right">Taux</th>
-          <th className="py-1 text-right">Gains</th>
-          <th className="py-1 text-right">Retenues</th>
+        <tr>
+          <th style={{ ...thStyle(), width:'42%' }}>Désignation</th>
+          <th style={thStyle(true)}>Base</th>
+          <th style={thStyle(true)}>Taux</th>
+          <th style={thStyle(true)}>Gains</th>
+          <th style={thStyle(true)}>Retenues</th>
         </tr>
       </thead>
       <tbody>
-        <SectionHeader colSpan={5} title="Gains" />
-        {earnings.map((l) => (
-          <tr key={l.code} className="border-b border-dotted border-ink/15">
-            <td className="py-0.5 font-medium text-ink">{l.label}</td>
-            <td className="py-0.5 text-right mono text-ink-700">{M(l.baseUnits).format()}</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-            <td className="py-0.5 text-right mono font-semibold text-ink">+ {M(l.amountUnits).format()}</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-          </tr>
-        ))}
-        <SectionHeader colSpan={5} title="Cotisations &amp; impôts (part salariale)" />
-        {retenues.map((r) => (
-          <tr key={r.code} className="border-b border-dotted border-ink/15">
-            <td className="py-0.5 font-medium text-ink">{r.label}</td>
-            <td className="py-0.5 text-right mono text-ink-700">{r.base != null ? fmt(r.base) : '—'}</td>
-            <td className="py-0.5 text-right mono text-ink-500">{r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—'}</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-            <td className="py-0.5 text-right mono font-semibold text-danger">− {fmt(r.empAmount!)}</td>
-          </tr>
-        ))}
+        <TableSectionHeader colSpan={5} title="Gains" fontPt={fontPt} />
+        {earnings.map((l) => <TableRow key={l.code} cells={[
+          { v: l.label, align:'left' }, { v: M(l.baseUnits).format(), mono:true },
+          { v: '—', color:'#aaa' }, { v: `+ ${M(l.amountUnits).format()}`, mono:true, bold:true },
+          { v: '—', color:'#aaa' },
+        ]} fontPt={fontPt} />)}
+        <TableSectionHeader colSpan={5} title="Cotisations & impôts (part salariale)" fontPt={fontPt} />
+        {retenues.map((r) => <TableRow key={r.code} cells={[
+          { v: r.label, align:'left' }, { v: r.base != null ? fmt(r.base) : '—', mono:true, color:'#555' },
+          { v: r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—', mono:true, color:'#888' },
+          { v: '—', color:'#aaa' }, { v: `− ${fmt(r.empAmount!)}`, mono:true, bold:true, color:'#b91c1c' },
+        ]} fontPt={fontPt} />)}
       </tbody>
       <tfoot>
-        <tr className="border-t-2 border-ink text-[10.5px] font-bold">
-          <td className="py-1" colSpan={3}>Totaux</td>
-          <td className="py-1 text-right mono text-ink">{totalGains.format()}</td>
-          <td className="py-1 text-right mono text-danger">{totalRetenues.format()}</td>
+        <tr style={{ borderTop:'2px solid #1a1a1a', fontWeight:700 }}>
+          <td style={{ padding:'1.5mm 1mm', fontSize:`${fontPt + 0.5}pt` }} colSpan={3}>Totaux</td>
+          <td style={{ padding:'1.5mm 1mm', textAlign:'right', fontFamily:'monospace', fontSize:`${fontPt + 0.5}pt` }}>{totalGains.format()}</td>
+          <td style={{ padding:'1.5mm 1mm', textAlign:'right', fontFamily:'monospace', fontSize:`${fontPt + 0.5}pt`, color:'#b91c1c' }}>{totalRetenues.format()}</td>
         </tr>
       </tfoot>
     </table>
@@ -286,51 +267,47 @@ function StandardTable({ earnings, combos, fmt, M, totalGains, totalRetenues }: 
 }
 
 /* ══════════════════════════════════════════════════════════════════
- * Modèle 2 — CLARIFIÉ (part salarié + part employeur côte à côte)
+ * Modèle 2 — CLARIFIÉ
  * ══════════════════════════════════════════════════════════════════ */
-function ClarifieTable({ earnings, combos, fmt, M, totalGains, totalRetenues, totalPatronal }: TableProps) {
+function ClarifieTable({ earnings, combos, fmt, M, totalGains, totalRetenues, totalPatronal, fontPt }: TableProps) {
+  const thS = (right = false): React.CSSProperties => ({
+    fontSize: `${fontPt * 0.78}pt`, fontWeight: 700, textTransform: 'uppercase', color: '#555',
+    padding: '1.2mm 1mm', textAlign: right ? 'right' : 'left', borderBottom: '1px solid #1a1a1a',
+  });
   return (
-    <table className="payslip-table mt-2 w-full border-collapse text-[9.5px]">
+    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:`${fontPt}pt` }}>
       <thead>
-        <tr className="border-y border-ink text-left text-[7.5px] font-bold uppercase tracking-wider text-ink-700">
-          <th className="w-[34%] py-1">Désignation</th>
-          <th className="py-1 text-right">Base</th>
-          <th className="py-1 text-right">Taux sal.</th>
-          <th className="py-1 text-right text-ok">Gain</th>
-          <th className="py-1 text-right text-danger">Retenue</th>
-          <th className="py-1 text-right text-ink-500">Part employeur</th>
+        <tr>
+          <th style={{ ...thS(), width:'34%' }}>Désignation</th>
+          <th style={thS(true)}>Base</th>
+          <th style={thS(true)}>Taux sal.</th>
+          <th style={{ ...thS(true), color:'#15803d' }}>Gain</th>
+          <th style={{ ...thS(true), color:'#b91c1c' }}>Retenue</th>
+          <th style={{ ...thS(true), color:'#555' }}>Part employeur</th>
         </tr>
       </thead>
       <tbody>
-        <SectionHeader colSpan={6} title="Gains" />
-        {earnings.map((l) => (
-          <tr key={l.code} className="border-b border-dotted border-ink/15">
-            <td className="py-0.5 font-medium text-ink">{l.label}</td>
-            <td className="py-0.5 text-right mono text-ink-700">{M(l.baseUnits).format()}</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-            <td className="py-0.5 text-right mono font-semibold text-ink">+ {M(l.amountUnits).format()}</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-          </tr>
-        ))}
-        <SectionHeader colSpan={6} title="Cotisations sociales (CNPS · santé · prestations familiales)" />
-        {combos.map((r) => (
-          <tr key={r.code} className="border-b border-dotted border-ink/15">
-            <td className="py-0.5 font-medium text-ink">{r.label}</td>
-            <td className="py-0.5 text-right mono text-ink-700">{r.base != null ? fmt(r.base) : '—'}</td>
-            <td className="py-0.5 text-right mono text-ink-500">{r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—'}</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-            <td className="py-0.5 text-right mono font-semibold text-danger">{r.empAmount != null ? `− ${fmt(r.empAmount)}` : '—'}</td>
-            <td className="py-0.5 text-right mono text-ink-700">{r.patAmount != null ? fmt(r.patAmount) : '—'}</td>
-          </tr>
-        ))}
+        <TableSectionHeader colSpan={6} title="Gains" fontPt={fontPt} />
+        {earnings.map((l) => <TableRow key={l.code} cells={[
+          { v: l.label, align:'left' }, { v: M(l.baseUnits).format(), mono:true, color:'#555' },
+          { v: '—', color:'#aaa' }, { v: `+ ${M(l.amountUnits).format()}`, mono:true, bold:true },
+          { v: '—', color:'#aaa' }, { v: '—', color:'#aaa' },
+        ]} fontPt={fontPt} />)}
+        <TableSectionHeader colSpan={6} title="Cotisations sociales" fontPt={fontPt} />
+        {combos.map((r) => <TableRow key={r.code} cells={[
+          { v: r.label, align:'left' }, { v: r.base != null ? fmt(r.base) : '—', mono:true, color:'#555' },
+          { v: r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—', mono:true, color:'#888' },
+          { v: '—', color:'#aaa' },
+          { v: r.empAmount != null ? `− ${fmt(r.empAmount)}` : '—', mono:true, bold:true, color:'#b91c1c' },
+          { v: r.patAmount != null ? fmt(r.patAmount) : '—', mono:true, color:'#555' },
+        ]} fontPt={fontPt} />)}
       </tbody>
       <tfoot>
-        <tr className="border-t-2 border-ink text-[10px] font-bold">
-          <td className="py-1" colSpan={3}>Totaux</td>
-          <td className="py-1 text-right mono text-ink">{totalGains.format()}</td>
-          <td className="py-1 text-right mono text-danger">{totalRetenues.format()}</td>
-          <td className="py-1 text-right mono text-ink-700">{totalPatronal!.format()}</td>
+        <tr style={{ borderTop:'2px solid #1a1a1a', fontWeight:700 }}>
+          <td style={{ padding:'1.5mm 1mm', fontSize:`${fontPt + 0.5}pt` }} colSpan={3}>Totaux</td>
+          <td style={{ padding:'1.5mm 1mm', textAlign:'right', fontFamily:'monospace', fontSize:`${fontPt + 0.5}pt` }}>{totalGains.format()}</td>
+          <td style={{ padding:'1.5mm 1mm', textAlign:'right', fontFamily:'monospace', fontSize:`${fontPt + 0.5}pt`, color:'#b91c1c' }}>{totalRetenues.format()}</td>
+          <td style={{ padding:'1.5mm 1mm', textAlign:'right', fontFamily:'monospace', fontSize:`${fontPt + 0.5}pt`, color:'#555' }}>{totalPatronal!.format()}</td>
         </tr>
       </tfoot>
     </table>
@@ -338,52 +315,48 @@ function ClarifieTable({ earnings, combos, fmt, M, totalGains, totalRetenues, to
 }
 
 /* ══════════════════════════════════════════════════════════════════
- * Modèle 3 — CLASSIQUE (taux & cotisations patronales détaillées)
+ * Modèle 3 — CLASSIQUE
  * ══════════════════════════════════════════════════════════════════ */
-function ClassiqueTable({ earnings, combos, fmt, M, totalGains, totalRetenues, totalPatronal }: TableProps) {
+function ClassiqueTable({ earnings, combos, fmt, M, totalGains, totalRetenues, totalPatronal, fontPt }: TableProps) {
+  const thS = (right = false): React.CSSProperties => ({
+    fontSize: `${fontPt * 0.78}pt`, fontWeight: 700, textTransform: 'uppercase', color: '#555',
+    padding: '1.2mm 1mm', textAlign: right ? 'right' : 'left', borderBottom: '1px solid #1a1a1a',
+  });
   return (
-    <table className="payslip-table mt-2 w-full border-collapse text-[9.5px]">
+    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:`${fontPt}pt` }}>
       <thead>
-        <tr className="border-y border-ink text-left text-[7.5px] font-bold uppercase tracking-wider text-ink-700">
-          <th className="w-[30%] py-1">Rubriques</th>
-          <th className="py-1 text-right">Base</th>
-          <th className="py-1 text-right">Taux sal.</th>
-          <th className="py-1 text-right">Mont. sal.</th>
-          <th className="py-1 text-right">Taux pat.</th>
-          <th className="py-1 text-right">Cot. patronales</th>
+        <tr>
+          <th style={{ ...thS(), width:'30%' }}>Rubriques</th>
+          <th style={thS(true)}>Base</th>
+          <th style={thS(true)}>Taux sal.</th>
+          <th style={thS(true)}>Mont. sal.</th>
+          <th style={thS(true)}>Taux pat.</th>
+          <th style={thS(true)}>Cot. patronales</th>
         </tr>
       </thead>
       <tbody>
-        <SectionHeader colSpan={6} title="Gains" />
-        {earnings.map((l) => (
-          <tr key={l.code} className="border-b border-dotted border-ink/15">
-            <td className="py-0.5 font-medium text-ink">{l.label}</td>
-            <td className="py-0.5 text-right mono text-ink-700">{M(l.baseUnits).format()}</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-            <td className="py-0.5 text-right mono font-semibold text-ink">+ {M(l.amountUnits).format()}</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-            <td className="py-0.5 text-right text-ink-400">—</td>
-          </tr>
-        ))}
-        <SectionHeader colSpan={6} title="Cotisations &amp; taxes patronales" />
-        {combos.map((r) => (
-          <tr key={r.code} className="border-b border-dotted border-ink/15">
-            <td className="py-0.5 font-medium text-ink">{r.label}</td>
-            <td className="py-0.5 text-right mono text-ink-700">{r.base != null ? fmt(r.base) : '—'}</td>
-            <td className="py-0.5 text-right mono text-ink-500">{r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—'}</td>
-            <td className="py-0.5 text-right mono font-semibold text-danger">{r.empAmount != null ? `− ${fmt(r.empAmount)}` : '—'}</td>
-            <td className="py-0.5 text-right mono text-ink-500">{r.patRate != null ? `${r.patRate.toFixed(2)}%` : '—'}</td>
-            <td className="py-0.5 text-right mono text-ink-700">{r.patAmount != null ? fmt(r.patAmount) : '—'}</td>
-          </tr>
-        ))}
+        <TableSectionHeader colSpan={6} title="Gains" fontPt={fontPt} />
+        {earnings.map((l) => <TableRow key={l.code} cells={[
+          { v: l.label, align:'left' }, { v: M(l.baseUnits).format(), mono:true, color:'#555' },
+          { v: '—', color:'#aaa' }, { v: `+ ${M(l.amountUnits).format()}`, mono:true, bold:true },
+          { v: '—', color:'#aaa' }, { v: '—', color:'#aaa' },
+        ]} fontPt={fontPt} />)}
+        <TableSectionHeader colSpan={6} title="Cotisations & taxes patronales" fontPt={fontPt} />
+        {combos.map((r) => <TableRow key={r.code} cells={[
+          { v: r.label, align:'left' }, { v: r.base != null ? fmt(r.base) : '—', mono:true, color:'#555' },
+          { v: r.empRate != null ? `${r.empRate.toFixed(2)}%` : '—', mono:true, color:'#888' },
+          { v: r.empAmount != null ? `− ${fmt(r.empAmount)}` : '—', mono:true, bold:true, color:'#b91c1c' },
+          { v: r.patRate != null ? `${r.patRate.toFixed(2)}%` : '—', mono:true, color:'#888' },
+          { v: r.patAmount != null ? fmt(r.patAmount) : '—', mono:true, color:'#555' },
+        ]} fontPt={fontPt} />)}
       </tbody>
       <tfoot>
-        <tr className="border-t-2 border-ink text-[10px] font-bold">
-          <td className="py-1">Totaux</td>
-          <td className="py-1" colSpan={2} />
-          <td className="py-1 text-right mono text-danger">{totalRetenues.format()}</td>
-          <td className="py-1 text-right mono text-ink-500">brut {totalGains.format()}</td>
-          <td className="py-1 text-right mono text-ink-700">{totalPatronal!.format()}</td>
+        <tr style={{ borderTop:'2px solid #1a1a1a', fontWeight:700 }}>
+          <td style={{ padding:'1.5mm 1mm', fontSize:`${fontPt + 0.5}pt` }}>Totaux</td>
+          <td colSpan={2} />
+          <td style={{ padding:'1.5mm 1mm', textAlign:'right', fontFamily:'monospace', fontSize:`${fontPt + 0.5}pt`, color:'#b91c1c' }}>{totalRetenues.format()}</td>
+          <td style={{ padding:'1.5mm 1mm', textAlign:'right', fontFamily:'monospace', fontSize:`${fontPt + 0.5}pt`, color:'#555' }}>brut {totalGains.format()}</td>
+          <td style={{ padding:'1.5mm 1mm', textAlign:'right', fontFamily:'monospace', fontSize:`${fontPt + 0.5}pt`, color:'#555' }}>{totalPatronal!.format()}</td>
         </tr>
       </tfoot>
     </table>
@@ -391,50 +364,48 @@ function ClassiqueTable({ earnings, combos, fmt, M, totalGains, totalRetenues, t
 }
 
 /* ══════════════════════════════════════════════════════════════════
- * Sub-components
+ * Composants de tableau partagés
  * ══════════════════════════════════════════════════════════════════ */
 
-function SectionHeader({ colSpan, title }: { colSpan: number; title: string }) {
+function TableSectionHeader({ colSpan, title, fontPt }: { colSpan: number; title: string; fontPt: number }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="bg-ink/[0.04] px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-ink-700"
-        dangerouslySetInnerHTML={{ __html: title }} />
+      <td colSpan={colSpan} style={{
+        background: 'rgba(0,0,0,0.04)', padding: '0.8mm 1mm',
+        fontSize: `${fontPt * 0.73}pt`, fontWeight: 700, textTransform: 'uppercase',
+        letterSpacing: '0.06em', color: '#555',
+      }}>{title}</td>
     </tr>
   );
 }
 
-function IdRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-dotted border-ink/10 py-0.5">
-      <span className="text-[8.5px] font-bold uppercase tracking-wider text-ink-500">{label}</span>
-      <span className={`text-[10px] font-semibold text-ink ${mono ? 'font-mono' : ''}`}>{value}</span>
-    </div>
-  );
-}
+interface CellDef { v: string; align?: 'left' | 'right'; mono?: boolean; bold?: boolean; color?: string }
 
-function RecapItem({ label, value, tone, mono }: { label: string; value: string; tone?: 'danger' | 'accent'; mono?: boolean }) {
-  const valueCls = tone === 'danger' ? 'text-danger' : tone === 'accent' ? 'text-amber-deep' : 'text-ink';
+function TableRow({ cells, fontPt }: { cells: CellDef[]; fontPt: number }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 border-b border-dotted border-ink/10 py-0.5">
-      <span className="text-[8px] font-bold uppercase tracking-wider text-ink-500">{label}</span>
-      <span className={`text-[10px] font-bold ${mono ? 'font-mono' : 'font-mono'} ${valueCls}`}>{value}</span>
-    </div>
+    <tr style={{ borderBottom: '1px dotted #e0e0e0' }}>
+      {cells.map((c, i) => (
+        <td key={i} style={{
+          padding: '0.7mm 1mm',
+          textAlign: i === 0 && c.align !== 'right' ? 'left' : 'right',
+          fontFamily: c.mono ? 'monospace' : 'inherit',
+          fontWeight: c.bold ? 700 : 500,
+          color: c.color ?? '#1a1a1a',
+          fontSize: `${fontPt}pt`,
+          whiteSpace: i === 0 ? 'normal' : 'nowrap',
+        }}>{c.v}</td>
+      ))}
+    </tr>
   );
 }
 
 /* ══════════════════════════════════════════════════════════════════
- * Helpers (inchangés — moteur déterministe partagé)
+ * Types et helpers
  * ══════════════════════════════════════════════════════════════════ */
 
 interface ComboRow {
-  code: string;
-  label: string;
-  patLabel?: string;
-  base?: number;
-  empRate?: number;
-  empAmount?: number;
-  patRate?: number;
-  patAmount?: number;
+  code: string; label: string; patLabel?: string;
+  base?: number; empRate?: number; empAmount?: number; patRate?: number; patAmount?: number;
 }
 
 interface TableProps {
@@ -445,6 +416,7 @@ interface TableProps {
   totalGains: Money;
   totalRetenues: Money;
   totalPatronal?: Money;
+  fontPt: number;
 }
 
 function combinedRows(lines: PayslipLine[]): ComboRow[] {
@@ -464,9 +436,7 @@ function combinedRows(lines: PayslipLine[]): ComboRow[] {
     const pat = employerByBase.get(l.code);
     if (pat) pairedBases.add(l.code);
     rows.push({
-      code: l.code,
-      label: l.label,
-      patLabel: pat?.label.replace(' (part patronale)', ''),
+      code: l.code, label: l.label, patLabel: pat?.label.replace(' (part patronale)', ''),
       base: l.baseUnits ? num(l.baseUnits) : undefined,
       empRate: l.rateBps ? l.rateBps / 100 : undefined,
       empAmount: Math.abs(num(l.amountUnits)),
@@ -474,19 +444,16 @@ function combinedRows(lines: PayslipLine[]): ComboRow[] {
       patAmount: pat ? num(pat.amountUnits) : undefined,
     });
   }
-
   for (const l of employerLines) {
     const base = baseOf(l);
     if (pairedBases.has(base)) continue;
     rows.push({
-      code: `${l.code}__patonly`,
-      label: l.label.replace(' (part patronale)', ''),
+      code: `${l.code}__patonly`, label: l.label.replace(' (part patronale)', ''),
       base: l.baseUnits ? num(l.baseUnits) : undefined,
       patRate: l.rateBps ? l.rateBps / 100 : undefined,
       patAmount: num(l.amountUnits),
     });
   }
-
   return rows;
 }
 
