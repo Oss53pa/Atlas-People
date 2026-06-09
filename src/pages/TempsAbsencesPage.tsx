@@ -37,10 +37,14 @@ import { computeSelfLeaveBalance } from '../lib/m2/selfBalance';
 import { buildFleetDecompte, monthBounds, type MonthDecompte } from '../lib/m2/timesheet';
 import { useAppStore } from '../store/useAppStore';
 import { useAuth } from '../lib/auth';
-import { useM2TimeStats, isBackendConfigured } from '../lib/m2/supabaseLive';
+import {
+  useM2TimeStats, isBackendConfigured,
+  useM2LeavesLive, useM2ClockingsLive, useM2OvertimeLive,
+  useM2DecideLeave, useM2DecideOvertime,
+} from '../lib/m2/supabaseLive';
 import { useTimeOff, type TimeOffRequest } from '../store/useTimeOff';
-import { useClocking, type ClockingType } from '../store/useClocking';
-import { useOvertime } from '../store/useOvertime';
+import { useClocking, type ClockingType, type Clocking } from '../store/useClocking';
+import { useOvertime, type OvertimeRecord } from '../store/useOvertime';
 import { countryByCode, currencyOf } from '../data/countries';
 import { EMPLOYEES, employeeById, employeeName } from '../data/mock';
 import { cn } from '../lib/cn';
@@ -114,6 +118,33 @@ function TabButton({ active, onClick, icon: Icon, children }: { active: boolean;
   );
 }
 
+/** Source de données M2 : live Supabase si dispo, sinon stores Zustand (démo).
+ *  Les listes live sont déjà mappées sur les shapes des stores. */
+function useM2Live(): {
+  tenantId: string | undefined;
+  live: boolean;
+  requests: TimeOffRequest[];
+  clockings: Clocking[];
+  overtime: OvertimeRecord[];
+} {
+  const { tenantId } = useAuth();
+  const tid = tenantId ?? undefined;
+  const storeReq = useTimeOff((s) => s.requests);
+  const storeClk = useClocking((s) => s.clockings);
+  const storeOt = useOvertime((s) => s.records);
+  const { data: liveReq } = useM2LeavesLive(tid);
+  const { data: liveClk } = useM2ClockingsLive(tid);
+  const { data: liveOt } = useM2OvertimeLive(tid);
+  const hasLive = isBackendConfigured && !!((liveReq?.length ?? 0) || (liveClk?.length ?? 0) || (liveOt?.length ?? 0));
+  return {
+    tenantId: tid,
+    live: hasLive,
+    requests: isBackendConfigured && liveReq && liveReq.length ? liveReq : storeReq,
+    clockings: isBackendConfigured && liveClk && liveClk.length ? liveClk : storeClk,
+    overtime: isBackendConfigured && liveOt && liveOt.length ? liveOt : storeOt,
+  };
+}
+
 function MonthSelect({ month, onChange }: { month: string; onChange: (m: string) => void }) {
   return (
     <select
@@ -132,9 +163,7 @@ function MonthSelect({ month, onChange }: { month: string; onChange: (m: string)
 //  Onglet Synthèse — agrégation & décompte (alimente la paie M3)
 // ============================================================
 function SyntheseTab({ country, roster, month }: { country: string; roster: typeof EMPLOYEES; month: string }) {
-  const requests = useTimeOff((s) => s.requests);
-  const clockings = useClocking((s) => s.clockings);
-  const overtime = useOvertime((s) => s.records);
+  const { requests, clockings, overtime } = useM2Live();
 
   const fleet = useMemo(
     () => buildFleetDecompte(roster.map((e) => e.id), month, country, { clockings, requests, overtime }),
@@ -231,8 +260,14 @@ function SyntheseTab({ country, roster, month }: { country: string; roster: type
 //  Onglet Congés — console de traitement RH (moteur M2 riche)
 // ============================================================
 function CongesTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
-  const requests = useTimeOff((s) => s.requests);
-  const decide = useTimeOff((s) => s.decide);
+  const m2 = useM2Live();
+  const requests = m2.requests;
+  const storeDecide = useTimeOff((s) => s.decide);
+  const decideLeave = useM2DecideLeave();
+  const decide = (id: string, status: 'approved' | 'refused') => {
+    if (m2.live && m2.tenantId) decideLeave.mutate({ requestId: id, decision: status, tenantId: m2.tenantId });
+    else storeDecide(id, status);
+  };
   const [filter, setFilter] = useState<'pending' | 'treated' | 'all'>('pending');
 
   const rosterIds = useMemo(() => new Set(roster.map((e) => e.id)), [roster]);
@@ -383,9 +418,7 @@ const CLOCK_META: Record<ClockingType, { label: string; icon: typeof LogIn; cls:
 };
 
 function PointageTab({ country, roster, month }: { country: string; roster: typeof EMPLOYEES; month: string }) {
-  const clockings = useClocking((s) => s.clockings);
-  const requests = useTimeOff((s) => s.requests);
-  const overtime = useOvertime((s) => s.records);
+  const { requests, clockings, overtime } = useM2Live();
   const rosterIds = useMemo(() => new Set(roster.map((e) => e.id)), [roster]);
 
   const fleet = useMemo(
@@ -489,8 +522,14 @@ function PointageTab({ country, roster, month }: { country: string; roster: type
 //  Onglet Heures supplémentaires — simulateur + file de validation
 // ============================================================
 function HeuresSupTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
-  const records = useOvertime((s) => s.records);
-  const decide = useOvertime((s) => s.decide);
+  const m2 = useM2Live();
+  const records = m2.overtime;
+  const storeDecide = useOvertime((s) => s.decide);
+  const decideOt = useM2DecideOvertime();
+  const decide = (id: string, status: 'validated' | 'refused') => {
+    if (m2.live && m2.tenantId) decideOt.mutate({ recordId: id, decision: status, tenantId: m2.tenantId });
+    else storeDecide(id, status);
+  };
   const [empId, setEmpId] = useState(roster[0]?.id ?? '');
   const [hours, setHours] = useState(6);
   const employee = employeeById(empId) ?? roster[0];
@@ -594,8 +633,7 @@ const HS_MONTH_LIMIT = 20;
 const fmtH = (n: number) => `${Math.round(n * 10) / 10}h`;
 
 function CompteursTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
-  const requests = useTimeOff((s) => s.requests);
-  const records = useOvertime((s) => s.records);
+  const { requests, overtime: records } = useM2Live();
 
   const rows = roster.map((e, i) => {
     const bal = computeSelfLeaveBalance(e, requests.filter((r) => r.employeeId === e.id));
@@ -683,7 +721,7 @@ function CompteursTab({ country, roster }: { country: string; roster: typeof EMP
 //  Onglet Calendrier — couverture d'équipe & jours fériés
 // ============================================================
 function CalendrierTab({ country, roster, month }: { country: string; roster: typeof EMPLOYEES; month: string }) {
-  const requests = useTimeOff((s) => s.requests);
+  const { requests } = useM2Live();
   const holidays = holidaysFor(country);
   const rosterIds = useMemo(() => new Set(roster.map((e) => e.id)), [roster]);
   const [y, m] = month.split('-').map(Number);
