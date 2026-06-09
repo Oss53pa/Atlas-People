@@ -102,7 +102,7 @@ export function SelfServicePage() {
   };
 
   return (
-    <div className="mx-auto max-w-md animate-fade-up space-y-4 pb-8">
+    <div className="animate-fade-up space-y-5 pb-8">
       {showBulletin && (
         <PayslipModal employee={employee} computation={computation} period={PERIOD} onClose={() => setShowBulletin(false)} />
       )}
@@ -148,6 +148,8 @@ export function SelfServicePage() {
         <Avatar name={employeeName(employee)} size="lg" />
       </div>
 
+      {/* Cartes — masonry responsive : 1 col (mobile) → 2 (tablette) → 3 (desktop) */}
+      <div className="columns-1 gap-4 md:columns-2 xl:columns-3 [&>*]:mb-4 [&>*]:break-inside-avoid">
       {/* Salaire / Mobile Money */}
       <Card className="surface-night border-0 overflow-hidden" inset={false}>
         <div className="p-6">
@@ -358,6 +360,7 @@ export function SelfServicePage() {
           </div>
         </div>
       </Card>
+      </div>
 
       <p className="px-2 text-center text-[11px] font-medium text-ink-400">
         Vos données restent sur l'infrastructure de confiance Atlas · <Brand name="Proph3t" /> souverain.
