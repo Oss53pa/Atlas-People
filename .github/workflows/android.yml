@@ -44,6 +44,28 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # Clé de signature STABLE : sans ça, chaque runner genere une cle de debug
+      # differente et Android refuse d'installer la maj (signatures differentes).
+      # Le cache rend la cle constante entre builds -> maj installables par-dessus.
+      - name: Restore stable debug keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: atlas-debug-keystore-v1
+
+      - name: Ensure stable debug keystore
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v -keystore ~/.android/debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Atlas People, O=Atlas Studio, C=CI"
+            echo "Nouvelle cle de debug stable generee."
+          else
+            echo "Reutilisation de la cle de debug en cache."
+          fi
+
       - name: Capacitor sync
         run: npx cap sync android
 
