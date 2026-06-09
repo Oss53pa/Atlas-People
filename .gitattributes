@@ -1,0 +1,5 @@
+# Forcer LF sur les scripts shell (sinon la CI Linux casse sur gradlew : bad interpreter)
+android/gradlew text eol=lf
+*.sh text eol=lf
+# Les scripts Windows restent en CRLF
+*.bat text eol=crlf
