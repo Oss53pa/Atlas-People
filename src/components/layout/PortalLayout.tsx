@@ -21,7 +21,7 @@ export function PortalLayout() {
     <div className="min-h-screen bg-canvas bg-canvas-glow">
       <PortalSidebar />
       <div className="lg:pl-[252px]">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-canvas/80 px-4 backdrop-blur-xl lg:px-7">
+        <header className="app-header-safe sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-canvas/80 px-4 backdrop-blur-xl lg:px-7">
           <button onClick={toggleSidebar} className="rounded-xl p-2 text-ink-500 hover:bg-ink/5 lg:hidden" aria-label="Menu"><Menu size={20} /></button>
           <p className="flex-1 text-sm font-semibold text-ink">{greeting} {employee.firstName} <span aria-hidden>👋</span></p>
           <SpaceSwitcher />

@@ -120,6 +120,19 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
+   SAFE-AREA (APK Android edge-to-edge) — l'app native dessine sous la
+   barre de statut/navigation système. env(safe-area-inset-*) vaut 0 sur
+   desktop/navigateur, donc ces classes sont neutres hors APK.
+   ────────────────────────────────────────────────────────────── */
+.app-header-safe {
+  min-height: 4rem;
+  padding-top: env(safe-area-inset-top);
+}
+.app-sidebar-top-safe {
+  padding-top: calc(1.5rem + env(safe-area-inset-top));
+}
+
+/* ──────────────────────────────────────────────────────────────
    IMPRESSION — 2 modes :
    1) Bulletin de paie : isole .payslip-print (mode legacy).
    2) Pages stratégiques (cockpits, what-if) : utilisent .print-page

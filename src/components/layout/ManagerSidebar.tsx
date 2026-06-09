@@ -60,7 +60,7 @@ export function ManagerSidebar() {
     <>
       <div className={cn('fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm transition-opacity lg:hidden', sidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0')} onClick={() => setSidebarOpen(false)} />
       <aside className={cn('fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-line bg-surface/80 backdrop-blur-xl transition-transform duration-300 lg:translate-x-0', sidebarOpen ? 'translate-x-0' : '-translate-x-full')}>
-        <div className="flex items-center justify-between px-5 pt-6">
+        <div className="app-sidebar-top-safe flex items-center justify-between px-5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-info/15">
               <svg viewBox="0 0 64 64" className="h-5 w-5"><path d="M32 14 L50 50 H41 L32 31 L23 50 H14 Z" fill="#2563EB" /></svg>
