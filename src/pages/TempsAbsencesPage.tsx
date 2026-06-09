@@ -17,6 +17,7 @@ import {
   LogOut,
   Coffee,
   WifiOff,
+  Wifi,
 } from 'lucide-react';
 import { PropheticHint } from '../components/ui/feedback';
 import { Card, CardHeader } from '../components/ui/Card';
@@ -35,6 +36,8 @@ import { LEAVE_CATALOG, CATEGORY_LABEL, leaveTypeByCode, type LeaveCategory } fr
 import { computeSelfLeaveBalance } from '../lib/m2/selfBalance';
 import { buildFleetDecompte, monthBounds, type MonthDecompte } from '../lib/m2/timesheet';
 import { useAppStore } from '../store/useAppStore';
+import { useAuth } from '../lib/auth';
+import { useM2TimeStats, isBackendConfigured } from '../lib/m2/supabaseLive';
 import { useTimeOff, type TimeOffRequest } from '../store/useTimeOff';
 import { useClocking, type ClockingType } from '../store/useClocking';
 import { useOvertime } from '../store/useOvertime';
@@ -55,6 +58,10 @@ export function TempsAbsencesPage() {
   const [tab, setTab] = useState<Tab>('synthese');
   const [month, setMonth] = useState('2026-05');
 
+  const { tenantId } = useAuth();
+  const { data: liveStats } = useM2TimeStats(tenantId ?? undefined);
+  const showLive = isBackendConfigured && !!liveStats && (liveStats.totalLeaves > 0 || liveStats.clockings > 0);
+
   return (
     <div className="animate-fade-up space-y-6">
       <SectionHeader
@@ -71,11 +78,16 @@ export function TempsAbsencesPage() {
         <TabButton active={tab === 'compteurs'} onClick={() => setTab('compteurs')} icon={Gauge}>Compteurs</TabButton>
         <TabButton active={tab === 'calendrier'} onClick={() => setTab('calendrier')} icon={CalendarDays}>Calendrier</TabButton>
 
-        {(tab === 'synthese' || tab === 'pointage' || tab === 'calendrier') && (
-          <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {showLive && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-600" title="Données synchronisées avec la base">
+              <Wifi size={11} /> {liveStats!.totalLeaves} congé(s) · {liveStats!.clockings} pointage(s) en DB
+            </span>
+          )}
+          {(tab === 'synthese' || tab === 'pointage' || tab === 'calendrier') && (
             <MonthSelect month={month} onChange={setMonth} />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {tab === 'synthese' && <SyntheseTab country={activeCountry} roster={roster} month={month} />}
