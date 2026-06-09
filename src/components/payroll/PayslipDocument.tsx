@@ -15,7 +15,7 @@ import { ShieldCheck } from 'lucide-react';
 import { Money } from '../../lib/money';
 import type { PayslipComputation } from '../../lib/payroll';
 import type { PayslipLine } from '../../lib/payroll/types';
-import { matricule, mobileMoney, type EmployeeRecord } from '../../data/mock';
+import { matricule, mobileMoney, employeeLeaveBalance, type EmployeeRecord } from '../../data/mock';
 import { countryByCode } from '../../data/countries';
 
 export type PayslipTemplate = 'standard' | 'clarifie' | 'classique';
@@ -44,6 +44,7 @@ export function PayslipDocument({
   const M = (u: string) => Money.fromJSON({ units: u, currency });
   const fmt = (n: number) => Money.of(Math.round(n), currency).format();
   const country = countryByCode(employee.countryCode);
+  const leave = employeeLeaveBalance(employee);
 
   const earnings = result.lines.filter((l) => l.kind === 'earning');
   const combos = combinedRows(result.lines);
@@ -110,7 +111,7 @@ export function PayslipDocument({
     >
 
       {/* ═══ EN-TÊTE — Identité société + référence ═══ */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', borderBottom:'2px solid #1a1a1a', paddingBottom:'3mm', marginBottom:'2.5mm', flexShrink:0 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', borderBottom:'2px solid #1a1a1a', paddingBottom:'4mm', marginBottom:'4mm', flexShrink:0 }}>
         <div style={{ display:'flex', alignItems:'flex-start', gap:'3mm' }}>
           <div style={{ width:'7mm', height:'7mm', background:'#fef3e2', borderRadius:'1.5mm', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
             <svg viewBox="0 0 64 64" style={{ width:'4.5mm', height:'4.5mm' }}>
@@ -132,7 +133,7 @@ export function PayslipDocument({
       </div>
 
       {/* ═══ IDENTITÉ SALARIÉ — grille 2 colonnes ═══ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', columnGap:'5mm', borderBottom:'1px solid #ccc', paddingBottom:'2mm', marginBottom:'2mm', flexShrink:0 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', columnGap:'5mm', borderBottom:'1px solid #ccc', paddingBottom:'3.5mm', marginBottom:'3.5mm', flexShrink:0 }}>
         {[
           ['Matricule', matricule(employee), true],
           ["Date d'embauche", new Date(employee.hireDate).toLocaleDateString('fr-FR'), false],
@@ -143,18 +144,23 @@ export function PayslipDocument({
           ['Département', employee.department, false],
           ['Régime / Pays', `${country.socialFund} · ${employee.countryCode}`, false],
         ].map(([label, value, mono]) => (
-          <div key={label as string} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:'2mm', borderBottom:'1px dotted #e0e0e0', paddingTop:'0.8mm', paddingBottom:'0.8mm' }}>
+          <div key={label as string} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:'2mm', borderBottom:'1px dotted #e0e0e0', paddingTop:'1.4mm', paddingBottom:'1.4mm' }}>
             <span style={{ fontSize:'7pt', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'#888', flexShrink:0 }}>{label as string}</span>
             <span style={{ fontSize:'8.5pt', fontWeight:600, fontFamily: mono ? 'monospace' : 'inherit', textAlign:'right', color:'#1a1a1a' }}>{value as string}</span>
           </div>
         ))}
       </div>
 
-      {/* ═══ TABLEAU DES RUBRIQUES — flex-1, remplit tout l'espace libre ═══ */}
-      <div style={{ flex:1, overflow:'hidden', marginBottom:'2mm' }}>
-        {template === 'standard'  && <StandardTable  earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} fontPt={tableFontPt} />}
-        {template === 'clarifie'  && <ClarifieTable  earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} fontPt={tableFontPt} />}
-        {template === 'classique' && <ClassiqueTable earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} fontPt={tableFontPt} />}
+      {/* ═══ BLOC 3 — RUBRIQUES + décompte des congés payés (flex-1) ═══ */}
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', marginBottom:'2mm' }}>
+        <div style={{ overflow:'hidden' }}>
+          {template === 'standard'  && <StandardTable  earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} fontPt={tableFontPt} />}
+          {template === 'clarifie'  && <ClarifieTable  earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} fontPt={tableFontPt} />}
+          {template === 'classique' && <ClassiqueTable earnings={earnings} combos={combos} fmt={fmt} M={M} totalGains={totalGains} totalRetenues={totalRetenues} totalPatronal={totalPatronal} fontPt={tableFontPt} />}
+        </div>
+        {/* Espace flexible récupéré (réduit le vide entre le tableau et le net) */}
+        <div style={{ flex:'1 1 0', minHeight:0 }} />
+        <CongesPayesBlock leave={leave} />
       </div>
 
       {/* ═══ NET À PAYER — bandeau sobre ═══ */}
@@ -396,6 +402,32 @@ function TableRow({ cells, fontPt }: { cells: CellDef[]; fontPt: number }) {
         }}>{c.v}</td>
       ))}
     </tr>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ * Décompte des congés payés (bas du Bloc 3)
+ * ══════════════════════════════════════════════════════════════════ */
+function CongesPayesBlock({ leave }: { leave: { acquired: number; taken: number; remaining: number } }) {
+  const j = (n: number) => `${n.toFixed(1).replace('.', ',')} j`;
+  const items: { label: string; value: string; color?: string }[] = [
+    { label: 'Acquis (exercice)', value: j(leave.acquired) },
+    { label: 'Pris', value: j(leave.taken) },
+    { label: 'Solde disponible', value: j(leave.remaining), color: '#C97E12' },
+    { label: 'Acquis ce mois', value: '2,2 j' },
+  ];
+  return (
+    <div style={{ flexShrink:0, marginTop:'2mm', border:'1px solid #ddd', borderRadius:'1.2mm', padding:'2mm 2.5mm' }}>
+      <p style={{ fontSize:'6.5pt', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'#888', margin:'0 0 1.3mm 0' }}>Congés payés (jours ouvrables)</p>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'2mm' }}>
+        {items.map((it, i) => (
+          <div key={it.label} style={{ borderRight: i < 3 ? '1px dotted #e0e0e0' : 'none', paddingRight:'1.5mm' }}>
+            <p style={{ fontSize:'6.5pt', fontWeight:700, textTransform:'uppercase', color:'#888', margin:0, lineHeight:1.2 }}>{it.label}</p>
+            <p style={{ fontSize:'9pt', fontWeight:700, fontFamily:'monospace', color: it.color ?? '#1a1a1a', margin:0, lineHeight:1.3 }}>{it.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
