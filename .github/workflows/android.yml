@@ -1,0 +1,73 @@
+name: Build Android APK
+
+# APK « wrapper du site live » : la coque Capacitor charge la prod
+# (atlas-people.atlas-studio.org). Le runner GitHub fournit le SDK Android
+# que la machine de dev n'a pas. Déclenchement manuel ou sur tag v*.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app (dist)
+        run: npm run build
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Stage APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk atlas-people.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-people-apk
+          path: atlas-people.apk
+          if-no-files-found: error
+
+      - name: Publish APK to a GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Atlas People — APK Android (dernier build)
+          body: |
+            APK de debug d'Atlas People (wrapper du site de production).
+            Installer sur Android en autorisant les « sources inconnues ».
+            Build automatique — commit ${{ github.sha }}.
+          files: atlas-people.apk
+          fail_on_unmatched_files: true
