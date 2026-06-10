@@ -15,6 +15,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { CompetencesSubNav } from '../../components/competences/CompetencesSubNav';
 import { EMPLOYEES, employeeName, SKILLS } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
 
 // ────────── seed compétences × employés (cartographie matricielle)
@@ -110,6 +111,7 @@ const LEVEL_COLOR: Record<SkillLevel, string> = {
 
 /* ═══════════════════════════════ 1. CARTOGRAPHIE ═══════════════════════════════ */
 export function CartographieCompetencesPage() {
+  const roster = useRoster();
   const [q, setQ] = useState('');
   const [domainFilter, setDomainFilter] = useState<'all' | string>('all');
   const filteredSkills = useMemo(() => SKILLS.filter((s) => {
@@ -123,7 +125,7 @@ export function CartographieCompetencesPage() {
       <CompetencesSubNav />
       <div>
         <h1 className="text-2xl font-semibold text-ink">Cartographie compétences × collaborateurs</h1>
-        <p className="text-sm font-medium text-ink-500">Matrice complète · {SKILL_MATRIX.length} cellules évaluées · {SKILLS.length} compétences × {EMPLOYEES.length} collab</p>
+        <p className="text-sm font-medium text-ink-500">Matrice complète · {SKILL_MATRIX.length} cellules évaluées · {SKILLS.length} compétences × {roster.length} collab</p>
       </div>
 
       <Card>
@@ -146,7 +148,7 @@ export function CartographieCompetencesPage() {
             <thead>
               <tr className="border-y border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
                 <th className="sticky left-0 z-10 bg-surface2 px-3 py-2 text-left">Compétence</th>
-                {EMPLOYEES.map((e) => (
+                {roster.map((e) => (
                   <th key={e.id} className="px-1 py-2 text-center font-bold" title={employeeName(e)}>
                     <div className="flex flex-col items-center gap-1">
                       <Avatar name={employeeName(e)} size="xs" />
@@ -160,7 +162,7 @@ export function CartographieCompetencesPage() {
               {filteredSkills.map((s) => (
                 <tr key={s.name} className="hover:bg-amber/[0.03]">
                   <td className="sticky left-0 z-10 bg-surface px-3 py-2"><p className="text-[12px] font-semibold text-ink">{s.name}</p><p className="text-[10px] font-medium text-ink-500">{s.domain}</p></td>
-                  {EMPLOYEES.map((e) => {
+                  {roster.map((e) => {
                     const cell = SKILL_MATRIX.find((c) => c.employeeId === e.id && c.skillName === s.name);
                     if (!cell) return <td key={e.id} className="px-1 py-2 text-center"><div className="mx-auto h-7 w-7 rounded bg-line opacity-30" /></td>;
                     return (
@@ -249,9 +251,10 @@ export function TaxonomieCompetencesPage() {
 
 /* ═══════════════════════════════ 3. GAP ANALYSIS ═══════════════════════════════ */
 export function GapAnalysisPage() {
+  const roster = useRoster();
   // Compute employee-vs-required gap per job role
   const employeeGaps = useMemo(() => {
-    return EMPLOYEES.map((e) => {
+    return roster.map((e) => {
       // Match role to closest JOB_CATALOG entry
       const job = JOB_CATALOG.find((j) => e.role.toLowerCase().includes(j.role.toLowerCase().split(' ')[0]))
                  ?? JOB_CATALOG.find((j) => j.family === 'TECH' && e.department === 'Technologie')
@@ -265,7 +268,7 @@ export function GapAnalysisPage() {
       const criticalGaps = gaps.filter((g) => g.critical && g.gap > 0).length;
       return { emp: e, job, gaps, totalGap, criticalGaps };
     });
-  }, []);
+  }, [roster]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -323,6 +326,7 @@ export function GapAnalysisPage() {
 
 /* ═══════════════════════════════ 4. SPOF (Single Point of Failure) ═══════════════════════════════ */
 export function SpofPage() {
+  const roster = useRoster();
   const spofs = SKILLS.map((s) => {
     const holders = SKILL_MATRIX.filter((c) => c.skillName === s.name && c.level >= 3);
     return { skill: s, holders, count: holders.length };
@@ -365,7 +369,7 @@ export function SpofPage() {
             </tr></thead>
             <tbody className="divide-y divide-line">
               {spofs.map((s) => {
-                const holders = s.holders.map((h) => EMPLOYEES.find((e) => e.id === h.employeeId)).filter(Boolean) as typeof EMPLOYEES;
+                const holders = s.holders.map((h) => roster.find((e) => e.id === h.employeeId)).filter(Boolean) as typeof roster;
                 const sev = s.count === 0 ? 'critical' : s.skill.projectedGap >= 2 ? 'high' : 'medium';
                 return (
                   <tr key={s.skill.name} className="hover:bg-amber/[0.03]">
@@ -393,18 +397,19 @@ export function SpofPage() {
 
 /* ═══════════════════════════════ 5. HEATMAP ═══════════════════════════════ */
 export function HeatmapCompetencesPage() {
+  const roster = useRoster();
   const departmentSkillAvg = useMemo(() => {
-    const depts = Array.from(new Set(EMPLOYEES.map((e) => e.department)));
+    const depts = Array.from(new Set(roster.map((e) => e.department)));
     return depts.map((dept) => {
       const cells = SKILLS.map((s) => {
-        const empsInDept = EMPLOYEES.filter((e) => e.department === dept);
+        const empsInDept = roster.filter((e) => e.department === dept);
         const matches = SKILL_MATRIX.filter((c) => empsInDept.some((e) => e.id === c.employeeId) && c.skillName === s.name);
         const avg = matches.length === 0 ? 0 : matches.reduce((sum, c) => sum + c.level, 0) / matches.length;
         return { skill: s.name, avg, count: matches.length };
       });
       return { dept, cells };
     });
-  }, []);
+  }, [roster]);
 
   return (
     <div className="animate-fade-up space-y-5">

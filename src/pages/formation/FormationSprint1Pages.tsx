@@ -15,7 +15,8 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { FormationSubNav } from '../../components/formation/FormationSubNav';
-import { EMPLOYEES, employeeName } from '../../data/mock';
+import { employeeName } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
 
 /* ═══════════════ 1. PARCOURS FORMATION ═══════════════ */
@@ -105,11 +106,12 @@ export function ParcoursFormationPage() {
 
 /* ═══════════════ 2. PIF — Plan Individuel Formation ═══════════════ */
 export function PifPage() {
-  const me = EMPLOYEES[3];
+  const roster = useRoster();
+  const me = roster[3];
   const pif = {
     employee: me,
     year: 2026,
-    co_constructed_with: EMPLOYEES[12],
+    co_constructed_with: roster[12],
     signed_employee: '2026-03-15',
     signed_manager: '2026-03-16',
     signed_drh: '2026-03-18',
@@ -411,6 +413,7 @@ export function LmsPage() {
 
 /* ═══════════════ 5. FORMATEURS & ANIMATION ═══════════════ */
 export function FormateursPage() {
+  const roster = useRoster();
   const formateurs = [
     { name: 'Léa Mondésir',  kind: 'externe' as const, organism: 'Institut RH Dakar',     specialty: 'Management Coach', sessions_ytd: 6, rating: 4.7, hourly_rate: 95_000 },
     { name: 'Dr. Mamadou Cissé', kind: 'externe' as const, organism: 'Cegos Africa',     specialty: 'Leadership Excellence', sessions_ytd: 4, rating: 4.9, hourly_rate: 250_000 },
@@ -420,10 +423,10 @@ export function FormateursPage() {
     { name: 'Awa Koné',      kind: 'interne' as const, organism: 'DG Atlas',              specialty: 'Mentorat leaders',     sessions_ytd: 3, rating: 4.8, hourly_rate: 0 },
   ];
   const convocations = [
-    { collab: EMPLOYEES[1], session: 'Manager Coach niveau 1', date: '2026-06-15', stage: 'J-15', sent: '2026-05-31', status: 'sent' as const },
-    { collab: EMPLOYEES[3], session: 'Vente consultative B2B', date: '2026-06-12', stage: 'J-7',  sent: '2026-06-05', status: 'sent' as const },
-    { collab: EMPLOYEES[7], session: 'AWS SAA prep — module 5', date: '2026-06-11', stage: 'J-1',  sent: '2026-06-10', status: 'sent' as const },
-    { collab: EMPLOYEES[5], session: 'IFRS — états consolidés', date: '2026-07-08', stage: 'J-15', sent: '2026-06-23', status: 'pending' as const },
+    { collab: roster[1], session: 'Manager Coach niveau 1', date: '2026-06-15', stage: 'J-15', sent: '2026-05-31', status: 'sent' as const },
+    { collab: roster[3], session: 'Vente consultative B2B', date: '2026-06-12', stage: 'J-7',  sent: '2026-06-05', status: 'sent' as const },
+    { collab: roster[7], session: 'AWS SAA prep — module 5', date: '2026-06-11', stage: 'J-1',  sent: '2026-06-10', status: 'sent' as const },
+    { collab: roster[5], session: 'IFRS — états consolidés', date: '2026-07-08', stage: 'J-15', sent: '2026-06-23', status: 'pending' as const },
   ];
   return (
     <div className="animate-fade-up space-y-5">

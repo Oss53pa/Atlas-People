@@ -14,8 +14,9 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { EvalSubNav } from '../../components/eval/EvalSubNav';
-import { EMPLOYEES, employeeName } from '../../data/mock';
+import { employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useRoster } from '../../lib/m1/roster';
 
 /* ═══════════════════════════════ 1. CYCLE ANNUEL ═══════════════════════════════ */
 export function CycleAnnuelEvalPage() {
@@ -514,6 +515,7 @@ export function EquiteEvalPage() {
 
 /* ═══════════════════════════════ 6. AUDIT M8 SHA-256 ═══════════════════════════════ */
 export function AuditEvalPage() {
+  const roster = useRoster();
   const auditEvents = [
     { at: '2026-11-28 14:22', actor: 'Awa Koné',     action: 'eval.score.update',  detail: 'Note finale Marie SAMAKÉ : 76,5 → 78,2 (post-calibration)', hash: '7f3a91…b842c1' },
     { at: '2026-11-28 09:10', actor: 'Comité Calib.', action: 'calibration.close', detail: 'Workshop Direction Sales clôturé · 12 évaluations validées', hash: 'e4dc88…a3119f' },
@@ -617,7 +619,7 @@ cron m8_audit_verify       : 04:30 quotidien — vérifie l'intégralité de la 
 cron m8_bias_detection     : 03:00 quotidien — exécute les 12 patterns`}</pre>
       </Card>
 
-      <span className="hidden">{EMPLOYEES.length}{employeeName.name}{Avatar.name}</span>
+      <span className="hidden">{roster.length}{employeeName.name}{Avatar.name}</span>
     </div>
   );
 }

@@ -9,9 +9,10 @@ import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
 import { CERTIFICATES } from '../../lib/m4/mock';
 import { CERTIFICATE_TYPES } from '../../lib/m4/referentiels';
-import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
 import type { CertificateCategory } from '../../lib/m4/types';
 import { cn } from '../../lib/cn';
+import { useRoster } from '../../lib/m1/roster';
 
 const CAT_LABEL: Record<CertificateCategory, string> = { certificat: 'Certificats légaux', attestation: 'Attestations', lettre: 'Courriers RH' };
 
@@ -20,6 +21,7 @@ export function CertificatsPage() {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<'all' | CertificateCategory>('all');
   const [pickedType, setPickedType] = useState<string | null>(null);
+  const roster = useRoster();
 
   const types = useMemo(() => CERTIFICATE_TYPES.filter((t) => {
     if (cat !== 'all' && t.category !== cat) return false;
@@ -75,7 +77,7 @@ export function CertificatsPage() {
         {pickedType && (
           <div className="mt-3 rounded-xl border border-amber/40 bg-amber/[0.06] p-3">
             <p className="text-[12px] font-bold text-ink">Génération : {CERTIFICATE_TYPES.find(t => t.code === pickedType)?.label}</p>
-            <p className="mt-1 text-[11px] font-medium text-ink-500">Sélectionner un collaborateur parmi les {EMPLOYEES.length} pour pré-remplir, valider, signer ADVIST puis livrer.</p>
+            <p className="mt-1 text-[11px] font-medium text-ink-500">Sélectionner un collaborateur parmi les {roster.length} pour pré-remplir, valider, signer ADVIST puis livrer.</p>
             <div className="mt-2 flex gap-2">
               <Button size="sm" onClick={() => { toast({ variant: 'success', title: 'Brouillon', description: `${CERTIFICATE_TYPES.find(t => t.code === pickedType)?.label} prêt à signer` }); setPickedType(null); }}>Démarrer la génération</Button>
               <Button variant="ghost" size="sm" onClick={() => setPickedType(null)}>Annuler</Button>

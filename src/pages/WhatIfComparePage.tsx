@@ -15,6 +15,7 @@ import { Money } from '../lib/money';
 import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
 import { EMPLOYEES, employeeName, type EmployeeRecord } from '../data/mock';
+import { useRoster } from '../lib/m1/roster';
 import { useWhatIfScenarios, type WhatIfScenario } from '../store/useWhatIfScenarios';
 import { ProphtetPanel } from '../components/ProphtetPanel';
 import { cn } from '../lib/cn';
@@ -105,6 +106,7 @@ function describe(sc: WhatIfScenario | null): string {
 }
 
 export function WhatIfComparePage() {
+  const roster = useRoster();
   const { scenarios, selectedAId, selectedBId, selectForCompare, deleteScenario } = useWhatIfScenarios();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -113,7 +115,7 @@ export function WhatIfComparePage() {
 
   const totA = useMemo(() => totalsFor(rosterFor(scA)), [scA]);
   const totB = useMemo(() => totalsFor(rosterFor(scB)), [scB]);
-  const baseline = useMemo(() => totalsFor(EMPLOYEES), []);
+  const baseline = useMemo(() => totalsFor(roster), [roster]);
 
   const delta = {
     headcount: totB.headcount - totA.headcount,

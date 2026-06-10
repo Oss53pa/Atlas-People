@@ -26,7 +26,8 @@ import {
   PATH_TYPE_META, READINESS_META, HIGH_POT_PROGRAMS, BENCH_STRENGTH_META,
   CAREER_LEVELS, PROGRAM_TONES, RETENTION_BENCHMARKS, CAREER_ACTIONS,
 } from '../../lib/m10/referentiels';
-import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
 
 /* ─────────────────────────────────────── 1. COCKPIT */
@@ -413,6 +414,7 @@ export function MentoratPage() {
 
 /* ─────────────────────────────────────── 8. CARTOGRAPHIE */
 export function CartographiePage() {
+  const roster = useRoster();
   const [empF, setEmpF] = useState<'all' | string>('all');
   const list = useMemo(() => SKILLS_MAPPING.filter((s) => empF === 'all' || s.employeeId === empF), [empF]);
   const total = list.length;
@@ -428,13 +430,13 @@ export function CartographiePage() {
         <StatCard label="Entrées" value={String(total)} unit="compétences mappées" icon={Map} />
         <StatCard label="Certifiées" value={`${Math.round((certified/Math.max(1,total))*100)} %`} unit={`${certified}/${total}`} icon={CheckCircle2} />
         <StatCard label="Catégories" value="4" unit="tech/lead/business/soft" icon={Map} />
-        <StatCard label="Collaborateurs" value={String(EMPLOYEES.length)} unit="dans la cartographie" icon={Users} />
+        <StatCard label="Collaborateurs" value={String(roster.length)} unit="dans la cartographie" icon={Users} />
       </div>
       <Card inset={false}>
         <div className="flex items-center justify-between p-4 pb-2">
           <select value={empF} onChange={(e) => setEmpF(e.target.value)} className="h-9 rounded-lg border border-line bg-surface2 px-2 text-[12px] font-semibold text-ink-700">
             <option value="all">Tous collaborateurs</option>
-            {EMPLOYEES.map((e) => <option key={e.id} value={e.id}>{employeeName(e)}</option>)}
+            {roster.map((e) => <option key={e.id} value={e.id}>{employeeName(e)}</option>)}
           </select>
           <span className="text-[11px] font-semibold text-ink-400">{list.length} entrées</span>
         </div>

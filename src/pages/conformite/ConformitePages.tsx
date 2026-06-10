@@ -32,8 +32,9 @@ import {
   INSPECTION_OUTCOME_META, RETENTION_POLICIES, COMPLIANCE_THRESHOLDS,
   COMPLIANCE_BEST_PRACTICES,
 } from '../../lib/m12/referentiels';
-import { EMPLOYEES, employeeById, employeeName } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
 import { countryByCode } from '../../data/countries';
+import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
 
 const fmt = (n: number): string => new Intl.NumberFormat('fr-FR').format(Math.round(n));
@@ -837,6 +838,7 @@ export function ConservationPage() {
 
 /* ═══════════════════════ 12. PARAMÈTRES ═══════════════════════ */
 export function ParametresConformitePage() {
+  const roster = useRoster();
   return (
     <div className="animate-fade-up space-y-5">
       <ConformiteSubNav />
@@ -944,7 +946,7 @@ export function ParametresConformitePage() {
       </div>
 
       {/* anti-tsc unused vars */}
-      <span className="hidden">{EMPLOYEES.length}{ArrowUpRight.name}{TrendingUp.name}</span>
+      <span className="hidden">{roster.length}{ArrowUpRight.name}{TrendingUp.name}</span>
     </div>
   );
 }

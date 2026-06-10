@@ -10,13 +10,15 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
 import { ALERTS, CONTRACTS, DISCIPLINARY, EXPATS, MANDATES, cockpitKPIs } from '../../lib/m4/mock';
-import { EMPLOYEES, employeeById, employeeName } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useRoster } from '../../lib/m1/roster';
 
 const KIND_ICON = { cdd: FileSignature, probation: Hourglass, expat: Globe2, mandate: Users, habilitation: Stamp, medical: ShieldCheck, disciplinary: Gavel } as const;
 
 export function CockpitAdminRhPage() {
   const kpi = useMemo(() => cockpitKPIs(), []);
+  const roster = useRoster();
   const [filter, setFilter] = useState<'all' | 'danger' | 'warn'>('all');
   const alerts = useMemo(() => (filter === 'all' ? ALERTS : ALERTS.filter((a) => a.severity === filter)), [filter]);
 
@@ -29,7 +31,7 @@ export function CockpitAdminRhPage() {
     [],
   );
 
-  const probationCount = EMPLOYEES.filter((e) => e.probationEnd).length;
+  const probationCount = roster.filter((e) => e.probationEnd).length;
 
   const quickAccess = [
     { to: '/hr/actes/contrats', label: 'Contrats', count: CONTRACTS.length, icon: FileSignature },

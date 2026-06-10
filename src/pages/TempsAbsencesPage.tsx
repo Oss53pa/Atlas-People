@@ -47,6 +47,7 @@ import { useClocking, type ClockingType, type Clocking } from '../store/useClock
 import { useOvertime, type OvertimeRecord } from '../store/useOvertime';
 import { countryByCode, currencyOf } from '../data/countries';
 import { EMPLOYEES, employeeById, employeeName } from '../data/mock';
+import { useRoster } from '../lib/m1/roster';
 import { cn } from '../lib/cn';
 
 type Tab = 'synthese' | 'conges' | 'pointage' | 'hsup' | 'compteurs' | 'calendrier';
@@ -58,7 +59,8 @@ const monthLabel = (m: string) =>
 export function TempsAbsencesPage() {
   const activeCountry = useAppStore((s) => s.activeCountry);
   const country = countryByCode(activeCountry);
-  const roster = EMPLOYEES.filter((e) => e.countryCode === activeCountry);
+  const liveRoster = useRoster();
+  const roster = liveRoster.filter((e) => e.countryCode === activeCountry);
   const [tab, setTab] = useState<Tab>('synthese');
   const [month, setMonth] = useState('2026-05');
 

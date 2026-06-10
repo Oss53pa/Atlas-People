@@ -8,9 +8,11 @@ import { Avatar } from '../../components/ui/Avatar';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
 import { PROBATIONS, ALERTS } from '../../lib/m4/mock';
 import { PROBATION_LEGAL, PROBATION_ALERT_THRESHOLDS } from '../../lib/m4/referentiels';
-import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 
 export function PeriodeEssaiPage() {
+  const roster = useRoster();
   const inProgress = PROBATIONS.filter((p) => p.decision === 'pending');
   const confirmed = PROBATIONS.filter((p) => p.decision !== 'pending');
   const probationAlerts = ALERTS.filter((a) => a.kind === 'probation');
@@ -90,7 +92,7 @@ export function PeriodeEssaiPage() {
         </div>
       </Card>
 
-      <p className="text-[11px] font-medium text-ink-400">Alertes générées automatiquement à J-{PROBATION_ALERT_THRESHOLDS.join(', J-')} de la fin. Décision finale (confirmation / prolongation / rupture) notifiée au moins 5 jours avant la fin légale. Documents générés via DocJourney, signés DRH via ADVIST. Suivi pour les {EMPLOYEES.filter(e => e.probationEnd).length} collaborateur(s) en essai sur le périmètre.</p>
+      <p className="text-[11px] font-medium text-ink-400">Alertes générées automatiquement à J-{PROBATION_ALERT_THRESHOLDS.join(', J-')} de la fin. Décision finale (confirmation / prolongation / rupture) notifiée au moins 5 jours avant la fin légale. Documents générés via DocJourney, signés DRH via ADVIST. Suivi pour les {roster.filter(e => e.probationEnd).length} collaborateur(s) en essai sur le périmètre.</p>
     </div>
   );
 }

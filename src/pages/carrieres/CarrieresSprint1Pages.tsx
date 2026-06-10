@@ -15,7 +15,8 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { CarrieresSubNav } from '../../components/carrieres/CarrieresSubNav';
-import { EMPLOYEES, employeeName } from '../../data/mock';
+import { employeeName } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
 
 /* ═══════════════ 1. JOB ARCHITECTURE ═══════════════ */
@@ -253,12 +254,13 @@ export function TalentPoolsPage() {
 
 /* ═══════════════ 4. PROMOTIONS ═══════════════ */
 export function PromotionsPage() {
+  const roster = useRoster();
   const promos = [
-    { ref: 'PRO-2026-0008', emp: EMPLOYEES[1], from: 'Lead Developer (P5b)', to: 'Staff Engineer (P6a)', amount: 320000, status: 'comite_pending' as const, manager: EMPLOYEES[0] },
-    { ref: 'PRO-2026-0007', emp: EMPLOYEES[3], from: 'Commercial Senior (P4c)', to: 'Sales Lead (P5a)', amount: 280000, status: 'validated' as const, manager: EMPLOYEES[12] },
-    { ref: 'PRO-2026-0006', emp: EMPLOYEES[10], from: 'Customer Success (P3b)', to: 'CS Senior (P4a)', amount: 180000, status: 'comite_approved' as const, manager: EMPLOYEES[3] },
-    { ref: 'PRO-2026-0005', emp: EMPLOYEES[7], from: 'DevOps Engineer (P4b)', to: 'Senior DevOps (P5a)', amount: 260000, status: 'communicated' as const, manager: EMPLOYEES[1] },
-    { ref: 'PRO-2026-0004', emp: EMPLOYEES[5], from: 'Comptable (P2c)', to: 'Senior Accountant (P3a)', amount: 150000, status: 'contested' as const, manager: EMPLOYEES[0] },
+    { ref: 'PRO-2026-0008', emp: roster[1], from: 'Lead Developer (P5b)', to: 'Staff Engineer (P6a)', amount: 320000, status: 'comite_pending' as const, manager: roster[0] },
+    { ref: 'PRO-2026-0007', emp: roster[3], from: 'Commercial Senior (P4c)', to: 'Sales Lead (P5a)', amount: 280000, status: 'validated' as const, manager: roster[12] },
+    { ref: 'PRO-2026-0006', emp: roster[10], from: 'Customer Success (P3b)', to: 'CS Senior (P4a)', amount: 180000, status: 'comite_approved' as const, manager: roster[3] },
+    { ref: 'PRO-2026-0005', emp: roster[7], from: 'DevOps Engineer (P4b)', to: 'Senior DevOps (P5a)', amount: 260000, status: 'communicated' as const, manager: roster[1] },
+    { ref: 'PRO-2026-0004', emp: roster[5], from: 'Comptable (P2c)', to: 'Senior Accountant (P3a)', amount: 150000, status: 'contested' as const, manager: roster[0] },
   ];
   const statusMeta = {
     comite_pending:   { label: 'Comité en attente',     tone: 'warn' as const },

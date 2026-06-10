@@ -33,8 +33,9 @@ import {
   FDFP_STATUS_META, TRAINING_FUND_REGIMES, TRAINING_BEST_PRACTICES,
   ROI_METHODS, TRAINING_THRESHOLDS,
 } from '../../lib/m11/referentiels';
-import { EMPLOYEES, employeeById, employeeName } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useRoster } from '../../lib/m1/roster';
 
 // ─────────── helpers locaux
 const fmt = (n: number, currency = 'FCFA'): string =>
@@ -48,6 +49,7 @@ const pct = (v: number, total: number): number => total === 0 ? 0 : Math.round((
 
 /* ═══════════════════════════════ 1. COCKPIT ═══════════════════════════════ */
 export function CockpitFormationPage() {
+  const roster = useRoster();
   const k = FORMATION_KPI;
   const upcomingSessions = SESSIONS.filter((s) => s.status === 'scheduled' || s.status === 'open_registration')
     .sort((a, b) => a.days[0].date.localeCompare(b.days[0].date)).slice(0, 5);
@@ -68,7 +70,7 @@ export function CockpitFormationPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Bénéficiaires YTD" value={String(k.beneficiairesYTD)} unit={`/ ${EMPLOYEES.length} collab`} icon={UsersIcon} />
+        <StatCard label="Bénéficiaires YTD" value={String(k.beneficiairesYTD)} unit={`/ ${roster.length} collab`} icon={UsersIcon} />
         <StatCard label="Taux d'accès" value={`${Math.round(k.tauxAcces * 100)} %`} unit={`cible ${Math.round(TRAINING_THRESHOLDS.ACCESS_RATE_TARGET * 100)} %`} icon={CheckCircle2}
           tone={k.tauxAcces >= TRAINING_THRESHOLDS.ACCESS_RATE_TARGET ? 'default' : 'amber'} />
         <StatCard label="Heures / collab" value={String(k.heuresMoyennesParCollab)} unit={`cible ${TRAINING_THRESHOLDS.HOURS_PER_EMPLOYEE_TARGET} h`} icon={Clock} />
@@ -783,6 +785,7 @@ export function FdfpPage() {
 
 /* ═══════════════════════════════ 11. REPORTING ═══════════════════════════════ */
 export function ReportingFormationPage() {
+  const roster = useRoster();
   const k = FORMATION_KPI;
 
   const byCategory = Object.keys(CATEGORY_META).map((cat) => {
@@ -791,7 +794,7 @@ export function ReportingFormationPage() {
     return { cat, label: CATEGORY_META[cat as keyof typeof CATEGORY_META].label, count: items.length, cost };
   }).filter((c) => c.count > 0).sort((a, b) => b.cost - a.cost);
 
-  const byEmployee = EMPLOYEES.map((e) => {
+  const byEmployee = roster.map((e) => {
     const regs = registrationsByEmployee(e.id).filter((r) => ['attended', 'completed', 'partial'].includes(r.status));
     const hours = regs.reduce((s, r) => s + (r.attendedHours ?? 0), 0);
     return { id: e.id, name: employeeName(e), hours, formations: regs.length };

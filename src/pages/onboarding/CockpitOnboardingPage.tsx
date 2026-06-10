@@ -13,11 +13,13 @@ import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
 import { M6LiveBanner } from '../../components/onboarding/M6LiveBanner';
 import { JOURNEYS, TASKS, BUDDIES, kpis, templateMeta } from '../../lib/m6/mock';
 import { MILESTONE_META } from '../../lib/m6/referentiels';
-import { EMPLOYEES, employeeById, employeeName } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useRoster } from '../../lib/m1/roster';
 
 export function CockpitOnboardingPage() {
   const k = useMemo(() => kpis(), []);
+  const roster = useRoster();
 
   const active = useMemo(() => JOURNEYS.filter((j) => j.status === 'in_progress')
     .sort((a, b) => a.hireDate.localeCompare(b.hireDate)), []);
@@ -40,7 +42,7 @@ export function CockpitOnboardingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Onboarding</h1>
-          <p className="text-sm font-medium text-ink-500">Parcours 30/60/90 jours · buddy · pulse · NPS · {EMPLOYEES.length} collaborateurs suivis</p>
+          <p className="text-sm font-medium text-ink-500">Parcours 30/60/90 jours · buddy · pulse · NPS · {roster.length} collaborateurs suivis</p>
         </div>
         <div className="flex gap-2">
           <Link to="/onboarding/arrivants"><Button variant="outline" size="sm"><Users size={14} /> Tous les arrivants</Button></Link>

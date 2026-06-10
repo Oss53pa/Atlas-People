@@ -10,16 +10,18 @@ import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
 import { CONTRACTS, ALERTS } from '../../lib/m4/mock';
 import { CONTRACT_TYPES, CONTRACT_STATUS_META, CONTRACT_WIZARD_STEPS, CONTRACT_SURVEILLANCE_THRESHOLDS } from '../../lib/m4/referentiels';
-import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
 import type { ContractTypeCode, ContractStatus } from '../../lib/m4/types';
 import { cn } from '../../lib/cn';
 import { useM4Contracts, isBackendConfigured } from '../../lib/m4/supabaseLive';
 import { useAuth } from '../../lib/auth';
+import { useRoster } from '../../lib/m1/roster';
 
 export function ContratsPage() {
   const { toast } = useToast();
   const { tenantId } = useAuth();
   const { data: liveContracts } = useM4Contracts(tenantId ?? undefined);
+  const roster = useRoster();
   const [q, setQ] = useState('');
   const [typeF, setTypeF] = useState<'all' | ContractTypeCode>('all');
   const [statF, setStatF] = useState<'all' | ContractStatus>('all');
@@ -140,7 +142,7 @@ export function ContratsPage() {
               </li>
             ))}
           </ol>
-          <div className="mt-3 flex items-center gap-2"><Filter size={12} className="text-ink-400" /><p className="text-[11px] font-medium text-ink-500">Sélectionner le collaborateur cible parmi les {EMPLOYEES.length} pour commencer.</p></div>
+          <div className="mt-3 flex items-center gap-2"><Filter size={12} className="text-ink-400" /><p className="text-[11px] font-medium text-ink-500">Sélectionner le collaborateur cible parmi les {roster.length} pour commencer.</p></div>
           <div className="mt-2 flex gap-2"><Button size="sm" onClick={() => { setWizard(false); toast({ variant: 'success', title: 'Wizard', description: 'Contrat en brouillon créé (étape 1/10)' }); }}>Démarrer le wizard</Button></div>
         </Card>
       )}

@@ -8,12 +8,14 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
 import { JOURNEYS, tasksByJourney } from '../../lib/m6/mock';
-import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 
 const TODAY = new Date('2026-05-31');
 
 export function ValidationPePage() {
   const { toast } = useToast();
+  const roster = useRoster();
 
   // Parcours J+60 à J+90 ou e11 (en cours)
   const ready = JOURNEYS.filter((j) => {
@@ -23,7 +25,7 @@ export function ValidationPePage() {
   });
 
   // Probation officielle d'après EmployeeRecord
-  const probationActive = EMPLOYEES.filter(e => e.probationEnd);
+  const probationActive = roster.filter(e => e.probationEnd);
 
   return (
     <div className="animate-fade-up space-y-5">

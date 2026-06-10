@@ -14,7 +14,8 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { CompetencesSubNav } from '../../components/competences/CompetencesSubNav';
-import { EMPLOYEES, employeeName, SKILLS } from '../../data/mock';
+import { employeeName, SKILLS } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
 
 /* ═══════════════ 1. AUDIT M9 ═══════════════ */
@@ -143,7 +144,8 @@ export function AuditM9Page() {
 
 /* ═══════════════ 2. AUTO-ÉVALUATION COMPÉTENCES ═══════════════ */
 export function AutoEvalCompetencesPage() {
-  const me = EMPLOYEES[3]; // Ibrahim
+  const roster = useRoster();
+  const me = roster[3]; // Ibrahim
   const myCompetences = SKILLS.slice(0, 6).map((s, i) => ({
     skill: s,
     autoLevel: Math.min(5, 2 + (i % 4)) as 0|1|2|3|4|5,
@@ -236,8 +238,9 @@ export function AutoEvalCompetencesPage() {
 
 /* ═══════════════ 3. ÉVALUATION MANAGER COMPÉTENCES ═══════════════ */
 export function ManagerEvalCompetencesPage() {
-  const manager = EMPLOYEES[12];      // Bineta - Marketing Lead
-  const reportee = EMPLOYEES[3];      // Ibrahim
+  const roster = useRoster();
+  const manager = roster[12];      // Bineta - Marketing Lead
+  const reportee = roster[3];      // Ibrahim
   const data = [
     { skill: 'Négociation commerciale', auto: 4, manager: 4, divergence: 0, preuves: 'Closing 3 deals enterprise Q2' },
     { skill: 'Analyse de données',      auto: 3, manager: 1, divergence: 2, preuves: 'Aucun livrable analytique observé' },
@@ -327,7 +330,8 @@ export function ManagerEvalCompetencesPage() {
 
 /* ═══════════════ 4. PDC (Plans Développement Compétences) ═══════════════ */
 export function PdcPage() {
-  const me = EMPLOYEES[3];
+  const roster = useRoster();
+  const me = roster[3];
   const actions = [
     { kind: 'formation' as const, title: 'Data Analytics avec Python (FRM-2026-0026)', target: 'Analyse de données : 1 → 3', deadline: '2026-09-30', status: 'in_progress' as const, completion: 35 },
     { kind: 'mentorat' as const,  title: 'Mentorat Modeste Yapo (Data Analyst senior)', target: 'Analyse de données : pratique terrain', deadline: '2026-12-31', status: 'in_progress' as const, completion: 50 },
@@ -416,20 +420,21 @@ export function PdcPage() {
 
 /* ═══════════════ 5. TALENTS / MOBILITÉ INTERNE PROPH3T ═══════════════ */
 export function TalentsMobilitePage() {
+  const roster = useRoster();
   const opportunities = [
     { post: 'Sales Lead régional CI', family: 'Commercial', level: 'senior', open: true },
     { post: 'Lead Product Marketing',  family: 'Marketing', level: 'lead', open: true },
     { post: 'Customer Success Lead',   family: 'Commercial', level: 'senior', open: true },
   ];
   const matches = [
-    { post: opportunities[0], candidate: EMPLOYEES[3], match: 78, strengths: ['Négociation 4/5','Closing enterprise prouvé'], gaps: ['Management équipe (3/5 vs 4 req.)'] },
-    { post: opportunities[0], candidate: EMPLOYEES[10], match: 62, strengths: ['Customer success excellence'], gaps: ['Expérience régionale faible','Négociation 3/5'] },
-    { post: opportunities[1], candidate: EMPLOYEES[12], match: 91, strengths: ['Marketing lead actuel','5+ ans expérience'], gaps: ['Aucun gap majeur'] },
-    { post: opportunities[2], candidate: EMPLOYEES[10], match: 85, strengths: ['CSM senior','NPS +60'], gaps: ['Encadrement équipe (1→3)'] },
+    { post: opportunities[0], candidate: roster[3], match: 78, strengths: ['Négociation 4/5','Closing enterprise prouvé'], gaps: ['Management équipe (3/5 vs 4 req.)'] },
+    { post: opportunities[0], candidate: roster[10], match: 62, strengths: ['Customer success excellence'], gaps: ['Expérience régionale faible','Négociation 3/5'] },
+    { post: opportunities[1], candidate: roster[12], match: 91, strengths: ['Marketing lead actuel','5+ ans expérience'], gaps: ['Aucun gap majeur'] },
+    { post: opportunities[2], candidate: roster[10], match: 85, strengths: ['CSM senior','NPS +60'], gaps: ['Encadrement équipe (1→3)'] },
   ];
   const referents = SKILLS.slice(0, 3).map((s, i) => ({
     skill: s.name,
-    employee: EMPLOYEES[(i * 5 + 1) % EMPLOYEES.length],
+    employee: roster[(i * 5 + 1) % roster.length],
     level: 5 as const,
   }));
   return (

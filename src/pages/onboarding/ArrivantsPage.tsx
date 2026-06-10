@@ -8,10 +8,12 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
 import { JOURNEYS, templateMeta } from '../../lib/m6/mock';
-import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
+import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useRoster } from '../../lib/m1/roster';
 
 export function ArrivantsPage() {
+  const roster = useRoster();
   const [q, setQ] = useState('');
   const [statF, setStatF] = useState<'all' | 'planned' | 'in_progress' | 'completed'>('all');
 
@@ -30,7 +32,7 @@ export function ArrivantsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Arrivants & parcours</h1>
-          <p className="text-sm font-medium text-ink-500">{EMPLOYEES.length} collaborateurs · {JOURNEYS.filter(j=>j.status==='in_progress').length} en cours d'onboarding</p>
+          <p className="text-sm font-medium text-ink-500">{roster.length} collaborateurs · {JOURNEYS.filter(j=>j.status==='in_progress').length} en cours d'onboarding</p>
         </div>
         <Button size="sm"><Rocket size={14} /> Nouveau parcours</Button>
       </div>

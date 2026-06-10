@@ -15,7 +15,8 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { CarrieresSubNav } from '../../components/carrieres/CarrieresSubNav';
-import { EMPLOYEES, employeeName } from '../../data/mock';
+import { employeeName } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
 
 /* ═══════════════ 1. CAREER FRAMEWORKS — DUAL TRACK ═══════════════ */
@@ -117,7 +118,8 @@ export function CareerFrameworksPage() {
 
 /* ═══════════════ 2. PARCOURS INDIVIDUELS ═══════════════ */
 export function CareerPathsIndividualsPage() {
-  const me = EMPLOYEES[3];
+  const roster = useRoster();
+  const me = roster[3];
   const sections = [
     { num: 1, title: 'Aspirations & moteurs',            content: 'Évoluer vers leadership commercial régional · valoriser mes 8 ans expérience CI · explorer dimension internationale' },
     { num: 2, title: 'Forces actuelles',                 content: 'Négociation enterprise (4/5) · résilience marché OHADA · relation client haut niveau · ramp-up rapide' },
@@ -178,14 +180,15 @@ export function CareerPathsIndividualsPage() {
 
 /* ═══════════════ 3. SUCCESSION ENRICHIE ═══════════════ */
 export function SuccessionEnrichedPage() {
+  const roster = useRoster();
   const criticalRoles = [
-    { role: 'CFO',             holder: EMPLOYEES[0],  criticality: 'critical' as const, successors: 3, ready: 1, in_18m: 2, ready_3y: 0, lastReview: '2026-11' },
-    { role: 'CTO',             holder: EMPLOYEES[1],  criticality: 'critical' as const, successors: 2, ready: 0, in_18m: 1, ready_3y: 1, lastReview: '2026-11' },
-    { role: 'DRH',             holder: EMPLOYEES[2],  criticality: 'critical' as const, successors: 4, ready: 2, in_18m: 1, ready_3y: 1, lastReview: '2026-11' },
-    { role: 'Lead Product',    holder: EMPLOYEES[13], criticality: 'high' as const,     successors: 2, ready: 0, in_18m: 2, ready_3y: 0, lastReview: '2026-10' },
-    { role: 'Marketing Lead',  holder: EMPLOYEES[12], criticality: 'high' as const,     successors: 1, ready: 0, in_18m: 1, ready_3y: 0, lastReview: '2026-09' },
-    { role: 'DevOps Lead',     holder: EMPLOYEES[7],  criticality: 'high' as const,     successors: 1, ready: 0, in_18m: 0, ready_3y: 1, lastReview: '2026-08' },
-    { role: 'Customer Success Lead', holder: EMPLOYEES[10], criticality: 'medium' as const, successors: 0, ready: 0, in_18m: 0, ready_3y: 0, lastReview: 'Jamais' },
+    { role: 'CFO',             holder: roster[0],  criticality: 'critical' as const, successors: 3, ready: 1, in_18m: 2, ready_3y: 0, lastReview: '2026-11' },
+    { role: 'CTO',             holder: roster[1],  criticality: 'critical' as const, successors: 2, ready: 0, in_18m: 1, ready_3y: 1, lastReview: '2026-11' },
+    { role: 'DRH',             holder: roster[2],  criticality: 'critical' as const, successors: 4, ready: 2, in_18m: 1, ready_3y: 1, lastReview: '2026-11' },
+    { role: 'Lead Product',    holder: roster[13], criticality: 'high' as const,     successors: 2, ready: 0, in_18m: 2, ready_3y: 0, lastReview: '2026-10' },
+    { role: 'Marketing Lead',  holder: roster[12], criticality: 'high' as const,     successors: 1, ready: 0, in_18m: 1, ready_3y: 0, lastReview: '2026-09' },
+    { role: 'DevOps Lead',     holder: roster[7],  criticality: 'high' as const,     successors: 1, ready: 0, in_18m: 0, ready_3y: 1, lastReview: '2026-08' },
+    { role: 'Customer Success Lead', holder: roster[10], criticality: 'medium' as const, successors: 0, ready: 0, in_18m: 0, ready_3y: 0, lastReview: 'Jamais' },
   ];
   const risks = [
     { role: 'Customer Success Lead', risk: 'Succession orpheline · 0 successeur · poste critical-medium', action: 'Identifier 2 successeurs sous 30 j' },
@@ -257,6 +260,7 @@ export function SuccessionEnrichedPage() {
 
 /* ═══════════════ 4. MENTORAT & SPONSORSHIP ═══════════════ */
 export function MentoratSponsorshipPage() {
+  const roster = useRoster();
   const programs = [
     { type: 'Mentorat formel',          icon: Heart,        color: 'emerald',
       desc: '12 mois · 1 senior mentor + 1 mentee · 24 sessions hebdo · accord signé', count: 8 },
@@ -266,12 +270,12 @@ export function MentoratSponsorshipPage() {
       desc: 'Junior mentore senior · digital/diversité/nouvelles génération · 6 mois', count: 6 },
   ];
   const pairs = [
-    { mentor: EMPLOYEES[0],  mentee: EMPLOYEES[3],  program: 'Mentorat formel',     focus: 'Leadership commercial · cycle vente enterprise', startDate: '2026-06-15', sessions: 18 },
-    { mentor: EMPLOYEES[1],  mentee: EMPLOYEES[10], program: 'Mentorat formel',     focus: 'Stack technique cloud + scale-up tooling',         startDate: '2026-09-01', sessions: 11 },
-    { mentor: EMPLOYEES[13], mentee: EMPLOYEES[5],  program: 'Sponsorship',         focus: 'Préparation passage à Director Finance · CFO succession', startDate: '2026-05-10', sessions: 6 },
-    { mentor: EMPLOYEES[2],  mentee: EMPLOYEES[7],  program: 'Sponsorship',         focus: 'Visibilité Comex · réseau africain · positionnement', startDate: '2026-08-01', sessions: 4 },
-    { mentor: EMPLOYEES[10], mentee: EMPLOYEES[0],  program: 'Reverse',             focus: 'Tools digitaux gestion budget + Excel avancé',     startDate: '2026-10-01', sessions: 3 },
-    { mentor: EMPLOYEES[8],  mentee: EMPLOYEES[12], program: 'Reverse',             focus: 'Diversité &amp; équité H/F en entreprise',         startDate: '2026-09-15', sessions: 4 },
+    { mentor: roster[0],  mentee: roster[3],  program: 'Mentorat formel',     focus: 'Leadership commercial · cycle vente enterprise', startDate: '2026-06-15', sessions: 18 },
+    { mentor: roster[1],  mentee: roster[10], program: 'Mentorat formel',     focus: 'Stack technique cloud + scale-up tooling',         startDate: '2026-09-01', sessions: 11 },
+    { mentor: roster[13], mentee: roster[5],  program: 'Sponsorship',         focus: 'Préparation passage à Director Finance · CFO succession', startDate: '2026-05-10', sessions: 6 },
+    { mentor: roster[2],  mentee: roster[7],  program: 'Sponsorship',         focus: 'Visibilité Comex · réseau africain · positionnement', startDate: '2026-08-01', sessions: 4 },
+    { mentor: roster[10], mentee: roster[0],  program: 'Reverse',             focus: 'Tools digitaux gestion budget + Excel avancé',     startDate: '2026-10-01', sessions: 3 },
+    { mentor: roster[8],  mentee: roster[12], program: 'Reverse',             focus: 'Diversité &amp; équité H/F en entreprise',         startDate: '2026-09-15', sessions: 4 },
   ];
   return (
     <div className="animate-fade-up space-y-5">
@@ -346,10 +350,11 @@ export function MentoratSponsorshipPage() {
 
 /* ═══════════════ 5. EXPATRIATION ═══════════════ */
 export function ExpatriationPage() {
+  const roster = useRoster();
   const expats = [
-    { collab: EMPLOYEES[1], from: 'CI', to: 'France',   role: 'Tech Lead Paris HQ',    startDate: '2026-09-01', endDate: '2027-09-01', package_total: 12500000, status: 'in_progress' as const, monthly_1on1: 3 },
-    { collab: EMPLOYEES[4], from: 'SN', to: 'CI',       role: 'Lead Designer Abidjan', startDate: '2027-01-15', endDate: '2027-12-31', package_total: 8400000,  status: 'preparation' as const, monthly_1on1: 0 },
-    { collab: EMPLOYEES[2], from: 'CI', to: 'Maroc',    role: 'Mission DRH 6 mois',    startDate: '2027-03-01', endDate: '2027-09-01', package_total: 6300000,  status: 'candidature' as const, monthly_1on1: 0 },
+    { collab: roster[1], from: 'CI', to: 'France',   role: 'Tech Lead Paris HQ',    startDate: '2026-09-01', endDate: '2027-09-01', package_total: 12500000, status: 'in_progress' as const, monthly_1on1: 3 },
+    { collab: roster[4], from: 'SN', to: 'CI',       role: 'Lead Designer Abidjan', startDate: '2027-01-15', endDate: '2027-12-31', package_total: 8400000,  status: 'preparation' as const, monthly_1on1: 0 },
+    { collab: roster[2], from: 'CI', to: 'Maroc',    role: 'Mission DRH 6 mois',    startDate: '2027-03-01', endDate: '2027-09-01', package_total: 6300000,  status: 'candidature' as const, monthly_1on1: 0 },
   ];
   const packageComponents = [
     { label: 'Indemnité expatriation',     pct: 25, desc: '+25 % salaire base · couvre dépaysement / éloignement' },

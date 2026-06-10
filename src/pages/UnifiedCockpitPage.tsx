@@ -17,7 +17,8 @@ import { Button } from '../components/ui/Button';
 import { Money } from '../lib/money';
 import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
-import { EMPLOYEES, employeeName, employeeById } from '../data/mock';
+import { employeeName, employeeById } from '../data/mock';
+import { useRoster } from '../lib/m1/roster';
 import { kpis as recrutKpis } from '../lib/m5/mock';
 import { ProphtetPanel, type CockpitAlert } from '../components/ProphtetPanel';
 import { CONFORMITE_KPI } from '../lib/m12/mock';
@@ -85,17 +86,18 @@ interface SectionBlock {
 }
 
 export function UnifiedCockpitDRHPage() {
+  const roster = useRoster();
   // — M1 Effectif
-  const headcount = EMPLOYEES.length;
-  const active = EMPLOYEES.filter((e) => e.status === 'active').length;
-  const leave = EMPLOYEES.filter((e) => e.status === 'leave').length;
-  const notice = EMPLOYEES.filter((e) => e.status === 'notice').length;
+  const headcount = roster.length;
+  const active = roster.filter((e) => e.status === 'active').length;
+  const leave = roster.filter((e) => e.status === 'leave').length;
+  const notice = roster.filter((e) => e.status === 'notice').length;
 
   // — M3 Paie déterministe
   const payroll = useMemo(() => {
     let employerCost = Money.zero(TENANT_CURRENCY);
     let net = Money.zero(TENANT_CURRENCY);
-    for (const e of EMPLOYEES) {
+    for (const e of roster) {
       const regime = getRegime(e.countryCode);
       const { result } = computePayslip({
         baseSalary: e.baseSalary,
@@ -108,7 +110,7 @@ export function UnifiedCockpitDRHPage() {
       net = net.add(Money.fromJSON({ units: result.netToPayUnits, currency: TENANT_CURRENCY }));
     }
     return { employerCost, net };
-  }, []);
+  }, [roster]);
 
   const k7 = useMemo(() => {
     const total = OBJECTIVES.length;

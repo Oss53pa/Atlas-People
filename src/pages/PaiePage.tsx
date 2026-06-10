@@ -14,15 +14,17 @@ import { postRunToFna } from '../lib/fna/postToFna';
 import type { FnaPostResult } from '../lib/fna/types';
 import { useAppStore } from '../store/useAppStore';
 import { countryByCode } from '../data/countries';
-import { EMPLOYEES, employeeName } from '../data/mock';
+import { employeeName } from '../data/mock';
 import { cn } from '../lib/cn';
+import { useRoster } from '../lib/m1/roster';
 
 const PERIOD = 'Mai 2026';
 
 export function PaiePage() {
   const activeCountry = useAppStore((s) => s.activeCountry);
   const country = countryByCode(activeCountry);
-  const roster = EMPLOYEES.filter((e) => e.countryCode === activeCountry);
+  const liveRoster = useRoster();
+  const roster = liveRoster.filter((e) => e.countryCode === activeCountry);
   const [selectedId, setSelectedId] = useState(roster[0]?.id);
   const [showEmployer, setShowEmployer] = useState(false);
   const [fnaStatus, setFnaStatus] = useState<FnaPostResult | null>(null);
