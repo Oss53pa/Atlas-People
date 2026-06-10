@@ -245,6 +245,7 @@ import {
   GouvernanceOkrPage, IntegrationOkrPage, AuditOkrPage,
 } from './pages/okr/OkrEnrichmentPages';
 import { ComingSoonPage } from './pages/ComingSoonPage';
+import { CockpitPerformancePage } from './pages/performance/CockpitPerformancePage';
 import { ALL_MODULES } from './app/nav';
 
 const READY: Record<string, JSX.Element> = {
@@ -256,6 +257,7 @@ const READY: Record<string, JSX.Element> = {
   '/hr/actes': <CockpitAdminRhPage />,
   '/recrutement': <CockpitRecrutPage />,
   '/onboarding': <CockpitOnboardingPage />,
+  '/performance': <CockpitPerformancePage />,
   '/objectifs': <CockpitOkrPage />,
   '/evaluations': <CockpitEvalPage />,
   '/carrieres': <CockpitCarrieresPage />,

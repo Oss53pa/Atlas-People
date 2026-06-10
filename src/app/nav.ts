@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Smartphone,
   FileSignature,
+  Activity,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -65,6 +66,7 @@ export const NAV: NavGroup[] = [
     bloc: 'C',
     label: 'Performance & Talents',
     modules: [
+      { code: 'PERF', path: '/performance', label: 'Performance (cockpit)', icon: Activity, ready: true },
       { code: 'M7', path: '/objectifs', label: 'Objectifs (OKR)', icon: Crosshair, ready: true },
       { code: 'M8', path: '/evaluations', label: 'Évaluations', icon: Gauge, ready: true },
       { code: 'M9', path: '/competences', label: 'Compétences', icon: Network, ready: true },
