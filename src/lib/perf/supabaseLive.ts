@@ -11,6 +11,24 @@ import type { Couche, PeriodeType } from '../../engine/performance';
 
 const SCHEMA = 'atlas_people';
 
+/** §6.2 — % de réalisation d'une action sur un mois, pour une couche. */
+export async function rpcRealisationAction(
+  actionId: string,
+  mois: string,
+  couche: Couche,
+): Promise<number | null> {
+  if (!isBackendConfigured || !supabase) return null;
+  const { data, error } = await supabase
+    .schema(SCHEMA)
+    .rpc('rpc_calcul_realisation_action', {
+      p_action_id: actionId,
+      p_mois: mois,
+      p_couche: couche,
+    });
+  if (error) return null;
+  return typeof data === 'number' ? data : Number(data);
+}
+
 /** §6.4 — % d'atteinte d'un objectif sur une période et une couche. */
 export async function rpcAtteinteObjectif(
   objectifId: string,
@@ -71,6 +89,21 @@ export async function rpcValideEvaluation(
   });
   if (error) return null;
   return typeof data === 'number' ? data : Number(data);
+}
+
+/** §8 — pose la signature ADVIST sur l'évaluation annuelle figée. */
+export async function rpcSigneEvaluationAdvist(
+  scoreId: string,
+  advistId: string,
+  signataireId: string,
+): Promise<boolean> {
+  if (!isBackendConfigured || !supabase) return false;
+  const { error } = await supabase.schema(SCHEMA).rpc('rpc_signe_evaluation_advist', {
+    p_score_id: scoreId,
+    p_advist_id: advistId,
+    p_signataire_id: signataireId,
+  });
+  return !error;
 }
 
 /** Score final validé exposé en lecture seule à M3 (§9, scope=employe annee final). */

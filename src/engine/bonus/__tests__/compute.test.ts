@@ -8,9 +8,11 @@ import {
   BonusInput,
   RemuFiche,
   bornes,
+  evalFormule,
   partBrute,
   repartitionBonus,
   scoreFraction,
+  simulateBonus,
 } from '../index';
 
 const XOF = 'XOF' as const;
@@ -134,5 +136,86 @@ describe('intégration : plafond appliqué en mode A', () => {
     expect(byId.e1.borne).toBe('plafond');
     // le reliquat (enveloppe − total après écrêtage) est exposé pour arbitrage
     expect(r.reliquat.toInt()).toBe(1_000_000 - r.total.toInt());
+  });
+});
+
+describe('§4 DSL contrôlé (R2, jamais eval)', () => {
+  const vars = { SCORE: 0.8, COEF: 1, SAL_MENS: Money.of(1_000_000, XOF), SAL_ANN: Money.of(12_000_000, XOF) };
+
+  it('évalue SCORE × COEF × SAL_MENS', () => {
+    expect(evalFormule('SCORE × COEF × SAL_MENS', vars, XOF).toInt()).toBe(800_000);
+  });
+  it('respecte parenthèses et + −', () => {
+    expect(evalFormule('(SCORE + 0.2) × SAL_MENS', vars, XOF).toInt()).toBe(1_000_000);
+  });
+  it('division exacte SAL_ANN ÷ 12', () => {
+    expect(evalFormule('SAL_ANN ÷ 12', vars, XOF).toInt()).toBe(1_000_000);
+  });
+  it('arithmétique rationnelle exacte (zéro float) : ÷3 ×3 = identité', () => {
+    expect(evalFormule('SAL_MENS ÷ 3 × 3', vars, XOF).toInt()).toBe(1_000_000);
+  });
+  it('précédence × avant +', () => {
+    // 0.8×1000000 + 1000000 = 1800000  (et non (0.8+1)×1000000)
+    expect(evalFormule('SCORE × SAL_MENS + SAL_MENS', vars, XOF).toInt()).toBe(1_800_000);
+  });
+  it('rejette un identifiant hors liste blanche', () => {
+    expect(() => evalFormule('FOO × 2', vars, XOF)).toThrow();
+  });
+  it('rejette un caractère interdit', () => {
+    expect(() => evalFormule('SCORE ^ 2', vars, XOF)).toThrow();
+  });
+  it('partBrute utilise le DSL quand fourni', () => {
+    const r = partBrute({ fiche: fiche({ employeId: 'e1', formuleDsl: 'SCORE × SAL_MENS' }), scorePct: 50 });
+    expect(r.toInt()).toBe(500_000);
+  });
+});
+
+describe('§6.3 mode A — réconciliation itérative des plafonds', () => {
+  it('cap d’un employé → budget redistribué, Σ = enveloppe', () => {
+    const inputs = [
+      input('e1', 100, { plafond: Money.of(120_000, XOF) }), // capé
+      input('e2', 100),
+      input('e3', 100),
+    ];
+    const r = repartitionBonus(inputs, { montant: Money.of(900_000, XOF), mode: 'A_prorata' }, XOF);
+    const byId = Object.fromEntries(r.lignes.map((l) => [l.employeId, l]));
+    expect(byId.e1.final.toInt()).toBe(120_000);
+    expect(byId.e1.borne).toBe('plafond');
+    // 780 000 répartis également entre e2 et e3
+    expect(byId.e2.final.toInt()).toBe(390_000);
+    expect(byId.e3.final.toInt()).toBe(390_000);
+    expect(r.total.toInt()).toBe(900_000);
+    expect(r.reliquat.toInt()).toBe(0);
+  });
+
+  it('plancher d’un employé → relevé, budget réduit pour les autres', () => {
+    const inputs = [
+      input('e1', 10, { plancher: Money.of(300_000, XOF) }), // brut faible, relevé au plancher
+      input('e2', 100),
+    ];
+    const r = repartitionBonus(inputs, { montant: Money.of(1_000_000, XOF), mode: 'A_prorata' }, XOF);
+    const byId = Object.fromEntries(r.lignes.map((l) => [l.employeId, l]));
+    expect(byId.e1.final.toInt()).toBe(300_000);
+    expect(byId.e1.borne).toBe('plancher');
+    expect(byId.e2.final.toInt()).toBe(700_000);
+    expect(r.total.toInt()).toBe(1_000_000);
+  });
+
+  it('tous capés sous l’enveloppe → reliquat exposé', () => {
+    const inputs = [
+      input('e1', 100, { plafond: Money.of(100_000, XOF) }),
+      input('e2', 100, { plafond: Money.of(100_000, XOF) }),
+    ];
+    const r = repartitionBonus(inputs, { montant: Money.of(1_000_000, XOF), mode: 'A_prorata' }, XOF);
+    expect(r.total.toInt()).toBe(200_000);
+    expect(r.reliquat.toInt()).toBe(800_000);
+  });
+});
+
+describe('§8 simulateBonus', () => {
+  it('équivaut à repartitionBonus (pur, sans persistance)', () => {
+    const inputs = [input('e1', 80), input('e2', 60)];
+    const env = { montant: Money.of(500_000, XOF), mode: 'A_prorata' as const };
+    expect(simulateBonus(inputs, env, XOF).total.toInt()).toBe(repartitionBonus(inputs, env, XOF).total.toInt());
   });
 });

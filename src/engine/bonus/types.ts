@@ -31,7 +31,16 @@ export interface RemuFiche {
   employeId: string;
   salaireMensuel: Money;
   formule: FormuleBonus;
-  /** Plancher/plafond du bonus en part du salaire annuel (bps), optionnels (§6.3). */
+  /**
+   * Formule en DSL contrôlé (M3 §4, R2) : variables SCORE/COEF/SAL_MENS/SAL_ANN,
+   * opérateurs + − × ÷ et parenthèses. Si fournie, prime sur `formule`.
+   * Ex. `"SCORE × COEF × SAL_MENS"`.
+   */
+  formuleDsl?: string;
+  /** Plafond/plancher ABSOLUS du bonus (Money FCFA), optionnels (§6, prioritaires). */
+  plafond?: Money;
+  plancher?: Money;
+  /** Plafond/plancher en part du salaire annuel (bps), repli si pas d'absolu. */
   plancherBps?: number;
   plafondBps?: number;
 }

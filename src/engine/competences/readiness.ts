@@ -12,6 +12,7 @@ import {
   CompetenceEvaluee,
   EchelleNiveaux,
   EcartCompetence,
+  PdcSuggestion,
   Readiness,
   ReadinessResult,
   StatutCompetence,
@@ -154,4 +155,24 @@ export function analyseAccesPoste(
     ),
   );
   return { ecarts, readiness: evalueReadiness(ecarts) };
+}
+
+/**
+ * §7 — dérive un plan de développement (PDC) des écarts > 0, priorisé : les
+ * compétences bloquantes d'abord, puis par écart décroissant. Alimente M11
+ * Formation. Pur — aucune décision PROPH3T (R7 M9 : IA jamais décideur).
+ */
+export function generePlanDeveloppement(ecarts: ReadonlyArray<EcartCompetence>): PdcSuggestion[] {
+  return ecarts
+    .filter((e) => e.ecart > 0)
+    .map((e) => ({
+      competenceId: e.competenceId,
+      libelle: e.libelle,
+      niveauActuel: e.niveauRetenu,
+      niveauCible: e.niveauAttendu,
+      ecart: e.ecart,
+      bloquant: e.bloquant,
+      actionSuggeree: `Monter de ${e.niveauRetenu} à ${e.niveauAttendu} (formation / mentorat — lien M11)`,
+    }))
+    .sort((a, b) => Number(b.bloquant) - Number(a.bloquant) || b.ecart - a.ecart);
 }

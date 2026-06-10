@@ -10,6 +10,7 @@ import {
   ecartCompetence,
   evalueCompetence,
   evalueReadiness,
+  generePlanDeveloppement,
   niveauRetenu,
   pctMaitrise,
   statutPeremption,
@@ -135,5 +136,35 @@ describe('§5.4 écart & readiness', () => {
   it('readiness sans attentes → prêt (couverture 100)', () => {
     expect(evalueReadiness([]).verdict).toBe('pret');
     expect(evalueReadiness([]).scoreCouverture).toBe(100);
+  });
+});
+
+describe('§7 generePlanDeveloppement (→ M11)', () => {
+  const attentes: AttentePoste[] = [
+    { competenceId: 'lead', niveauAttendu: 4, criticite: 3, bloquante: true, libelle: 'Leadership' },
+    { competenceId: 'archi', niveauAttendu: 4, criticite: 2, libelle: 'Architecture' },
+    { competenceId: 'budget', niveauAttendu: 2, criticite: 1, libelle: 'Budget' },
+  ];
+
+  it('ne retient que les écarts > 0, priorise les bloquants puis l’écart', () => {
+    const { ecarts } = analyseAccesPoste(attentes, [
+      { competenceId: 'lead', niveauRetenu: 2, statut: 'acquis', pctMaitrise: 50 },  // bloquant, écart 2
+      { competenceId: 'archi', niveauRetenu: 3, statut: 'acquis', pctMaitrise: 75 }, // non bloquant, écart 1
+      { competenceId: 'budget', niveauRetenu: 2, statut: 'acquis', pctMaitrise: 100 }, // couvert
+    ]);
+    const pdc = generePlanDeveloppement(ecarts);
+    expect(pdc.map((p) => p.competenceId)).toEqual(['lead', 'archi']); // budget exclu, lead d'abord
+    expect(pdc[0].bloquant).toBe(true);
+    expect(pdc[0].niveauActuel).toBe(2);
+    expect(pdc[0].niveauCible).toBe(4);
+  });
+
+  it('aucun écart → PDC vide', () => {
+    const { ecarts } = analyseAccesPoste(attentes, [
+      { competenceId: 'lead', niveauRetenu: 4, statut: 'acquis', pctMaitrise: 100 },
+      { competenceId: 'archi', niveauRetenu: 4, statut: 'acquis', pctMaitrise: 100 },
+      { competenceId: 'budget', niveauRetenu: 2, statut: 'acquis', pctMaitrise: 100 },
+    ]);
+    expect(generePlanDeveloppement(ecarts)).toHaveLength(0);
   });
 });

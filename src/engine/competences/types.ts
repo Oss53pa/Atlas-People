@@ -89,3 +89,15 @@ export interface ReadinessResult {
   /** Écarts restants (conditions d'accès si « prêt sous conditions »). */
   conditions: EcartCompetence[];
 }
+
+/** §7 — entrée de plan de développement dérivée d'un écart (→ M11 Formation). */
+export interface PdcSuggestion {
+  competenceId: string;
+  libelle?: string;
+  niveauActuel: number;
+  niveauCible: number;
+  ecart: number;
+  /** Compétence bloquante : à prioriser dans le plan. */
+  bloquant: boolean;
+  actionSuggeree: string;
+}
