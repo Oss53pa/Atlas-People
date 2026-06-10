@@ -91,6 +91,21 @@ export async function rpcValideEvaluation(
   return typeof data === 'number' ? data : Number(data);
 }
 
+/** §8 — pose la signature ADVIST sur l'évaluation annuelle figée. */
+export async function rpcSigneEvaluationAdvist(
+  scoreId: string,
+  advistId: string,
+  signataireId: string,
+): Promise<boolean> {
+  if (!isBackendConfigured || !supabase) return false;
+  const { error } = await supabase.schema(SCHEMA).rpc('rpc_signe_evaluation_advist', {
+    p_score_id: scoreId,
+    p_advist_id: advistId,
+    p_signataire_id: signataireId,
+  });
+  return !error;
+}
+
 /** Score final validé exposé en lecture seule à M3 (§9, scope=employe annee final). */
 export interface ScoreFinalValide {
   employeId: string;
