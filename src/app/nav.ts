@@ -16,6 +16,7 @@ import {
   Smartphone,
   FileSignature,
   Activity,
+  Coins,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -67,6 +68,7 @@ export const NAV: NavGroup[] = [
     label: 'Performance & Talents',
     modules: [
       { code: 'PERF', path: '/performance', label: 'Performance (cockpit)', icon: Activity, ready: true },
+      { code: 'BONUS', path: '/bonus', label: 'Bonus & primes', icon: Coins, ready: true },
       { code: 'M7', path: '/objectifs', label: 'Objectifs (OKR)', icon: Crosshair, ready: true },
       { code: 'M8', path: '/evaluations', label: 'Évaluations', icon: Gauge, ready: true },
       { code: 'M9', path: '/competences', label: 'Compétences', icon: Network, ready: true },

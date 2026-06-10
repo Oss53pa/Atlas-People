@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Gauge, Building2, Users, ShieldAlert, TrendingUp, AlertTriangle,
-  Scale, Layers, UserCircle2, CheckCircle2, Clock,
+  Scale, Layers, UserCircle2, CheckCircle2, Clock, Coins,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
@@ -157,6 +158,22 @@ export function CockpitPerformancePage() {
               ))}
             </div>
           </Card>
+
+          {/* Accroche bonus (§9) : score validé → SCORE du moteur Bonus M3 */}
+          <Link to="/bonus" className="block">
+            <Card className="border-amber/30 transition hover:border-amber/50 hover:bg-amber/[0.04]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber/12 text-amber-deep"><Coins size={20} /></span>
+                  <div>
+                    <p className="text-[13px] font-bold text-ink">Accroche bonus M3 →</p>
+                    <p className="text-[11px] font-medium text-ink-500">Le score validé alimente la variable <b className="mono">SCORE</b> du moteur bonus (§9). Simuler la répartition de l'enveloppe →</p>
+                  </div>
+                </div>
+                <StatusPill tone="amber" dot={false}>Simulation</StatusPill>
+              </div>
+            </Card>
+          </Link>
         </>
       )}
 
