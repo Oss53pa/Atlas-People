@@ -204,20 +204,20 @@ begin
     execute format('alter table %I enable row level security', t);
     execute format($f$drop policy if exists comp2_tenant_write on %I$f$, t);
     execute format($f$create policy comp2_tenant_write on %I for all
-      using (tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id))
-      with check (tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id))$f$, t);
+      using (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id))
+      with check (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id))$f$, t);
   end loop;
 end $$;
 
 -- échelle : lecture tenant-large (référentiel non sensible).
 drop policy if exists comp_niveaux_read on comp_niveaux_ref;
 create policy comp_niveaux_read on comp_niveaux_ref for select
-  using (tenant_id = any (current_tenant_ids()));
+  using (tenant_id in (select current_tenant_ids()));
 
 -- PDC : l'employé voit le sien, le manager (N-1) celui de son équipe.
 drop policy if exists comp_pdc_scoped_read on comp_pdc;
 create policy comp_pdc_scoped_read on comp_pdc for select using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or employe_id in (select current_employee_ids())
     or is_manager_of(employe_id)
@@ -227,7 +227,7 @@ create policy comp_pdc_scoped_read on comp_pdc for select using (
 -- preuves d'évaluation : visibles si l'évaluation l'est (employé/manager/RH).
 drop policy if exists comp_eval_preuves_read on comp_evaluation_preuves;
 create policy comp_eval_preuves_read on comp_evaluation_preuves for select using (
-  tenant_id = any (current_tenant_ids()) and exists (
+  tenant_id in (select current_tenant_ids()) and exists (
     select 1 from comp_evaluations e
      where e.id = comp_evaluation_preuves.evaluation_id
        and (is_hr_or_admin(e.tenant_id)

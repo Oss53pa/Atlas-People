@@ -180,15 +180,15 @@ begin
     execute format('alter table %I enable row level security', t);
     execute format($f$drop policy if exists bonus_tenant_write on %I$f$, t);
     execute format($f$create policy bonus_tenant_write on %I for all
-      using (tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id))
-      with check (tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id))$f$, t);
+      using (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id))
+      with check (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id))$f$, t);
   end loop;
 end $$;
 
 -- remu_fiche : l'employé lit SA fiche (salaire, formule, base de son calcul).
 drop policy if exists remu_fiche_self_read on remu_fiche;
 create policy remu_fiche_self_read on remu_fiche for select using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id) or employe_id in (select current_employee_ids())
   )
 );
@@ -197,7 +197,7 @@ create policy remu_fiche_self_read on remu_fiche for select using (
 -- direction (visible_employe). Enveloppe globale et bonus des autres réservés RH.
 drop policy if exists bonus_calc_self_read on bonus_calculs;
 create policy bonus_calc_self_read on bonus_calculs for select using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or (employe_id in (select current_employee_ids()) and visible_employe is true)
   )

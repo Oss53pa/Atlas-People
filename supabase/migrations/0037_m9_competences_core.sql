@@ -197,15 +197,15 @@ begin
     execute format('alter table %I enable row level security', t);
     execute format($f$drop policy if exists comp_tenant_write on %I$f$, t);
     execute format($f$create policy comp_tenant_write on %I for all
-      using (tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id))
-      with check (tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id))$f$, t);
+      using (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id))
+      with check (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id))$f$, t);
   end loop;
 end $$;
 
 -- lecture scopée : employé concerné + manager (N-1) + RH/admin.
 drop policy if exists comp_eval_scoped_read on comp_evaluations;
 create policy comp_eval_scoped_read on comp_evaluations for select using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or employe_id in (select current_employee_ids())
     or is_manager_of(employe_id)
@@ -216,16 +216,16 @@ create policy comp_eval_scoped_read on comp_evaluations for select using (
 -- contre-évalue son équipe.
 drop policy if exists comp_eval_self_write on comp_evaluations;
 create policy comp_eval_self_write on comp_evaluations for all using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or employe_id in (select current_employee_ids())
     or is_manager_of(employe_id)
   )
-) with check (tenant_id = any (current_tenant_ids()));
+) with check (tenant_id in (select current_tenant_ids()));
 
 drop policy if exists comp_readiness_scoped_read on comp_readiness;
 create policy comp_readiness_scoped_read on comp_readiness for select using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or employe_id in (select current_employee_ids())
     or is_manager_of(employe_id)

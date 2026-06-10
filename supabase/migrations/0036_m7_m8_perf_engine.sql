@@ -662,8 +662,8 @@ begin
     execute format('alter table %I enable row level security', t);
     execute format($f$drop policy if exists perf_tenant_write on %I$f$, t);
     execute format($f$create policy perf_tenant_write on %I for all
-      using (tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id))
-      with check (tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id))$f$, t);
+      using (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id))
+      with check (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id))$f$, t);
   end loop;
 end $$;
 
@@ -680,7 +680,7 @@ begin
   loop
     execute format($f$drop policy if exists perf_tenant_read on %I$f$, t);
     execute format($f$create policy perf_tenant_read on %I for select
-      using (tenant_id = any (current_tenant_ids()))$f$, t);
+      using (tenant_id in (select current_tenant_ids()))$f$, t);
   end loop;
 end $$;
 -- Les tables SENSIBLES (perf_scores, perf_action_evaluations, perf_arbitrages,
@@ -690,7 +690,7 @@ end $$;
 -- perf_scores : employé voit SON scope ; manager voit son équipe (N-1). (§11.1)
 drop policy if exists perf_scores_self on perf_scores;
 create policy perf_scores_self on perf_scores for select using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or (scope = 'employe' and scope_id in (select current_employee_ids()))
     or (scope = 'employe' and is_manager_of(scope_id))
@@ -701,7 +701,7 @@ create policy perf_scores_self on perf_scores for select using (
 -- §2) ; le manager contre-évalue (équipe). RH/admin déjà couverts.
 drop policy if exists perf_aeval_self_write on perf_action_evaluations;
 create policy perf_aeval_self_write on perf_action_evaluations for all using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or evaluateur_id in (select current_employee_ids())
     or exists (
@@ -710,12 +710,12 @@ create policy perf_aeval_self_write on perf_action_evaluations for all using (
          and (o.porteur_id in (select current_employee_ids()) or is_manager_of(o.porteur_id))
     )
   )
-) with check (tenant_id = any (current_tenant_ids()));
+) with check (tenant_id in (select current_tenant_ids()));
 
 -- preuves : l'employé voit/gère les siennes ; manager (N-1) en lecture.
 drop policy if exists preuves_self on preuves;
 create policy preuves_self on preuves for select using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or employe_id in (select current_employee_ids())
     or is_manager_of(employe_id)
@@ -726,7 +726,7 @@ create policy preuves_self on preuves for select using (
 -- saisit son commentaire obligatoire (§7.3) ; manager (N-1) en lecture.
 drop policy if exists perf_arb_scoped_read on perf_arbitrages;
 create policy perf_arb_scoped_read on perf_arbitrages for select using (
-  tenant_id = any (current_tenant_ids()) and (
+  tenant_id in (select current_tenant_ids()) and (
     is_hr_or_admin(tenant_id)
     or scope_id in (select current_employee_ids())
     or is_manager_of(scope_id)
@@ -734,16 +734,16 @@ create policy perf_arb_scoped_read on perf_arbitrages for select using (
 );
 drop policy if exists perf_arb_employe_comment on perf_arbitrages;
 create policy perf_arb_employe_comment on perf_arbitrages for update using (
-  tenant_id = any (current_tenant_ids()) and scope_id in (select current_employee_ids())
+  tenant_id in (select current_tenant_ids()) and scope_id in (select current_employee_ids())
 ) with check (
-  tenant_id = any (current_tenant_ids()) and scope_id in (select current_employee_ids())
+  tenant_id in (select current_tenant_ids()) and scope_id in (select current_employee_ids())
 );
 
 -- perf_events : file d'accroche bonus — RH/Direction uniquement (M3 consomme via
 -- service role qui contourne RLS). Pas d'accès employé (gating bonus R6/§9).
 drop policy if exists perf_events_rh_read on perf_events;
 create policy perf_events_rh_read on perf_events for select using (
-  tenant_id = any (current_tenant_ids()) and is_hr_or_admin(tenant_id)
+  tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id)
 );
 
 -- ---------------------------------------------------------------------------
