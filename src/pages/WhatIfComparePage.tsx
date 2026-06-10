@@ -14,7 +14,7 @@ import { StatusPill } from '../components/ui/StatusPill';
 import { Money } from '../lib/money';
 import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
-import { EMPLOYEES, employeeName, type EmployeeRecord } from '../data/mock';
+import { employeeName, type EmployeeRecord } from '../data/mock';
 import { useRoster } from '../lib/m1/roster';
 import { useWhatIfScenarios, type WhatIfScenario } from '../store/useWhatIfScenarios';
 import { ProphtetPanel } from '../components/ProphtetPanel';
@@ -36,10 +36,10 @@ interface Totals {
   charges: number;
 }
 
-function rosterFor(sc: WhatIfScenario | null): EmployeeRecord[] {
-  if (!sc) return EMPLOYEES;
+function rosterFor(sc: WhatIfScenario | null, base: EmployeeRecord[]): EmployeeRecord[] {
+  if (!sc) return base;
   const removed = new Set(sc.removedIds);
-  const remaining: EmployeeRecord[] = EMPLOYEES
+  const remaining: EmployeeRecord[] = base
     .filter((e) => !removed.has(e.id))
     .map((e) => ({
       ...e,
@@ -113,8 +113,8 @@ export function WhatIfComparePage() {
   const scA = scenarios.find((s) => s.id === selectedAId) ?? null;
   const scB = scenarios.find((s) => s.id === selectedBId) ?? null;
 
-  const totA = useMemo(() => totalsFor(rosterFor(scA)), [scA]);
-  const totB = useMemo(() => totalsFor(rosterFor(scB)), [scB]);
+  const totA = useMemo(() => totalsFor(rosterFor(scA, roster)), [scA, roster]);
+  const totB = useMemo(() => totalsFor(rosterFor(scB, roster)), [scB, roster]);
   const baseline = useMemo(() => totalsFor(roster), [roster]);
 
   const delta = {

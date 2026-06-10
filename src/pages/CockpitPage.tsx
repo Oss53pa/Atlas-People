@@ -25,13 +25,13 @@ import { Money } from '../lib/money';
 import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
 import {
-  EMPLOYEES,
   HEADCOUNT_BY_DEPT,
   CLIMATE_TREND,
   ATTENDANCE_MATRIX,
   employeeName,
   type EmployeeRecord,
 } from '../data/mock';
+import { useRoster } from '../lib/m1/roster';
 
 // Action de soin proposée selon le signal (jamais punitif — cahier §10).
 function careAction(e: EmployeeRecord): string {
@@ -41,11 +41,12 @@ function careAction(e: EmployeeRecord): string {
 }
 
 export function CockpitPage() {
+  const roster = useRoster();
   // Masse salariale calculée par le moteur déterministe (tenant XOF : CI + SN).
   const totals = useMemo(() => {
     let employerCost = Money.zero(TENANT_CURRENCY);
     let net = Money.zero(TENANT_CURRENCY);
-    for (const e of EMPLOYEES) {
+    for (const e of roster) {
       const regime = getRegime(e.countryCode);
       const { result } = computePayslip(
         {
@@ -62,7 +63,7 @@ export function CockpitPage() {
       net = net.add(Money.fromJSON({ units: result.netToPayUnits, currency: TENANT_CURRENCY }));
     }
     return { employerCost, net };
-  }, []);
+  }, [roster]);
 
   const costMillions = totals.employerCost.toInt() / 1_000_000;
 
@@ -76,13 +77,13 @@ export function CockpitPage() {
     });
   }, [costMillions]);
 
-  const attention = EMPLOYEES.filter((e) => e.retentionAttention >= 45).sort(
+  const attention = roster.filter((e) => e.retentionAttention >= 45).sort(
     (a, b) => b.retentionAttention - a.retentionAttention,
   );
 
   // Équité salariale : salaire de base moyen par département (surveillance écart).
   const equity = HEADCOUNT_BY_DEPT.map((d) => {
-    const list = EMPLOYEES.filter((e) =>
+    const list = roster.filter((e) =>
       d.label === 'RH' ? e.department === 'Ressources Humaines' : e.department === d.label,
     );
     const avg = list.reduce((s, e) => s + e.baseSalary, 0) / (list.length || 1);
@@ -117,7 +118,7 @@ export function CockpitPage() {
 
       {/* KPI */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Effectif" value={String(EMPLOYEES.length)} unit="collab." delta={7} icon={Users} />
+        <StatCard label="Effectif" value={String(roster.length)} unit="collab." delta={7} icon={Users} />
         <StatCard
           label="Masse salariale"
           value={`${costMillions.toFixed(1)} M`}
@@ -198,7 +199,7 @@ export function CockpitPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader title="Composition de l'effectif" subtitle="Par département" />
-          <DonutChart segments={HEADCOUNT_BY_DEPT} size={170} centerTop={String(EMPLOYEES.length)} centerBottom="Effectif" />
+          <DonutChart segments={HEADCOUNT_BY_DEPT} size={170} centerTop={String(roster.length)} centerBottom="Effectif" />
         </Card>
 
         <Card>

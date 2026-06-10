@@ -32,7 +32,8 @@ import {
   appendJournal,
 } from './Reports/Modals';
 import { autoCommentReport, clearAutoComments } from '../engine/proph3/reportCommentator';
-import { EMPLOYEES, employeeName } from '../data/mock';
+import { employeeName, type EmployeeRecord } from '../data/mock';
+import { useRoster } from '../lib/m1/roster';
 import { computePayslip, getRegime } from '../lib/payroll';
 import { Money } from '../lib/money';
 import { TENANT_CURRENCY } from '../data/countries';
@@ -42,16 +43,16 @@ const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 const STORAGE_KEY = 'atlas-reports-config';
 const COL_PREFS_KEY = 'atlas-reports-cols';
 
-function buildAtlasReportData(): ReportData {
+function buildAtlasReportData(roster: EmployeeRecord[]): ReportData {
   const byDept: Record<string, { count: number; active: number }> = {};
-  EMPLOYEES.forEach((e) => {
+  roster.forEach((e) => {
     if (!byDept[e.department]) byDept[e.department] = { count: 0, active: 0 };
     byDept[e.department].count += 1;
     if (e.status === 'active') byDept[e.department].active += 1;
   });
 
   let gross = 0, net = 0, employerCost = 0;
-  for (const e of EMPLOYEES) {
+  for (const e of roster) {
     const regime = getRegime(e.countryCode);
     const { result } = computePayslip({
       baseSalary: e.baseSalary, taxableAllowances: e.taxableAllowances,
@@ -66,8 +67,8 @@ function buildAtlasReportData(): ReportData {
   return {
     effectifsByDept: Object.entries(byDept).map(([dept, v]) => ({ dept, count: v.count, activeRatio: v.active / v.count })),
     effectifsByCountry: [
-      { country: 'Côte d\'Ivoire', count: EMPLOYEES.filter((e) => e.countryCode === 'CI').length, share: 70 },
-      { country: 'Sénégal', count: EMPLOYEES.filter((e) => e.countryCode === 'SN').length, share: 30 },
+      { country: 'Côte d\'Ivoire', count: roster.filter((e) => e.countryCode === 'CI').length, share: 70 },
+      { country: 'Sénégal', count: roster.filter((e) => e.countryCode === 'SN').length, share: 30 },
     ],
     payrollCycles: [
       { period: 'Avril 2026', gross, net, employerCost, status: 'Calculé' },
@@ -146,7 +147,7 @@ function buildAtlasReportData(): ReportData {
       { axis: 'Âge (45+ vs <35)', ratio: 0.71, threshold: 0.80, status: '⚠ Biais détecté' },
       { axis: 'Ancienneté (5+ ans)', ratio: 0.92, threshold: 0.80, status: '✓ Conforme' },
     ],
-    totalCost: { employerCost, net, charges: employerCost - net, perEmployee: employerCost / EMPLOYEES.length },
+    totalCost: { employerCost, net, charges: employerCost - net, perEmployee: employerCost / (roster.length || 1) },
   };
 }
 
@@ -161,7 +162,8 @@ export function ReportsPage() {
     safeLocalStorage.getJSON(COL_PREFS_KEY, { left: true, right: true }));
   const [modal, setModal] = useState<'save' | 'load' | 'send' | 'catalog' | 'journal' | null>(null);
 
-  const data = useMemo(() => buildAtlasReportData(), []);
+  const roster = useRoster();
+  const data = useMemo(() => buildAtlasReportData(roster), [roster]);
   const palette = PALETTES[config.palette];
 
   const persist = (c: ReportConfig) => { setConfig(c); safeLocalStorage.setJSON(STORAGE_KEY, c); };
