@@ -9,10 +9,11 @@ import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { PayslipModal } from '../../components/payroll/PayslipModal';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
 import { computePayslip, getRegime } from '../../lib/payroll';
-import { EMPLOYEES, employeeById, employeeName, type EmployeeRecord } from '../../data/mock';
+import { employeeName, type EmployeeRecord } from '../../data/mock';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
 import { usePayrollBulletins, usePayrollCycles, isBackendConfigured } from '../../lib/m3/supabaseLive';
+import { useRoster } from '../../lib/m1/roster';
 import { useAuth } from '../../lib/auth';
 
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
@@ -31,18 +32,19 @@ export function BulletinsPage() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>(undefined);
   const { data: liveCycles } = usePayrollCycles(tenantId ?? undefined);
   const { data: liveBulletins, isLoading: loadingBulletins } = usePayrollBulletins(tenantId ?? undefined, selectedCycleId);
+  const roster = useRoster();
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return EMPLOYEES.filter((e) => !q || `${employeeName(e)} ${e.role}`.toLowerCase().includes(q));
-  }, [query]);
+    return roster.filter((e) => !q || `${employeeName(e)} ${e.role}`.toLowerCase().includes(q));
+  }, [query, roster]);
 
   const computationFor = (emp: EmployeeRecord) => computePayslip(
     { baseSalary: emp.baseSalary, taxableAllowances: emp.taxableAllowances, nonTaxableAllowances: emp.nonTaxableAllowances, fiscalParts: emp.fiscalParts, otherDeductions: emp.otherDeductions },
     getRegime(emp.countryCode), employeeName(emp),
   );
 
-  const selected = open ? employeeById(open) : undefined;
+  const selected = open ? roster.find((e) => e.id === open) : undefined;
 
   return (
     <div className="animate-fade-up space-y-5">

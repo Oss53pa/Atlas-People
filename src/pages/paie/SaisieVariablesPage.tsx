@@ -17,7 +17,8 @@ import { usePayrollCycle } from '../../store/usePayrollCycle';
 import { computeM3Bulletin, m3PayrollInput, mergeModel } from '../../lib/m3/engine';
 import { describeCalc } from '../../lib/m3/rubriques';
 import { computePayslip, getRegime } from '../../lib/payroll';
-import { EMPLOYEES, employeeById, employeeName, matricule } from '../../data/mock';
+import { employeeById, employeeName, matricule } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { useUpsertPayrollInput, isBackendConfigured } from '../../lib/m3/payrollInputsLive';
 import { usePayrollCycles } from '../../lib/m3/supabaseLive';
 import { useAuth } from '../../lib/auth';
@@ -53,19 +54,20 @@ export function SaisieVariablesPage() {
   const [explain, setExplain] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  const roster = useRoster();
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return EMPLOYEES.filter((e) => {
+    return roster.filter((e) => {
       if (statusFilter !== 'all' && statuses[e.id] !== statusFilter) return false;
       if (!q) return true;
       return `${employeeName(e)} ${e.role}`.toLowerCase().includes(q);
     });
-  }, [query, statusFilter, statuses]);
+  }, [query, statusFilter, statuses, roster]);
 
-  const seizedCount = EMPLOYEES.filter((e) => statuses[e.id] === 'seized' || statuses[e.id] === 'locked').length;
-  const pct = Math.round((seizedCount / EMPLOYEES.length) * 100);
+  const seizedCount = roster.filter((e) => statuses[e.id] === 'seized' || statuses[e.id] === 'locked').length;
+  const pct = roster.length ? Math.round((seizedCount / roster.length) * 100) : 0;
 
-  const emp = employeeById(selectedId)!;
+  const emp = roster.find((e) => e.id === selectedId) ?? employeeById(selectedId)!;
   const v = variables[selectedId];
   const model = models[selectedId] ?? { primes: [], retenues: [] };
   // Entrée effective = modèle récurrent du salarié ⊕ variables du mois.
@@ -123,7 +125,7 @@ export function SaisieVariablesPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="mono text-sm font-bold text-amber-deep">{seizedCount}/{EMPLOYEES.length} saisis ({pct}%)</p>
+            <p className="mono text-sm font-bold text-amber-deep">{seizedCount}/{roster.length} saisis ({pct}%)</p>
             <div className="mt-1 h-1.5 w-40 overflow-hidden rounded-full bg-ink/[0.08]"><div className="h-full rounded-full bg-amber" style={{ width: `${pct}%` }} /></div>
           </div>
           <Link to="/paie/calcul"><Button size="sm"><ArrowUpRight size={14} /> Calcul</Button></Link>
@@ -141,7 +143,7 @@ export function SaisieVariablesPage() {
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
             className="mb-2 h-9 w-full rounded-lg border border-line bg-surface2 px-2 text-[12px] font-semibold text-ink-700 focus:border-amber/40 focus:outline-none">
-            <option value="all">Tous statuts ({EMPLOYEES.length})</option>
+            <option value="all">Tous statuts ({roster.length})</option>
             <option value="to_seize">À saisir</option>
             <option value="prefilled">Pré-rempli</option>
             <option value="seized">Saisi</option>
@@ -360,7 +362,7 @@ export function SaisieVariablesPage() {
               markReady(selectedId);
               if (isBackendConfigured && tenantId && activeLiveCycle) {
                 const emp = employeeById(selectedId);
-                const dbEmpId = `e1000001-0000-0000-0000-${String(EMPLOYEES.findIndex(e=>e.id===selectedId)+1).padStart(12,'0')}`;
+                const dbEmpId = `e1000001-0000-0000-0000-${String(parseInt(selectedId.slice(1), 10)).padStart(12,'0')}`;
                 try { await upsertInput.mutateAsync({ tenantId, cycleId: activeLiveCycle.id, employeeId: dbEmpId, status: 'ready' }); } catch {}
               }
               toast({ variant: 'success', title: 'Marqué saisi', description: employeeName(emp) });
@@ -370,7 +372,7 @@ export function SaisieVariablesPage() {
             <Button variant="ghost" size="sm" onClick={async () => {
               lock(selectedId);
               if (isBackendConfigured && tenantId && activeLiveCycle) {
-                const dbEmpId = `e1000001-0000-0000-0000-${String(EMPLOYEES.findIndex(e=>e.id===selectedId)+1).padStart(12,'0')}`;
+                const dbEmpId = `e1000001-0000-0000-0000-${String(parseInt(selectedId.slice(1), 10)).padStart(12,'0')}`;
                 try { await upsertInput.mutateAsync({ tenantId, cycleId: activeLiveCycle.id, employeeId: dbEmpId, status: 'locked' }); } catch {}
               }
               toast({ variant: 'success', title: 'Verrouillé', description: employeeName(emp) });

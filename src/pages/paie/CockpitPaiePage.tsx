@@ -9,8 +9,8 @@ import { ProgressBar } from '../../components/charts/ProgressBar';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
 import { cycleBulletins, cycleTotals } from '../../lib/m3/cycle';
-import { EMPLOYEES } from '../../data/mock';
 import { useM3Live, isBackendConfigured } from '../../lib/m3/supabaseLive';
+import { useRoster } from '../../lib/m1/roster';
 import { useAuth } from '../../lib/auth';
 
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n));
@@ -29,10 +29,11 @@ export function CockpitPaiePage() {
   const { cycle, variables, statuses, prevNet } = usePayrollCycle();
   const { tenantId } = useAuth();
   const { data: liveKpis } = useM3Live(tenantId ?? undefined);
+  const roster = useRoster();
   const rows = useMemo(() => cycleBulletins(variables, statuses, prevNet), [variables, statuses, prevNet]);
   const totals = useMemo(() => cycleTotals(rows), [rows]);
-  const seized = EMPLOYEES.filter((e) => ['seized', 'locked'].includes(statuses[e.id])).length;
-  const pct = Math.round((seized / EMPLOYEES.length) * 100);
+  const seized = roster.filter((e) => ['seized', 'locked'].includes(statuses[e.id])).length;
+  const pct = roster.length ? Math.round((seized / roster.length) * 100) : 0;
   const phaseIdx = PHASES.findIndex((p) => p.key === cycle.phase);
   const alerts = rows.filter((r) => r.bulletin.anomalies.length > 0);
 
@@ -40,7 +41,7 @@ export function CockpitPaiePage() {
   const brut = liveKpis?.totalBrut ?? totals.brut;
   const net = liveKpis?.totalNet ?? totals.net;
   const cout = liveKpis?.coutEmployeur ?? totals.coutEmployeur;
-  const effectif = liveKpis?.activeEmployees ?? EMPLOYEES.length;
+  const effectif = liveKpis?.activeEmployees ?? roster.length;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -63,7 +64,7 @@ export function CockpitPaiePage() {
 
       {/* étapes du cycle */}
       <Card>
-        <CardHeader title="Cycle en cours" subtitle={`Étape ${PHASES[phaseIdx]?.label ?? '—'} · ${seized}/${EMPLOYEES.length} collaborateurs saisis`} action={<StatusPill tone="amber" dot={false}>{cycle.label}</StatusPill>} />
+        <CardHeader title="Cycle en cours" subtitle={`Étape ${PHASES[phaseIdx]?.label ?? '—'} · ${seized}/${roster.length} collaborateurs saisis`} action={<StatusPill tone="amber" dot={false}>{cycle.label}</StatusPill>} />
         <div className="flex items-center gap-1">
           {PHASES.map((p, i) => (
             <div key={p.key} className="flex flex-1 flex-col items-center gap-1">
@@ -93,7 +94,7 @@ export function CockpitPaiePage() {
           <CardHeader title="Avancement de la saisie" action={<Link to="/paie/saisie"><Button variant="ghost" size="sm">Ouvrir <ArrowRight size={13} /></Button></Link>} />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {(['seized', 'prefilled', 'to_seize', 'anomaly', 'locked'] as const).map((st) => {
-              const n = EMPLOYEES.filter((e) => statuses[e.id] === st).length;
+              const n = roster.filter((e) => statuses[e.id] === st).length;
               const meta: Record<string, { label: string; tone: 'ok' | 'amber' | 'neutral' | 'warn' }> = {
                 seized: { label: 'Saisis', tone: 'ok' }, prefilled: { label: 'Pré-remplis', tone: 'amber' },
                 to_seize: { label: 'À saisir', tone: 'neutral' }, anomaly: { label: 'Anomalies', tone: 'warn' }, locked: { label: 'Verrouillés', tone: 'ok' },

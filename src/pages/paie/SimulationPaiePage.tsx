@@ -8,7 +8,8 @@ import { useToast } from '../../components/ui/Toast';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { computeM3Bulletin } from '../../lib/m3/engine';
 import { REGIMES } from '../../lib/payroll/regimes';
-import { EMPLOYEES, employeeName, type EmployeeRecord } from '../../data/mock';
+import { employeeName, type EmployeeRecord } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { Money, type Currency } from '../../lib/money';
 import type { PayrollVariables, BulletinRow, BulletinViewer } from '../../lib/m3/types';
 import { cn } from '../../lib/cn';
@@ -83,6 +84,7 @@ function solveBaseForNet(s: SimState, targetNet: number): { base: number; reache
 
 export function SimulationPaiePage() {
   const { toast } = useToast();
+  const roster = useRoster();
   const [sim, setSim] = useState<SimState>(DEFAULT_SIM);
   const [direction, setDirection] = useState<SimDirection>('down');
   const [targetNet, setTargetNet] = useState(300_000);
@@ -101,7 +103,7 @@ export function SimulationPaiePage() {
   const num = (k: keyof SimState) => (e: React.ChangeEvent<HTMLInputElement>) => set(k, (Number(e.target.value) || 0) as never);
 
   const loadEmployee = (id: string) => {
-    const emp = EMPLOYEES.find((e) => e.id === id);
+    const emp = roster.find((e) => e.id === id);
     if (!emp) return;
     setSim((p) => ({
       ...p, countryCode: emp.countryCode, baseSalary: emp.baseSalary,
@@ -194,7 +196,7 @@ export function SimulationPaiePage() {
                 <select value="" onChange={(e) => e.target.value && loadEmployee(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-amber/30">
                   <option value="">— profil libre —</option>
-                  {EMPLOYEES.map((e) => <option key={e.id} value={e.id}>{employeeName(e)}</option>)}
+                  {roster.map((e) => <option key={e.id} value={e.id}>{employeeName(e)}</option>)}
                 </select>
               </label>
             </div>
