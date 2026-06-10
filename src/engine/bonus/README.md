@@ -9,12 +9,14 @@ jamais ; PROPH3T ne calcule aucun bonus (R5).
 
 | §6 | Élément | Fonction / objet |
 |----|---------|------------------|
-| §6.1 | formule `SCORE × COEF × base` | `partBrute`, `scoreFraction` |
+| §4 | **DSL contrôlé** (SCORE/COEF/SAL_MENS/SAL_ANN, + − × ÷, parenthèses ; rationnels BigInt, jamais d'`eval`, R2) | `evalFormule` (`dsl.ts`) |
+| §6.1 | formule `SCORE × COEF × base` (ou DSL si fourni) | `partBrute`, `scoreFraction` |
 | §6.2 A | prorata enveloppe (Σ = enveloppe exact) | `repartitionBonus` (`A_prorata`) |
 | §6.2 B | formule plafonnée + alerte dépassement | `repartitionBonus` (`B_plafonnee`) |
 | §6.2 C | formule libre (enveloppe prévisionnelle) | `repartitionBonus` (`C_libre`) |
-| §6.3 | plafond/plancher, arrondi FCFA, reliquat lissé | `bornes`, plus-fort-reste |
-| §6.4/§9 | gating direction + consommation SCORE | migration `0038` (`bonus_calculs.visible_employe`, `rpc_bonus_score_source`) |
+| §6.3 | plafond/plancher (absolus), **réconciliation itérative** des caps en mode A, arrondi FCFA, reliquat lissé | `repartProrataCaps`, `bornes` |
+| §8 | simulation what-if (pur, sans persistance) | `simulateBonus` |
+| §7/§9 | gating direction + consommation SCORE | migrations `0038`/`0042` (`visible_employe`, statut `affiche`, `rpc_valide_repartition`, `rpc_bonus_score_source`) |
 
 ## Sécurité / persistance (migration 0038)
 

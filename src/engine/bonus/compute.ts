@@ -7,6 +7,7 @@
  */
 
 import { Currency, Money } from '../../lib/money';
+import { evalFormule } from './dsl';
 import {
   BonusInput,
   BonusResult,
@@ -14,6 +15,18 @@ import {
   RemuFiche,
   RepartitionResult,
 } from './types';
+
+/** Plafond absolu effectif (Money) : absolu prioritaire, sinon bps de SAL_ANN. */
+function plafondMoney(fiche: RemuFiche): Money | undefined {
+  if (fiche.plafond) return fiche.plafond;
+  if (fiche.plafondBps != null) return fiche.salaireMensuel.multiplyInt(12).applyRateBps(fiche.plafondBps);
+  return undefined;
+}
+function plancherMoney(fiche: RemuFiche): Money | undefined {
+  if (fiche.plancher) return fiche.plancher;
+  if (fiche.plancherBps != null) return fiche.salaireMensuel.multiplyInt(12).applyRateBps(fiche.plancherBps);
+  return undefined;
+}
 
 /** SCORE normalisé : pourcentage validé → fraction (0–1.2…). */
 export function scoreFraction(scorePct: number): number {
@@ -27,6 +40,16 @@ export function scoreFraction(scorePct: number): number {
  */
 export function partBrute(input: BonusInput): Money {
   const { fiche, scorePct } = input;
+  const currency = fiche.salaireMensuel.currency;
+  // DSL contrôlé prioritaire (R2) ; sinon formule structurée SCORE×COEF×base.
+  if (fiche.formuleDsl) {
+    return evalFormule(fiche.formuleDsl, {
+      SCORE: scoreFraction(scorePct),
+      COEF: fiche.formule.coef,
+      SAL_MENS: fiche.salaireMensuel,
+      SAL_ANN: fiche.salaireMensuel.multiplyInt(12),
+    }, currency);
+  }
   const base =
     fiche.formule.base === 'SAL_ANN' ? fiche.salaireMensuel.multiplyInt(12) : fiche.salaireMensuel;
   const rate = scoreFraction(scorePct) * fiche.formule.coef;
@@ -34,79 +57,101 @@ export function partBrute(input: BonusInput): Money {
   return base.applyRateBps(bps);
 }
 
-/** Plafond/plancher exprimés en bps du salaire annuel (§6.3). */
+/** Applique plafond/plancher (absolu prioritaire, sinon bps de SAL_ANN) — §6.3. */
 export function bornes(
   montant: Money,
   fiche: RemuFiche,
 ): { value: Money; borne?: 'plafond' | 'plancher' } {
-  const salAnn = fiche.salaireMensuel.multiplyInt(12);
   let value = montant;
   let borne: 'plafond' | 'plancher' | undefined;
-  if (fiche.plafondBps != null) {
-    const cap = salAnn.applyRateBps(fiche.plafondBps);
-    if (value.gt(cap)) {
-      value = cap;
-      borne = 'plafond';
-    }
+  const cap = plafondMoney(fiche);
+  const floor = plancherMoney(fiche);
+  if (cap && value.gt(cap)) {
+    value = cap;
+    borne = 'plafond';
   }
-  if (fiche.plancherBps != null) {
-    const floor = salAnn.applyRateBps(fiche.plancherBps);
-    if (floor.gt(value)) {
-      value = floor;
-      borne = 'plancher';
-    }
+  if (floor && floor.gt(value)) {
+    value = floor;
+    borne = 'plancher';
   }
   return { value, borne };
 }
 
+interface ProrataItem {
+  id: string;
+  part: Money;
+  plafond?: Money;
+  plancher?: Money;
+}
+
 /**
- * §6.2 mode A — prorata d'enveloppe : `bonus_i = enveloppe × part_i / Σ part_j`.
- * Répartition ENTIÈRE exacte (Σ bonus = enveloppe) par plus-fort-reste, le
- * reliquat d'arrondi allant aux parts les plus élevées (§6.3 lissage).
+ * §6.2/§6.3 mode A — prorata d'enveloppe AVEC réconciliation itérative des
+ * plafonds/planchers : répartit `enveloppe × part_i / Σ part`, fige les capés,
+ * puis **redistribue le budget restant au prorata sur le pool non capé,
+ * itérativement jusqu'à stabilité**. Le solde d'arrondi est lissé au franc sur
+ * les plus fortes parts non capées. Σ = enveloppe (exact) si les caps le
+ * permettent ; sinon `reliquat` expose l'écart pour arbitrage RH.
  */
-function repartProrata(enveloppe: Money, parts: { id: string; part: Money }[], currency: Currency): {
-  lignes: { id: string; montant: Money }[];
+function repartProrataCaps(enveloppe: Money, items: ProrataItem[], currency: Currency): {
+  lignes: { id: string; montant: Money; borne?: 'plafond' | 'plancher' }[];
   reliquat: Money;
 } {
-  const sommeParts = Money.sum(parts.map((p) => p.part), currency);
-  if (sommeParts.isZero()) {
-    // aucune part → tout en reliquat (rien à répartir)
-    return { lignes: parts.map((p) => ({ id: p.id, montant: Money.zero(currency) })), reliquat: enveloppe };
-  }
   const env = enveloppe.units;
-  const total = sommeParts.units;
+  const fixed = new Map<string, { val: bigint; borne: 'plafond' | 'plancher' }>();
+  let remaining = [...items];
 
-  // part entière (floor) + reste fractionnaire pour le plus-fort-reste
-  const calc = parts.map((p) => {
-    const numer = env * p.part.units;
-    const floor = numer / total; // bigint division = floor
-    const reste = numer - floor * total;
-    return { id: p.id, floor, reste, part: p.part.units };
-  });
+  // 1) itère jusqu'à stabilité des caps
+  for (let guard = 0; guard <= items.length; guard += 1) {
+    const poolParts = remaining.reduce((s, it) => s + it.part.units, 0n);
+    const budget = env - [...fixed.values()].reduce((s, f) => s + f.val, 0n);
+    if (remaining.length === 0 || poolParts <= 0n) break;
 
-  const distribue = calc.reduce((acc, c) => acc + c.floor, 0n);
-  let reliquat = env - distribue;
-
-  // attribue le reliquat franc par franc, plus gros reste d'abord puis plus
-  // grosse part (départage stable) — §6.3 report sur les scores les plus élevés
-  const ordre = [...calc].sort((a, b) => {
-    if (b.reste !== a.reste) return b.reste > a.reste ? 1 : -1;
-    if (b.part !== a.part) return b.part > a.part ? 1 : -1;
-    return 0;
-  });
-  const bonusById = new Map(calc.map((c) => [c.id, c.floor]));
-  let i = 0;
-  while (reliquat > 0n && ordre.length > 0) {
-    const target = ordre[i % ordre.length];
-    bonusById.set(target.id, (bonusById.get(target.id) ?? 0n) + 1n);
-    reliquat -= 1n;
-    i += 1;
+    const newlyFixed: { id: string; val: bigint; borne: 'plafond' | 'plancher' }[] = [];
+    for (const it of remaining) {
+      const raw = (budget * it.part.units) / poolParts; // floor provisoire
+      if (it.plafond && raw > it.plafond.units) newlyFixed.push({ id: it.id, val: it.plafond.units, borne: 'plafond' });
+      else if (it.plancher && raw < it.plancher.units) newlyFixed.push({ id: it.id, val: it.plancher.units, borne: 'plancher' });
+    }
+    if (newlyFixed.length === 0) break;
+    for (const f of newlyFixed) fixed.set(f.id, { val: f.val, borne: f.borne });
+    remaining = remaining.filter((it) => !fixed.has(it.id));
   }
 
-  return {
-    lignes: parts.map((p) => ({ id: p.id, montant: Money.of(bonusById.get(p.id) ?? 0n, currency) })),
-    reliquat: Money.zero(currency),
-  };
+  // 2) distribue le budget restant au plus-fort-reste sur le pool non capé,
+  //    sans franchir un plafond (lissage du reliquat)
+  const distributed = new Map<string, bigint>();
+  const poolParts = remaining.reduce((s, it) => s + it.part.units, 0n);
+  const budget = env - [...fixed.values()].reduce((s, f) => s + f.val, 0n);
+
+  if (remaining.length > 0 && poolParts > 0n) {
+    const calc = remaining.map((it) => {
+      const numer = budget * it.part.units;
+      const floor = numer / poolParts;
+      return { id: it.id, floor, reste: numer - floor * poolParts, part: it.part.units, plafond: it.plafond?.units };
+    });
+    for (const c of calc) distributed.set(c.id, c.floor);
+    let leftover = budget - calc.reduce((s, c) => s + c.floor, 0n);
+    const ordre = [...calc].sort((a, b) => (b.reste !== a.reste ? (b.reste > a.reste ? 1 : -1) : b.part > a.part ? 1 : b.part < a.part ? -1 : 0));
+    let idx = 0;
+    while (leftover > 0n && ordre.length > 0) {
+      const c = ordre[idx % ordre.length];
+      const cur = distributed.get(c.id) ?? 0n;
+      if (c.plafond == null || cur + 1n <= c.plafond) {
+        distributed.set(c.id, cur + 1n);
+        leftover -= 1n;
+      }
+      idx += 1;
+      if (idx > ordre.length * 4 && leftover > 0n) break; // tous capés → reliquat
+    }
+  }
+
+  const lignes = items.map((it) => {
+    const f = fixed.get(it.id);
+    if (f) return { id: it.id, montant: Money.of(f.val, currency), borne: f.borne };
+    return { id: it.id, montant: Money.of(distributed.get(it.id) ?? 0n, currency) };
+  });
+  const totalAlloue = lignes.reduce((s, l) => s + l.montant.units, 0n);
+  return { lignes, reliquat: Money.of(env - totalAlloue, currency) };
 }
 
 /**
@@ -121,27 +166,29 @@ export function repartitionBonus(
   const bruts = inputs.map((inp) => ({ id: inp.fiche.employeId, brut: partBrute(inp), input: inp }));
 
   if (enveloppe.mode === 'A_prorata') {
-    const { lignes } = repartProrata(
+    // prorata + réconciliation itérative des plafonds/planchers (§6.3)
+    const { lignes, reliquat } = repartProrataCaps(
       enveloppe.montant,
-      bruts.map((b) => ({ id: b.id, part: b.brut })),
+      bruts.map((b) => ({
+        id: b.id,
+        part: b.brut,
+        plafond: plafondMoney(b.input.fiche),
+        plancher: plancherMoney(b.input.fiche),
+      })),
       currency,
     );
-    const byId = new Map(lignes.map((l) => [l.id, l.montant]));
+    const byId = new Map(lignes.map((l) => [l.id, l]));
     const result: BonusResult[] = bruts.map((b) => {
-      const brutEnv = byId.get(b.id) ?? Money.zero(currency);
-      const { value, borne } = bornes(brutEnv, b.input.fiche);
-      return { employeId: b.id, brut: b.brut, final: value, borne };
+      const l = byId.get(b.id);
+      return { employeId: b.id, brut: b.brut, final: l?.montant ?? Money.zero(currency), borne: l?.borne };
     });
-    const total = Money.sum(result.map((r) => r.final), currency);
-    // reliquat = ce qui n'a pas été distribué après bornes (peut réapparaître si
-    // un plafond a écrêté) — exposé pour arbitrage RH.
     return {
       mode: enveloppe.mode,
       lignes: result,
-      total,
+      total: Money.sum(result.map((r) => r.final), currency),
       enveloppe: enveloppe.montant,
       depassement: false,
-      reliquat: enveloppe.montant.subtract(total),
+      reliquat,
     };
   }
 
@@ -176,4 +223,16 @@ export function repartitionBonus(
     depassement: false,
     reliquat: enveloppe.montant.subtract(total),
   };
+}
+
+/**
+ * §8 simulation what-if : la répartition est PURE (aucune persistance), donc
+ * simuler = calculer. Alias explicite pour l'usage RH/direction avant figement.
+ */
+export function simulateBonus(
+  inputs: BonusInput[],
+  enveloppe: Enveloppe,
+  currency: Currency,
+): RepartitionResult {
+  return repartitionBonus(inputs, enveloppe, currency);
 }
