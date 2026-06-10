@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Grid3x3, BookOpen, AlertTriangle, ShieldAlert, Sparkles,
   Briefcase, Settings, ChevronLeft, ChevronRight,
-  ClipboardCheck, ClipboardList, TrendingUp, ArrowRightLeft, Shield,
+  ClipboardCheck, ClipboardList, TrendingUp, ArrowRightLeft, Shield, Gauge,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -19,6 +19,7 @@ const ITEMS = [
   { to: '/competences/manager-eval', label: 'Éval manager',    icon: ClipboardList,   end: false },
   { to: '/competences/pdc',          label: 'PDC',             icon: TrendingUp,      end: false },
   { to: '/competences/mobilite',     label: 'Talents/Mobilité', icon: ArrowRightLeft, end: false },
+  { to: '/competences/readiness',    label: 'Readiness',       icon: Gauge,           end: false },
   { to: '/competences/audit',        label: 'Audit M9',        icon: Shield,          end: false },
   { to: '/competences/parametres',   label: 'Paramètres',      icon: Settings,        end: false },
 ];

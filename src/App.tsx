@@ -245,6 +245,8 @@ import {
   GouvernanceOkrPage, IntegrationOkrPage, AuditOkrPage,
 } from './pages/okr/OkrEnrichmentPages';
 import { ComingSoonPage } from './pages/ComingSoonPage';
+import { CockpitPerformancePage } from './pages/performance/CockpitPerformancePage';
+import { ReadinessPage } from './pages/competences/ReadinessPage';
 import { ALL_MODULES } from './app/nav';
 
 const READY: Record<string, JSX.Element> = {
@@ -256,6 +258,7 @@ const READY: Record<string, JSX.Element> = {
   '/hr/actes': <CockpitAdminRhPage />,
   '/recrutement': <CockpitRecrutPage />,
   '/onboarding': <CockpitOnboardingPage />,
+  '/performance': <CockpitPerformancePage />,
   '/objectifs': <CockpitOkrPage />,
   '/evaluations': <CockpitEvalPage />,
   '/carrieres': <CockpitCarrieresPage />,
@@ -451,6 +454,7 @@ function App() {
         <Route path="/competences/manager-eval" element={<ManagerEvalCompetencesPage />} />
         <Route path="/competences/pdc" element={<PdcPage />} />
         <Route path="/competences/mobilite" element={<TalentsMobilitePage />} />
+        <Route path="/competences/readiness" element={<ReadinessPage />} />
         <Route path="/competences/audit" element={<AuditM9Page />} />
         <Route path="/carrieres/job-architecture" element={<JobArchitecturePage />} />
         <Route path="/carrieres/talent-review" element={<TalentReviewPage />} />
