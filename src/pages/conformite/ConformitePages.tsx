@@ -19,10 +19,11 @@ import { Avatar } from '../../components/ui/Avatar';
 import { ConformiteSubNav } from '../../components/conformite/ConformiteSubNav';
 import { M12LiveBanner } from '../../components/conformite/M12LiveBanner';
 import {
-  RISKS, RPS_SURVEYS, INCIDENTS, REGISTER_ENTRIES, DECLARATIONS,
-  MEDICAL_VISITS, AUTHORIZATIONS, EPI_ASSIGNMENTS, AUDITS, INSPECTIONS,
+  REGISTER_ENTRIES,
+  MEDICAL_VISITS, EPI_ASSIGNMENTS, AUDITS, INSPECTIONS,
   CONFORMITE_KPI,
 } from '../../lib/m12/mock';
+import { useM12Data } from '../../lib/m12/dataLive';
 import {
   RISK_CATEGORY_META, RISK_LEVEL_META, RPS_STATUS_META, RPS_FRAMEWORKS,
   INCIDENT_TYPE_META, INCIDENT_SEVERITY_META, INCIDENT_STATUS_META,
@@ -47,8 +48,9 @@ const fmtCompact = (n: number): string => {
 /* ═══════════════════════ 1. COCKPIT ═══════════════════════ */
 export function CockpitConformitePage() {
   const k = CONFORMITE_KPI;
-  const recentIncidents = INCIDENTS.slice().sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).slice(0, 4);
-  const criticalRisks = RISKS.filter((r) => r.level === 'critique' || r.level === 'eleve').slice(0, 5);
+  const { incidents, risks } = useM12Data();
+  const recentIncidents = incidents.slice().sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).slice(0, 4);
+  const criticalRisks = risks.filter((r) => r.level === 'critique' || r.level === 'eleve').slice(0, 5);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -118,7 +120,7 @@ export function CockpitConformitePage() {
 
         <div className="space-y-3">
           <Card>
-            <CardHeader title="Derniers incidents" subtitle={`${INCIDENTS.length} dossiers ouverts/clôturés`} action={<Activity size={16} className="text-amber-deep" />} />
+            <CardHeader title="Derniers incidents" subtitle={`${incidents.length} dossiers ouverts/clôturés`} action={<Activity size={16} className="text-amber-deep" />} />
             <ul className="space-y-1.5">
               {recentIncidents.map((i) => {
                 const e = employeeById(i.employeeId);
@@ -167,15 +169,16 @@ export function CockpitConformitePage() {
 
 /* ═══════════════════════ 2. DUER ═══════════════════════ */
 export function DuerPage() {
+  const { risks } = useM12Data();
   const [levelFilter, setLevelFilter] = useState<'all' | 'critique' | 'eleve' | 'modere' | 'acceptable'>('all');
-  const list = useMemo(() => RISKS.filter((r) => levelFilter === 'all' || r.level === levelFilter), [levelFilter]);
+  const list = useMemo(() => risks.filter((r) => levelFilter === 'all' || r.level === levelFilter), [levelFilter, risks]);
   return (
     <div className="animate-fade-up space-y-5">
       <ConformiteSubNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">DUER — Document Unique d'Évaluation des Risques</h1>
-          <p className="text-sm font-medium text-ink-500">{RISKS.length} risques évalués · Révision annuelle obligatoire (OHADA SST)</p>
+          <p className="text-sm font-medium text-ink-500">{risks.length} risques évalués · Révision annuelle obligatoire (OHADA SST)</p>
         </div>
         <Button size="sm"><AlertTriangle size={14} /> Nouvelle évaluation</Button>
       </div>
@@ -183,7 +186,7 @@ export function DuerPage() {
       <Card>
         <div className="flex flex-wrap gap-2">
           {(['all', 'critique', 'eleve', 'modere', 'acceptable'] as const).map((lv) => {
-            const count = lv === 'all' ? RISKS.length : RISKS.filter((r) => r.level === lv).length;
+            const count = lv === 'all' ? risks.length : risks.filter((r) => r.level === lv).length;
             const label = lv === 'all' ? 'Tous' : RISK_LEVEL_META[lv].label;
             return (
               <button key={lv} onClick={() => setLevelFilter(lv)}
@@ -247,6 +250,7 @@ export function DuerPage() {
 
 /* ═══════════════════════ 3. RPS ═══════════════════════ */
 export function RpsPage() {
+  const { rpsSurveys } = useM12Data();
   return (
     <div className="animate-fade-up space-y-5">
       <ConformiteSubNav />
@@ -259,7 +263,7 @@ export function RpsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {RPS_SURVEYS.map((s) => {
+        {rpsSurveys.map((s) => {
           const st = RPS_STATUS_META[s.status];
           return (
             <Card key={s.id}>
@@ -316,23 +320,24 @@ export function RpsPage() {
 
 /* ═══════════════════════ 4. AT / MP ═══════════════════════ */
 export function AtMpPage() {
+  const { incidents } = useM12Data();
   return (
     <div className="animate-fade-up space-y-5">
       <ConformiteSubNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Accidents du travail & Maladies professionnelles</h1>
-          <p className="text-sm font-medium text-ink-500">{INCIDENTS.length} incidents · Déclaration CNPS/IPRES sous {COMPLIANCE_THRESHOLDS.AT_DECLARATION_HOURS} h</p>
+          <p className="text-sm font-medium text-ink-500">{incidents.length} incidents · Déclaration CNPS/IPRES sous {COMPLIANCE_THRESHOLDS.AT_DECLARATION_HOURS} h</p>
         </div>
         <Button size="sm"><Activity size={14} /> Déclarer</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="AT déclarés YTD" value={String(INCIDENTS.filter((i) => i.type === 'AT' || i.type === 'AT_trajet').length)} unit="accidents" icon={Activity} />
-        <StatCard label="MP en instruction" value={String(INCIDENTS.filter((i) => i.type === 'MP' && i.status !== 'closed').length)} unit="dossiers CNPS" icon={Stethoscope} />
-        <StatCard label="Jours d'arrêt" value={String(INCIDENTS.reduce((s, i) => s + i.workdaysLost, 0))} unit="cumulés YTD" icon={Clock} />
-        <StatCard label="Hors SLA 48 h" value={String(INCIDENTS.filter((i) => !i.declaredWithinSLA).length)} unit="déclarations" icon={AlertTriangle}
-          tone={INCIDENTS.filter((i) => !i.declaredWithinSLA).length > 0 ? 'amber' : 'default'} />
+        <StatCard label="AT déclarés YTD" value={String(incidents.filter((i) => i.type === 'AT' || i.type === 'AT_trajet').length)} unit="accidents" icon={Activity} />
+        <StatCard label="MP en instruction" value={String(incidents.filter((i) => i.type === 'MP' && i.status !== 'closed').length)} unit="dossiers CNPS" icon={Stethoscope} />
+        <StatCard label="Jours d'arrêt" value={String(incidents.reduce((s, i) => s + i.workdaysLost, 0))} unit="cumulés YTD" icon={Clock} />
+        <StatCard label="Hors SLA 48 h" value={String(incidents.filter((i) => !i.declaredWithinSLA).length)} unit="déclarations" icon={AlertTriangle}
+          tone={incidents.filter((i) => !i.declaredWithinSLA).length > 0 ? 'amber' : 'default'} />
       </div>
 
       <Card inset={false}>
@@ -349,7 +354,7 @@ export function AtMpPage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {INCIDENTS.map((i) => {
+              {incidents.map((i) => {
                 const e = employeeById(i.employeeId);
                 const t = INCIDENT_TYPE_META[i.type];
                 const sev = INCIDENT_SEVERITY_META[i.severity];
@@ -450,23 +455,24 @@ export function RegistrePage() {
 
 /* ═══════════════════════ 6. DÉCLARATIONS SOCIALES ═══════════════════════ */
 export function DeclarationsPage() {
+  const { declarations } = useM12Data();
   return (
     <div className="animate-fade-up space-y-5">
       <ConformiteSubNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Déclarations sociales</h1>
-          <p className="text-sm font-medium text-ink-500">{DECLARATIONS.length} dossiers · 14 organismes OHADA (CNPS, IPRES, CNSS, INPS, DGI, CMU…)</p>
+          <p className="text-sm font-medium text-ink-500">{declarations.length} dossiers · 14 organismes OHADA (CNPS, IPRES, CNSS, INPS, DGI, CMU…)</p>
         </div>
         <Button size="sm"><Landmark size={14} /> Nouvelle déclaration</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Payées YTD" value={String(DECLARATIONS.filter((d) => d.status === 'paid').length)} unit="conformes" icon={CheckCircle2} />
-        <StatCard label="Soumises" value={String(DECLARATIONS.filter((d) => d.status === 'submitted').length)} unit="en attente paiement" icon={Clock} />
-        <StatCard label="Brouillons" value={String(DECLARATIONS.filter((d) => d.status === 'draft').length)} unit="à finaliser" icon={Activity} />
-        <StatCard label="En retard" value={String(DECLARATIONS.filter((d) => d.status === 'overdue').length)} unit="pénalités encourues" icon={AlertTriangle}
-          tone={DECLARATIONS.filter((d) => d.status === 'overdue').length > 0 ? 'amber' : 'default'} />
+        <StatCard label="Payées YTD" value={String(declarations.filter((d) => d.status === 'paid').length)} unit="conformes" icon={CheckCircle2} />
+        <StatCard label="Soumises" value={String(declarations.filter((d) => d.status === 'submitted').length)} unit="en attente paiement" icon={Clock} />
+        <StatCard label="Brouillons" value={String(declarations.filter((d) => d.status === 'draft').length)} unit="à finaliser" icon={Activity} />
+        <StatCard label="En retard" value={String(declarations.filter((d) => d.status === 'overdue').length)} unit="pénalités encourues" icon={AlertTriangle}
+          tone={declarations.filter((d) => d.status === 'overdue').length > 0 ? 'amber' : 'default'} />
       </div>
 
       <Card inset={false}>
@@ -483,7 +489,7 @@ export function DeclarationsPage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {DECLARATIONS.sort((a, b) => b.dueDate.localeCompare(a.dueDate)).map((d) => {
+              {declarations.slice().sort((a, b) => b.dueDate.localeCompare(a.dueDate)).map((d) => {
                 const k = DECLARATION_KIND_META[d.kind];
                 const st = DECLARATION_STATUS_META[d.status];
                 const fr = DECLARATION_FREQUENCY_META[d.frequency];
@@ -568,18 +574,19 @@ export function VisitesMedicalesPage() {
 
 /* ═══════════════════════ 8. HABILITATIONS & EPI ═══════════════════════ */
 export function HabilitationsPage() {
+  const { authorizations } = useM12Data();
   return (
     <div className="animate-fade-up space-y-5">
       <ConformiteSubNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Habilitations & EPI</h1>
-          <p className="text-sm font-medium text-ink-500">{AUTHORIZATIONS.length} habilitations · {EPI_ASSIGNMENTS.length} attributions EPI · Alerte à J-{COMPLIANCE_THRESHOLDS.HABILITATION_ALERT_DAYS}</p>
+          <p className="text-sm font-medium text-ink-500">{authorizations.length} habilitations · {EPI_ASSIGNMENTS.length} attributions EPI · Alerte à J-{COMPLIANCE_THRESHOLDS.HABILITATION_ALERT_DAYS}</p>
         </div>
       </div>
 
       <Card inset={false}>
-        <div className="p-5 pb-2"><CardHeader title="Habilitations" subtitle={`${AUTHORIZATIONS.filter((a) => a.status === 'pending_renewal').length} à renouveler`} className="mb-0" /></div>
+        <div className="p-5 pb-2"><CardHeader title="Habilitations" subtitle={`${authorizations.filter((a) => a.status === 'pending_renewal').length} à renouveler`} className="mb-0" /></div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead><tr className="border-y border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
@@ -592,7 +599,7 @@ export function HabilitationsPage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {AUTHORIZATIONS.map((a) => {
+              {authorizations.map((a) => {
                 const e = employeeById(a.employeeId);
                 const k = AUTH_KIND_META[a.kind];
                 return (
