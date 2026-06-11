@@ -20,11 +20,10 @@ import { Avatar } from '../../components/ui/Avatar';
 import { FormationSubNav } from '../../components/formation/FormationSubNav';
 import { M11LiveBanner } from '../../components/formation/M11LiveBanner';
 import {
-  COURSES, PLAN_2026, SESSIONS, REGISTRATIONS, KIRKPATRICK_EVALS,
-  CERTIFICATIONS, FDFP_DECLARATIONS, ROI_CALCULATIONS, SKILL_UPLIFTS,
-  FORMATION_KPI, courseById, sessionById, registrationsBySession,
-  registrationsByEmployee, certificationsExpiringSoon, kirkpatrickBySession,
+  KIRKPATRICK_EVALS, ROI_CALCULATIONS, SKILL_UPLIFTS,
+  FORMATION_KPI, kirkpatrickBySession,
 } from '../../lib/m11/mock';
+import { useM11Data } from '../../lib/m11/dataLive';
 import {
   MODALITY_META, CATEGORY_META, LEVEL_META, PROVIDER_META, COURSE_STATUS_META,
   PLAN_STATUS_META, PLAN_ITEM_STATUS_META, PLAN_ORIGIN_META,
@@ -49,11 +48,12 @@ const pct = (v: number, total: number): number => total === 0 ? 0 : Math.round((
 
 /* ═══════════════════════════════ 1. COCKPIT ═══════════════════════════════ */
 export function CockpitFormationPage() {
+  const m11 = useM11Data();
   const roster = useRoster();
   const k = FORMATION_KPI;
-  const upcomingSessions = SESSIONS.filter((s) => s.status === 'scheduled' || s.status === 'open_registration')
+  const upcomingSessions = m11.sessions.filter((s) => s.status === 'scheduled' || s.status === 'open_registration')
     .sort((a, b) => a.days[0].date.localeCompare(b.days[0].date)).slice(0, 5);
-  const expiring = certificationsExpiringSoon();
+  const expiring = m11.certificationsExpiringSoon();
   return (
     <div className="animate-fade-up space-y-5">
       <FormationSubNav />
@@ -96,7 +96,7 @@ export function CockpitFormationPage() {
               </tr></thead>
               <tbody className="divide-y divide-line">
                 {upcomingSessions.map((s) => {
-                  const c = courseById(s.courseId);
+                  const c = m11.courseById(s.courseId);
                   const dm = DELIVERY_MODE_META[s.deliveryMode];
                   return (
                     <tr key={s.id} className="hover:bg-amber/[0.03]">
@@ -120,7 +120,7 @@ export function CockpitFormationPage() {
               <ul className="space-y-1">
                 {expiring.slice(0, 5).map((c) => {
                   const emp = employeeById(c.employeeId);
-                  const course = courseById(c.courseId);
+                  const course = m11.courseById(c.courseId);
                   return (
                     <li key={c.id} className="flex items-center justify-between rounded-lg bg-warn/[0.05] px-3 py-1.5">
                       <span className="text-[12px] font-semibold text-ink">{emp ? employeeName(emp) : '—'} · {course?.certificationCode}</span>
@@ -153,16 +153,17 @@ export function CockpitFormationPage() {
 
 /* ═══════════════════════════════ 2. CATALOGUE ═══════════════════════════════ */
 export function CataloguePage() {
+  const m11 = useM11Data();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<'all' | string>('all');
   const [mod, setMod] = useState<'all' | string>('all');
 
-  const filtered = useMemo(() => COURSES.filter((c) => {
+  const filtered = useMemo(() => m11.courses.filter((c) => {
     if (q && !c.title.toLowerCase().includes(q.toLowerCase()) && !c.providerName.toLowerCase().includes(q.toLowerCase())) return false;
     if (cat !== 'all' && c.category !== cat) return false;
     if (mod !== 'all' && c.modality !== mod) return false;
     return true;
-  }), [q, cat, mod]);
+  }), [q, cat, mod, m11.courses]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -170,7 +171,7 @@ export function CataloguePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Catalogue formations</h1>
-          <p className="text-sm font-medium text-ink-500">{COURSES.length} parcours · {COURSES.filter((c) => c.fdfpEligible).length} imputables FDFP</p>
+          <p className="text-sm font-medium text-ink-500">{m11.courses.length} parcours · {m11.courses.filter((c) => c.fdfpEligible).length} imputables FDFP</p>
         </div>
         <Button size="sm"><BookOpen size={14} /> Nouvelle formation</Button>
       </div>
@@ -234,7 +235,8 @@ export function CataloguePage() {
 
 /* ═══════════════════════════════ 3. PLAN ANNUEL ═══════════════════════════════ */
 export function PlanFormationPage() {
-  const p = PLAN_2026;
+  const m11 = useM11Data();
+  const p = m11.plan;
   const consumedPct = pct(p.budgetConsumed, p.budgetEnvelope);
   const byQuarter = ['Q1', 'Q2', 'Q3', 'Q4'].map((q) => ({
     q, items: p.items.filter((it) => it.forecastQuarter === q),
@@ -267,7 +269,7 @@ export function PlanFormationPage() {
             <CardHeader title={`Trimestre ${q.q}`} subtitle={`${q.items.length} action(s) · ${fmtCompact(q.cost)} FCFA`} />
             <ul className="space-y-1">
               {q.items.slice(0, 5).map((it) => {
-                const c = courseById(it.courseId);
+                const c = m11.courseById(it.courseId);
                 const st = PLAN_ITEM_STATUS_META[it.status];
                 return (
                   <li key={it.id} className="flex items-center justify-between rounded-lg bg-surface2/40 px-2 py-1.5">
@@ -298,7 +300,7 @@ export function PlanFormationPage() {
             </tr></thead>
             <tbody className="divide-y divide-line">
               {p.items.map((it) => {
-                const c = courseById(it.courseId);
+                const c = m11.courseById(it.courseId);
                 const st = PLAN_ITEM_STATUS_META[it.status];
                 const og = PLAN_ORIGIN_META[it.origin];
                 return (
@@ -324,13 +326,14 @@ export function PlanFormationPage() {
 
 /* ═══════════════════════════════ 4. SESSIONS ═══════════════════════════════ */
 export function SessionsPage() {
+  const m11 = useM11Data();
   const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'completed' | 'scheduled'>('all');
-  const list = useMemo(() => SESSIONS.filter((s) => {
+  const list = useMemo(() => m11.sessions.filter((s) => {
     if (filter === 'all') return true;
     if (filter === 'open') return s.status === 'open_registration';
     if (filter === 'scheduled') return s.status === 'scheduled';
     return s.status === filter;
-  }).sort((a, b) => a.days[0].date.localeCompare(b.days[0].date)), [filter]);
+  }).sort((a, b) => a.days[0].date.localeCompare(b.days[0].date)), [filter, m11.sessions]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -338,7 +341,7 @@ export function SessionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Sessions de formation</h1>
-          <p className="text-sm font-medium text-ink-500">{SESSIONS.length} sessions au calendrier</p>
+          <p className="text-sm font-medium text-ink-500">{m11.sessions.length} sessions au calendrier</p>
         </div>
         <Button size="sm"><CalendarDays size={14} /> Programmer</Button>
       </div>
@@ -346,11 +349,11 @@ export function SessionsPage() {
       <Card>
         <div className="flex flex-wrap gap-2">
           {[
-            { key: 'all',         label: `Toutes (${SESSIONS.length})` },
-            { key: 'open',        label: `Inscriptions ouvertes (${SESSIONS.filter((s) => s.status === 'open_registration').length})` },
-            { key: 'scheduled',   label: `Programmées (${SESSIONS.filter((s) => s.status === 'scheduled').length})` },
-            { key: 'in_progress', label: `En cours (${SESSIONS.filter((s) => s.status === 'in_progress').length})` },
-            { key: 'completed',   label: `Terminées (${SESSIONS.filter((s) => s.status === 'completed').length})` },
+            { key: 'all',         label: `Toutes (${m11.sessions.length})` },
+            { key: 'open',        label: `Inscriptions ouvertes (${m11.sessions.filter((s) => s.status === 'open_registration').length})` },
+            { key: 'scheduled',   label: `Programmées (${m11.sessions.filter((s) => s.status === 'scheduled').length})` },
+            { key: 'in_progress', label: `En cours (${m11.sessions.filter((s) => s.status === 'in_progress').length})` },
+            { key: 'completed',   label: `Terminées (${m11.sessions.filter((s) => s.status === 'completed').length})` },
           ].map((b) => (
             <button key={b.key} onClick={() => setFilter(b.key as typeof filter)}
               className={cn('rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors',
@@ -363,7 +366,7 @@ export function SessionsPage() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {list.map((s) => {
-          const c = courseById(s.courseId);
+          const c = m11.courseById(s.courseId);
           const st = SESSION_STATUS_META[s.status];
           const dm = DELIVERY_MODE_META[s.deliveryMode];
           const fillPct = pct(s.registeredCount, s.capacity);
@@ -405,13 +408,14 @@ export function SessionsPage() {
 
 /* ═══════════════════════════════ 5. INSCRIPTIONS ═══════════════════════════════ */
 export function InscriptionsPage() {
+  const m11 = useM11Data();
   const [filter, setFilter] = useState<'all' | 'pending' | 'attended'>('all');
-  const list = useMemo(() => REGISTRATIONS.filter((r) => {
+  const list = useMemo(() => m11.registrations.filter((r) => {
     if (filter === 'all') return true;
     if (filter === 'pending') return r.status === 'requested' || r.status === 'waitlisted';
     if (filter === 'attended') return r.status === 'attended' || r.status === 'completed' || r.status === 'partial';
     return true;
-  }), [filter]);
+  }), [filter, m11.registrations]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -419,7 +423,7 @@ export function InscriptionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Inscriptions</h1>
-          <p className="text-sm font-medium text-ink-500">{REGISTRATIONS.length} inscriptions enregistrées</p>
+          <p className="text-sm font-medium text-ink-500">{m11.registrations.length} inscriptions enregistrées</p>
         </div>
         <Button size="sm"><UserCheck size={14} /> Inscrire un collab.</Button>
       </div>
@@ -427,9 +431,9 @@ export function InscriptionsPage() {
       <Card>
         <div className="flex flex-wrap gap-2">
           {[
-            { key: 'all',      label: `Toutes (${REGISTRATIONS.length})` },
-            { key: 'pending',  label: `À valider (${REGISTRATIONS.filter((r) => r.status === 'requested' || r.status === 'waitlisted').length})` },
-            { key: 'attended', label: `Présents (${REGISTRATIONS.filter((r) => r.status === 'attended' || r.status === 'completed' || r.status === 'partial').length})` },
+            { key: 'all',      label: `Toutes (${m11.registrations.length})` },
+            { key: 'pending',  label: `À valider (${m11.registrations.filter((r) => r.status === 'requested' || r.status === 'waitlisted').length})` },
+            { key: 'attended', label: `Présents (${m11.registrations.filter((r) => r.status === 'attended' || r.status === 'completed' || r.status === 'partial').length})` },
           ].map((b) => (
             <button key={b.key} onClick={() => setFilter(b.key as typeof filter)}
               className={cn('rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors',
@@ -456,8 +460,8 @@ export function InscriptionsPage() {
             <tbody className="divide-y divide-line">
               {list.slice(0, 80).map((r) => {
                 const emp = employeeById(r.employeeId);
-                const s = sessionById(r.sessionId);
-                const c = s ? courseById(s.courseId) : undefined;
+                const s = m11.sessionById(r.sessionId);
+                const c = s ? m11.courseById(s.courseId) : undefined;
                 const st = REGISTRATION_STATUS_META[r.status];
                 return (
                   <tr key={r.id} className="hover:bg-amber/[0.03]">
@@ -483,6 +487,7 @@ export function InscriptionsPage() {
 
 /* ═══════════════════════════════ 6. ÉVALUATIONS KIRKPATRICK ═══════════════════════════════ */
 export function EvaluationsKirkpatrickPage() {
+  const m11 = useM11Data();
   const byLevel = ([1, 2, 3, 4] as const).map((lv) => ({
     level: lv,
     meta: KIRKPATRICK_META[lv],
@@ -516,8 +521,8 @@ export function EvaluationsKirkpatrickPage() {
                 </tr></thead>
                 <tbody className="divide-y divide-line">
                   {evals.map((e) => {
-                    const s = sessionById(e.sessionId);
-                    const c = s ? courseById(s.courseId) : undefined;
+                    const s = m11.sessionById(e.sessionId);
+                    const c = s ? m11.courseById(s.courseId) : undefined;
                     const st = KIRKPATRICK_STATUS_META[e.status];
                     return (
                       <tr key={e.id} className="hover:bg-amber/[0.03]">
@@ -541,23 +546,24 @@ export function EvaluationsKirkpatrickPage() {
 
 /* ═══════════════════════════════ 7. CERTIFICATIONS ═══════════════════════════════ */
 export function CertificationsPage() {
-  const expiring = certificationsExpiringSoon();
+  const m11 = useM11Data();
+  const expiring = m11.certificationsExpiringSoon();
   return (
     <div className="animate-fade-up space-y-5">
       <FormationSubNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Certifications</h1>
-          <p className="text-sm font-medium text-ink-500">{CERTIFICATIONS.length} certifications enregistrées · {expiring.length} à renouveler &lt; {TRAINING_THRESHOLDS.CERT_EXPIRATION_ALERT_DAYS} j</p>
+          <p className="text-sm font-medium text-ink-500">{m11.certifications.length} certifications enregistrées · {expiring.length} à renouveler &lt; {TRAINING_THRESHOLDS.CERT_EXPIRATION_ALERT_DAYS} j</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Actives" value={String(CERTIFICATIONS.filter((c) => c.status === 'active').length)} unit="en cours" icon={Award} />
-        <StatCard label="À renouveler" value={String(CERTIFICATIONS.filter((c) => c.status === 'pending_renewal').length)} unit="action requise" icon={AlertTriangle} tone="amber" />
-        <StatCard label="Expirées" value={String(CERTIFICATIONS.filter((c) => c.status === 'expired').length)} unit="à traiter" icon={AlertTriangle} />
-        <StatCard label="HSE / Sécurité" value={String(CERTIFICATIONS.filter((c) => {
-          const co = courseById(c.courseId);
+        <StatCard label="Actives" value={String(m11.certifications.filter((c) => c.status === 'active').length)} unit="en cours" icon={Award} />
+        <StatCard label="À renouveler" value={String(m11.certifications.filter((c) => c.status === 'pending_renewal').length)} unit="action requise" icon={AlertTriangle} tone="amber" />
+        <StatCard label="Expirées" value={String(m11.certifications.filter((c) => c.status === 'expired').length)} unit="à traiter" icon={AlertTriangle} />
+        <StatCard label="HSE / Sécurité" value={String(m11.certifications.filter((c) => {
+          const co = m11.courseById(c.courseId);
           return co?.category === 'safety';
         }).length)} unit="opérations" icon={CheckCircle2} />
       </div>
@@ -575,9 +581,9 @@ export function CertificationsPage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {CERTIFICATIONS.map((cert) => {
+              {m11.certifications.map((cert) => {
                 const emp = employeeById(cert.employeeId);
-                const c = courseById(cert.courseId);
+                const c = m11.courseById(cert.courseId);
                 const st = CERTIFICATION_STATUS_META[cert.status];
                 return (
                   <tr key={cert.id} className="hover:bg-amber/[0.03]">
@@ -601,6 +607,7 @@ export function CertificationsPage() {
 
 /* ═══════════════════════════════ 8. ROI ═══════════════════════════════ */
 export function RoiPage() {
+  const m11 = useM11Data();
   return (
     <div className="animate-fade-up space-y-5">
       <FormationSubNav />
@@ -613,8 +620,8 @@ export function RoiPage() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {ROI_CALCULATIONS.map((r) => {
-          const s = sessionById(r.sessionId);
-          const c = s ? courseById(s.courseId) : undefined;
+          const s = m11.sessionById(r.sessionId);
+          const c = s ? m11.courseById(s.courseId) : undefined;
           const positive = r.roi.roi >= TRAINING_THRESHOLDS.ROI_TARGET;
           return (
             <Card key={r.sessionId}>
@@ -652,6 +659,7 @@ export function RoiPage() {
 
 /* ═══════════════════════════════ 9. COMPÉTENCES (UPLIFT) ═══════════════════════════════ */
 export function CompetencesFormationPage() {
+  const m11 = useM11Data();
   return (
     <div className="animate-fade-up space-y-5">
       <FormationSubNav />
@@ -677,8 +685,8 @@ export function CompetencesFormationPage() {
             <tbody className="divide-y divide-line">
               {SKILL_UPLIFTS.map((u, i) => {
                 const emp = employeeById(u.employeeId);
-                const s = sessionById(u.acquiredViaSessionId);
-                const c = s ? courseById(s.courseId) : undefined;
+                const s = m11.sessionById(u.acquiredViaSessionId);
+                const c = s ? m11.courseById(s.courseId) : undefined;
                 const delta = u.postLevel - u.preLevel;
                 return (
                   <tr key={i} className="hover:bg-amber/[0.03]">
@@ -702,6 +710,7 @@ export function CompetencesFormationPage() {
 
 /* ═══════════════════════════════ 10. FDFP / FONDS ═══════════════════════════════ */
 export function FdfpPage() {
+  const m11 = useM11Data();
   return (
     <div className="animate-fade-up space-y-5">
       <FormationSubNav />
@@ -713,14 +722,14 @@ export function FdfpPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Déclarations 2026" value={String(FDFP_DECLARATIONS.filter((d) => d.year === 2026).length)} unit="trimestrielles" icon={Landmark} />
-        <StatCard label="Coût déclaré YTD" value={fmtCompact(FDFP_DECLARATIONS.filter((d) => d.year === 2026).reduce((s, d) => s + d.costDeclared, 0))} unit="FCFA" icon={Coins} />
-        <StatCard label="Récupérable estimé" value={fmtCompact(FDFP_DECLARATIONS.filter((d) => d.year === 2026).reduce((s, d) => s + d.rebateExpected, 0))} unit="FCFA" icon={TrendingUp} />
-        <StatCard label="Encaissé YTD" value={fmtCompact(FDFP_DECLARATIONS.filter((d) => d.year === 2026).reduce((s, d) => s + (d.rebateReceived ?? 0), 0))} unit="FCFA" icon={CheckCircle2} />
+        <StatCard label="Déclarations 2026" value={String(m11.fdfpDeclarations.filter((d) => d.year === 2026).length)} unit="trimestrielles" icon={Landmark} />
+        <StatCard label="Coût déclaré YTD" value={fmtCompact(m11.fdfpDeclarations.filter((d) => d.year === 2026).reduce((s, d) => s + d.costDeclared, 0))} unit="FCFA" icon={Coins} />
+        <StatCard label="Récupérable estimé" value={fmtCompact(m11.fdfpDeclarations.filter((d) => d.year === 2026).reduce((s, d) => s + d.rebateExpected, 0))} unit="FCFA" icon={TrendingUp} />
+        <StatCard label="Encaissé YTD" value={fmtCompact(m11.fdfpDeclarations.filter((d) => d.year === 2026).reduce((s, d) => s + (d.rebateReceived ?? 0), 0))} unit="FCFA" icon={CheckCircle2} />
       </div>
 
       <Card inset={false}>
-        <div className="p-5 pb-2"><CardHeader title="Déclarations trimestrielles" subtitle={`${FDFP_DECLARATIONS.length} dossiers`} className="mb-0" /></div>
+        <div className="p-5 pb-2"><CardHeader title="Déclarations trimestrielles" subtitle={`${m11.fdfpDeclarations.length} dossiers`} className="mb-0" /></div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead><tr className="border-y border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
@@ -734,7 +743,7 @@ export function FdfpPage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {FDFP_DECLARATIONS.map((d) => {
+              {m11.fdfpDeclarations.map((d) => {
                 const st = FDFP_STATUS_META[d.status];
                 return (
                   <tr key={d.id} className="hover:bg-amber/[0.03]">
@@ -785,17 +794,18 @@ export function FdfpPage() {
 
 /* ═══════════════════════════════ 11. REPORTING ═══════════════════════════════ */
 export function ReportingFormationPage() {
+  const m11 = useM11Data();
   const roster = useRoster();
   const k = FORMATION_KPI;
 
   const byCategory = Object.keys(CATEGORY_META).map((cat) => {
-    const items = PLAN_2026.items.filter((it) => courseById(it.courseId)?.category === cat);
+    const items = m11.plan.items.filter((it) => m11.courseById(it.courseId)?.category === cat);
     const cost = items.reduce((s, it) => s + it.forecastCost, 0);
     return { cat, label: CATEGORY_META[cat as keyof typeof CATEGORY_META].label, count: items.length, cost };
   }).filter((c) => c.count > 0).sort((a, b) => b.cost - a.cost);
 
   const byEmployee = roster.map((e) => {
-    const regs = registrationsByEmployee(e.id).filter((r) => ['attended', 'completed', 'partial'].includes(r.status));
+    const regs = m11.registrationsByEmployee(e.id).filter((r) => ['attended', 'completed', 'partial'].includes(r.status));
     const hours = regs.reduce((s, r) => s + (r.attendedHours ?? 0), 0);
     return { id: e.id, name: employeeName(e), hours, formations: regs.length };
   }).sort((a, b) => b.hours - a.hours);
@@ -813,7 +823,7 @@ export function ReportingFormationPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Répartition budget par catégorie" subtitle={`Plan ${PLAN_2026.year}`} />
+          <CardHeader title="Répartition budget par catégorie" subtitle={`Plan ${m11.plan.year}`} />
           <div className="space-y-2">
             {byCategory.map((c) => {
               const maxCost = byCategory[0].cost;
@@ -995,7 +1005,7 @@ export function ParametresFormationPage() {
       </div>
 
       {/* anti-tsc unused — helpers utilisés dans pages dépendantes */}
-      <span className="hidden">{registrationsBySession.name}{kirkpatrickBySession.name}</span>
+      <span className="hidden">{kirkpatrickBySession.name}</span>
     </div>
   );
 }
