@@ -4,7 +4,7 @@ import { useAuth } from '../auth';
 import { EMPLOYEES, employeeById, type EmployeeRecord } from '../../data/mock';
 
 /** UUID employé démo (e1000001-...-0000NN) → id mock eNN. */
-function mockEmpId(uuid: string): string {
+export function mockEmpId(uuid: string): string {
   const n = parseInt(uuid.slice(-12), 10);
   return Number.isFinite(n) && n > 0 ? `e${n}` : uuid;
 }

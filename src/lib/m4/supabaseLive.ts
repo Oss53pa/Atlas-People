@@ -28,11 +28,14 @@ export interface M4DepartureRow {
   id: string;
   tenant_id: string;
   employee_id: string;
-  motif: string | null;
-  type_sortie: string | null;
-  date_notif: string | null;
-  date_sortie: string | null;
-  status: string | null;
+  ref: string | null;
+  type: string | null;            // enum m4_departure_type (DEMISSION, LICEN_*, FIN_CDD…)
+  initiative: string | null;      // salarie | employeur | mutuelle | force_majeure
+  notified_at: string | null;
+  notice_end: string | null;
+  end_date: string | null;
+  reason: string | null;
+  status: string | null;          // draft | in_progress | closed | cancelled
   employee_first_name?: string;
   employee_last_name?: string;
 }
@@ -41,10 +44,13 @@ export interface M4DisciplinaryRow {
   id: string;
   tenant_id: string;
   employee_id: string;
-  type_sanction: string | null;
-  motif: string | null;
-  date_faits: string | null;
-  status: string | null;
+  case_number: string | null;
+  opened_at: string | null;
+  facts_date: string | null;
+  facts_description: string | null;
+  envisaged_sanction: string | null;
+  final_sanction: string | null;
+  status: string | null;          // enum m4_discipline_status (opened, under_investigation, …, closed)
   employee_first_name?: string;
   employee_last_name?: string;
 }
@@ -63,7 +69,8 @@ export async function fetchM4Live(tenantId = DEMO): Promise<M4LiveKpis | null> {
   const [ctrRes, depRes, discRes] = await Promise.all([
     sb.from('m4_contracts').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     sb.from('m4_departures').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'in_progress'),
-    sb.from('m4_disciplinary_cases').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'open'),
+    // « ouvert » = tout sauf clos/annulé (l'enum m4_discipline_status n'a pas de valeur 'open')
+    sb.from('m4_disciplinary_cases').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).neq('status', 'closed').neq('status', 'cancelled'),
   ]);
   return {
     contractsTotal: ctrRes.count ?? 0,
@@ -90,7 +97,7 @@ export function useM4Contracts(tenantId = DEMO) {
       if (!supabase) return [];
       const { data, error } = await supabase.schema('atlas_people')
         .from('m4_contracts')
-        .select(`id, tenant_id, employee_id, ref, type, fonction, service, classification, workplace,
+        .select(`id, tenant_id, employee_id, ref, type, fonction, service, classification, workplace, status,
           employees!employee_id(first_name, last_name)`)
         .eq('tenant_id', tenantId)
         .order('ref', { ascending: true })
@@ -113,10 +120,10 @@ export function useM4Departures(tenantId = DEMO) {
       if (!supabase) return [];
       const { data, error } = await supabase.schema('atlas_people')
         .from('m4_departures')
-        .select(`id, tenant_id, employee_id, motif, type_sortie, date_notif, date_sortie, status,
+        .select(`id, tenant_id, employee_id, ref, type, initiative, notified_at, notice_end, end_date, reason, status,
           employees!employee_id(first_name, last_name)`)
         .eq('tenant_id', tenantId)
-        .order('date_notif', { ascending: false })
+        .order('notified_at', { ascending: false })
         .limit(50);
       if (error) throw error;
       return (data ?? []).map((d: Record<string, unknown>) => {
@@ -136,10 +143,10 @@ export function useM4Disciplinary(tenantId = DEMO) {
       if (!supabase) return [];
       const { data, error } = await supabase.schema('atlas_people')
         .from('m4_disciplinary_cases')
-        .select(`id, tenant_id, employee_id, type_sanction, motif, date_faits, status,
+        .select(`id, tenant_id, employee_id, case_number, opened_at, facts_date, facts_description, envisaged_sanction, final_sanction, status,
           employees!employee_id(first_name, last_name)`)
         .eq('tenant_id', tenantId)
-        .order('date_faits', { ascending: false })
+        .order('opened_at', { ascending: false })
         .limit(50);
       if (error) throw error;
       return (data ?? []).map((d: Record<string, unknown>) => {

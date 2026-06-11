@@ -8,14 +8,14 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { CONTRACTS, ALERTS } from '../../lib/m4/mock';
+import { CONTRACTS, ALERTS, buildContract } from '../../lib/m4/mock';
 import { CONTRACT_TYPES, CONTRACT_STATUS_META, CONTRACT_WIZARD_STEPS, CONTRACT_SURVEILLANCE_THRESHOLDS } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
-import type { ContractTypeCode, ContractStatus } from '../../lib/m4/types';
+import type { ContractTypeCode, ContractStatus, EmploymentContract } from '../../lib/m4/types';
 import { cn } from '../../lib/cn';
 import { useM4Contracts, isBackendConfigured } from '../../lib/m4/supabaseLive';
 import { useAuth } from '../../lib/auth';
-import { useRoster } from '../../lib/m1/roster';
+import { useRoster, mockEmpId } from '../../lib/m1/roster';
 
 export function ContratsPage() {
   const { toast } = useToast();
@@ -27,14 +27,33 @@ export function ContratsPage() {
   const [statF, setStatF] = useState<'all' | ContractStatus>('all');
   const [wizard, setWizard] = useState(false);
 
-  const list = useMemo(() => CONTRACTS.filter((c) => {
+  // Liste live-first : lignes m4_contracts (DB) fusionnées avec le builder
+  // déterministe pour les champs hors schéma (société, dates, convention…).
+  const allContracts: EmploymentContract[] = useMemo(() => {
+    if (!isBackendConfigured || !liveContracts || liveContracts.length === 0) return CONTRACTS;
+    return liveContracts.flatMap((row) => {
+      const empId = mockEmpId(row.employee_id);
+      const emp = roster.find((e) => e.id === empId) ?? employeeById(empId);
+      if (!emp) return [];
+      const base = buildContract(emp);
+      return [{
+        ...base,
+        id: row.id,
+        ref: row.ref ?? base.ref,
+        type: (row.type as ContractTypeCode) ?? base.type,
+        status: (row.status as ContractStatus) ?? base.status,
+      }];
+    });
+  }, [liveContracts, roster]);
+
+  const list = useMemo(() => allContracts.filter((c) => {
     const emp = employeeById(c.employeeId);
     if (!emp) return false;
     if (typeF !== 'all' && c.type !== typeF) return false;
     if (statF !== 'all' && c.status !== statF) return false;
     if (q && !(`${employeeName(emp)} ${c.ref} ${c.fonction}`.toLowerCase().includes(q.toLowerCase()))) return false;
     return true;
-  }), [q, typeF, statF]);
+  }), [allContracts, q, typeF, statF]);
 
   const cddAlerts = ALERTS.filter((a) => a.kind === 'cdd');
   const probAlerts = ALERTS.filter((a) => a.kind === 'probation');
@@ -49,14 +68,14 @@ export function ContratsPage() {
           <p className="text-sm font-medium text-ink-500">
             {isBackendConfigured && liveContracts
               ? <><span className="inline-flex items-center gap-1 text-emerald-600 font-bold"><Wifi size={10} /> {liveContracts.length} contrats DB</span> · 11 types OHADA</>
-              : <>{CONTRACTS.length} contrats · 11 types · signature ADVIST OHADA · bibliothèque modèles par pays/CCN</>}
+              : <>{allContracts.length} contrats · 11 types · signature ADVIST OHADA · bibliothèque modèles par pays/CCN</>}
           </p>
         </div>
         <Button size="sm" onClick={() => setWizard(true)}><Plus size={14} /> Nouveau contrat</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Actifs" value={String(isBackendConfigured && liveContracts ? liveContracts.filter(c=>c.status==='active').length : CONTRACTS.filter(c=>c.status==='active').length)} unit="signés 2 parties" icon={CheckCircle2} />
+        <StatCard label="Actifs" value={String(allContracts.filter((c) => c.status === 'active').length)} unit="signés 2 parties" icon={CheckCircle2} />
         <StatCard label="CDD à surveiller" value={String(cddAlerts.length)} unit={`J-${CONTRACT_SURVEILLANCE_THRESHOLDS.cdd_end.join('/')}`} icon={AlertTriangle} tone={cddAlerts.length ? 'amber' : 'default'} />
         <StatCard label="Période d'essai" value={String(probAlerts.length)} unit="décision proche" icon={AlertTriangle} tone={probAlerts.length ? 'amber' : 'default'} />
         <StatCard label="Types de contrat" value="11" unit="OHADA" icon={FileSignature} />
@@ -99,7 +118,7 @@ export function ContratsPage() {
               {Object.entries(CONTRACT_STATUS_META).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
-          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{CONTRACTS.length} contrats</span>
+          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{allContracts.length} contrats</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
