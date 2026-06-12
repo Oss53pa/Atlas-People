@@ -7,12 +7,13 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { APPLICATIONS, OFFERS, candidateById, jobById } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 
 export function IntegrationPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
-  const accepted = OFFERS.filter((o) => o.status === 'accepted');
-  const hiredApps = APPLICATIONS.filter((a) => a.stage === 'hired');
+  const accepted = m5.offers.filter((o) => o.status === 'accepted');
+  const hiredApps = m5.applications.filter((a) => a.stage === 'hired');
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -58,9 +59,9 @@ export function IntegrationPage() {
         <CardHeader title="Candidats à intégrer" subtitle="Offres acceptées · contrats à créer dans M4" />
         {accepted.length === 0 ? <p className="py-3 text-center text-[12px] font-medium text-ink-400">Aucune offre acceptée en attente d'intégration.</p>
           : accepted.map((o) => {
-            const ap = APPLICATIONS.find((a) => a.id === o.applicationId);
-            const cand = ap && candidateById(ap.candidateId);
-            const job = ap && jobById(ap.jobId);
+            const ap = m5.applications.find((a) => a.id === o.applicationId);
+            const cand = ap && m5.candidateById(ap.candidateId);
+            const job = ap && m5.jobById(ap.jobId);
             if (!cand || !job) return null;
             return (
               <div key={o.id} className="rounded-xl border border-ok/25 bg-ok/[0.05] p-3">

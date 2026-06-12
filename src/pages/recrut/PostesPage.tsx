@@ -7,7 +7,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { JOBS } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { JOB_STATUS_META, JOB_LEVEL_LABEL, JOB_WIZARD_STEPS } from '../../lib/m5/referentiels';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
@@ -17,16 +17,17 @@ import { cn } from '../../lib/cn';
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
 export function PostesPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
   const [q, setQ] = useState('');
   const [statF, setStatF] = useState<'all' | JobStatus>('all');
   const [wizard, setWizard] = useState(false);
 
-  const list = useMemo(() => JOBS.filter((j) => {
+  const list = useMemo(() => m5.jobs.filter((j) => {
     if (statF !== 'all' && j.status !== statF) return false;
     if (q && !`${j.title} ${j.ref} ${j.department}`.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }).sort((a, b) => b.openedAt.localeCompare(a.openedAt)), [q, statF]);
+  }).sort((a, b) => b.openedAt.localeCompare(a.openedAt)), [q, statF, m5.jobs]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -35,17 +36,17 @@ export function PostesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Postes</h1>
-          <p className="text-sm font-medium text-ink-500">{JOBS.length} postes · multi-canal · ADVIST pour offres · SLA time-to-fill 45 jours</p>
+          <p className="text-sm font-medium text-ink-500">{m5.jobs.length} postes · multi-canal · ADVIST pour offres · SLA time-to-fill 45 jours</p>
         </div>
         <Button size="sm" onClick={() => setWizard(true)}><Plus size={14} /> Nouveau poste</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard label="Total" value={String(JOBS.length)} unit="postes" icon={Briefcase} />
-        <StatCard label="Ouverts" value={String(JOBS.filter(j => j.status === 'open').length)} unit="à pourvoir" icon={Briefcase} tone="amber" />
-        <StatCard label="En pause" value={String(JOBS.filter(j => j.status === 'on_hold').length)} unit="hold" icon={Briefcase} />
-        <StatCard label="Pourvus 12 m" value={String(JOBS.filter(j => j.status === 'closed_filled').length)} unit="hires" icon={Briefcase} />
-        <StatCard label="Brouillons" value={String(JOBS.filter(j => j.status === 'draft').length)} unit="à publier" icon={Briefcase} />
+        <StatCard label="Total" value={String(m5.jobs.length)} unit="postes" icon={Briefcase} />
+        <StatCard label="Ouverts" value={String(m5.jobs.filter(j => j.status === 'open').length)} unit="à pourvoir" icon={Briefcase} tone="amber" />
+        <StatCard label="En pause" value={String(m5.jobs.filter(j => j.status === 'on_hold').length)} unit="hold" icon={Briefcase} />
+        <StatCard label="Pourvus 12 m" value={String(m5.jobs.filter(j => j.status === 'closed_filled').length)} unit="hires" icon={Briefcase} />
+        <StatCard label="Brouillons" value={String(m5.jobs.filter(j => j.status === 'draft').length)} unit="à publier" icon={Briefcase} />
       </div>
 
       {wizard && (
@@ -77,7 +78,7 @@ export function PostesPage() {
               {Object.entries(JOB_STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
-          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{JOBS.length}</span>
+          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{m5.jobs.length}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] text-sm">

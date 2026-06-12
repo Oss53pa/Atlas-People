@@ -7,13 +7,14 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { APPLICATIONS, OFFERS, candidateById, jobById } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
 
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
 export function OffresPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
 
   return (
@@ -29,18 +30,18 @@ export function OffresPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard label="Brouillons" value={String(OFFERS.filter(o=>o.status==='draft').length)} unit="à finaliser" icon={Mail} />
-        <StatCard label="Envoyées" value={String(OFFERS.filter(o=>o.status==='sent').length)} unit="en attente" icon={Clock} tone="amber" />
-        <StatCard label="Négociation" value={String(OFFERS.filter(o=>o.status==='negotiating').length)} unit="à closer" icon={AlertTriangle} tone="amber" />
-        <StatCard label="Acceptées" value={String(OFFERS.filter(o=>o.status==='accepted').length)} unit="hires" icon={CheckCircle2} />
-        <StatCard label="Refusées" value={String(OFFERS.filter(o=>o.status==='declined').length)} unit="lost" icon={XCircle} />
+        <StatCard label="Brouillons" value={String(m5.offers.filter(o=>o.status==='draft').length)} unit="à finaliser" icon={Mail} />
+        <StatCard label="Envoyées" value={String(m5.offers.filter(o=>o.status==='sent').length)} unit="en attente" icon={Clock} tone="amber" />
+        <StatCard label="Négociation" value={String(m5.offers.filter(o=>o.status==='negotiating').length)} unit="à closer" icon={AlertTriangle} tone="amber" />
+        <StatCard label="Acceptées" value={String(m5.offers.filter(o=>o.status==='accepted').length)} unit="hires" icon={CheckCircle2} />
+        <StatCard label="Refusées" value={String(m5.offers.filter(o=>o.status==='declined').length)} unit="lost" icon={XCircle} />
       </div>
 
       <div className="space-y-3">
-        {OFFERS.map((o) => {
-          const ap = APPLICATIONS.find((a) => a.id === o.applicationId);
-          const cand = ap && candidateById(ap.candidateId);
-          const job = ap && jobById(ap.jobId);
+        {m5.offers.map((o) => {
+          const ap = m5.applications.find((a) => a.id === o.applicationId);
+          const cand = ap && m5.candidateById(ap.candidateId);
+          const job = ap && m5.jobById(ap.jobId);
           if (!cand || !job) return null;
           const tone = o.status === 'accepted' ? 'ok' : o.status === 'declined' ? 'danger' : o.status === 'negotiating' ? 'warn' : 'amber';
           return (

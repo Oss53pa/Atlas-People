@@ -4,25 +4,27 @@ import { KanbanSquare, Filter, Search } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Avatar } from '../../components/ui/Avatar';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { APPLICATIONS, JOBS, candidateById, jobById, stageMeta } from '../../lib/m5/mock';
+import { stageMeta } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { ACTIVE_STAGES } from '../../lib/m5/referentiels';
 import { cn } from '../../lib/cn';
 
 export function CandidaturesPage() {
+  const m5 = useM5Data();
   const [jobF, setJobF] = useState<'all' | string>('all');
   const [q, setQ] = useState('');
 
-  const filtered = useMemo(() => APPLICATIONS.filter((a) => {
+  const filtered = useMemo(() => m5.applications.filter((a) => {
     if (!ACTIVE_STAGES.includes(a.stage)) return false;
     if (jobF !== 'all' && a.jobId !== jobF) return false;
     if (q) {
-      const c = candidateById(a.candidateId);
-      const j = jobById(a.jobId);
+      const c = m5.candidateById(a.candidateId);
+      const j = m5.jobById(a.jobId);
       const text = `${c?.firstName} ${c?.lastName} ${c?.currentRole} ${j?.title}`.toLowerCase();
       if (!text.includes(q.toLowerCase())) return false;
     }
     return true;
-  }), [jobF, q]);
+  }), [jobF, q, m5.applications, m5.candidates, m5.jobs]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -40,7 +42,7 @@ export function CandidaturesPage() {
           </div>
           <select value={jobF} onChange={(e) => setJobF(e.target.value)} className="h-9 rounded-lg border border-line bg-surface2 px-2 text-[12px] font-semibold text-ink-700">
             <option value="all">Tous les postes</option>
-            {JOBS.filter(j => j.status === 'open' || j.status === 'on_hold').map(j => <option key={j.id} value={j.id}>{j.title.slice(0, 40)}</option>)}
+            {m5.jobs.filter(j => j.status === 'open' || j.status === 'on_hold').map(j => <option key={j.id} value={j.id}>{j.title.slice(0, 40)}</option>)}
           </select>
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink-400"><Filter size={12} /> 6 colonnes</span>
         </div>
@@ -60,8 +62,8 @@ export function CandidaturesPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 {items.map((a) => {
-                  const cand = candidateById(a.candidateId);
-                  const job = jobById(a.jobId);
+                  const cand = m5.candidateById(a.candidateId);
+                  const job = m5.jobById(a.jobId);
                   if (!cand || !job) return null;
                   const days = Math.round((new Date('2026-05-30').getTime() - new Date(a.stageEnteredAt).getTime()) / 86_400_000);
                   return (
@@ -94,7 +96,7 @@ export function CandidaturesPage() {
         <CardHeader title="Étapes finales" subtitle="Embauchés / refusés / retirés (lecture)" action={<KanbanSquare size={16} className="text-ink-400" />} />
         <div className="grid grid-cols-3 gap-3">
           {(['hired', 'rejected', 'withdrawn'] as const).map((s) => {
-            const items = APPLICATIONS.filter((a) => a.stage === s && (jobF === 'all' || a.jobId === jobF));
+            const items = m5.applications.filter((a) => a.stage === s && (jobF === 'all' || a.jobId === jobF));
             const m = stageMeta(s);
             return (
               <div key={s} className="rounded-xl border border-line bg-surface2/30 p-3">

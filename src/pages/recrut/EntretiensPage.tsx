@@ -8,27 +8,29 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { APPLICATIONS, INTERVIEWS, candidateById, jobById, scorecardsByApp } from '../../lib/m5/mock';
+import { scorecardsByApp } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { INTERVIEW_TYPES, RECOMMENDATION_META, SCORECARD_TEMPLATES } from '../../lib/m5/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
 export function EntretiensPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
   const [filter, setFilter] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
 
   const list = useMemo(() => {
     const now = new Date('2026-05-30').getTime();
-    return INTERVIEWS.filter((i) => {
+    return m5.interviews.filter((i) => {
       if (filter === 'upcoming') return i.status === 'planned' && new Date(i.scheduledAt).getTime() >= now - 86_400_000;
       if (filter === 'completed') return i.status === 'completed';
       return true;
     }).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-  }, [filter]);
+  }, [filter, m5.interviews]);
 
-  const planned = INTERVIEWS.filter((i) => i.status === 'planned').length;
-  const completed = INTERVIEWS.filter((i) => i.status === 'completed').length;
-  const noShows = INTERVIEWS.filter((i) => i.status === 'no_show').length;
+  const planned = m5.interviews.filter((i) => i.status === 'planned').length;
+  const completed = m5.interviews.filter((i) => i.status === 'completed').length;
+  const noShows = m5.interviews.filter((i) => i.status === 'no_show').length;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -60,9 +62,9 @@ export function EntretiensPage() {
 
       <div className="space-y-2">
         {list.map((i) => {
-          const ap = APPLICATIONS.find((a) => a.id === i.applicationId);
-          const cand = ap && candidateById(ap.candidateId);
-          const job = ap && jobById(ap.jobId);
+          const ap = m5.applications.find((a) => a.id === i.applicationId);
+          const cand = ap && m5.candidateById(ap.candidateId);
+          const job = ap && m5.jobById(ap.jobId);
           const t = INTERVIEW_TYPES.find((it) => it.code === i.type);
           if (!cand || !job) return null;
           const cards = scorecardsByApp(ap.id).filter((s) => s.interviewId === i.id);
