@@ -7,23 +7,25 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { JOURNEYS, templateMeta } from '../../lib/m6/mock';
+import { templateMeta } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import { useRoster } from '../../lib/m1/roster';
 
 export function ArrivantsPage() {
   const roster = useRoster();
+  const { journeys } = useM6Data();
   const [q, setQ] = useState('');
   const [statF, setStatF] = useState<'all' | 'planned' | 'in_progress' | 'completed'>('all');
 
-  const list = useMemo(() => JOURNEYS.filter((j) => {
+  const list = useMemo(() => journeys.filter((j) => {
     if (statF !== 'all' && j.status !== statF) return false;
     const emp = employeeById(j.employeeId);
     if (!emp) return false;
     if (q && !`${employeeName(emp)} ${emp.role} ${j.ref}`.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }).sort((a, b) => b.hireDate.localeCompare(a.hireDate)), [q, statF]);
+  }).sort((a, b) => b.hireDate.localeCompare(a.hireDate)), [q, statF, journeys]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -32,16 +34,16 @@ export function ArrivantsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Arrivants & parcours</h1>
-          <p className="text-sm font-medium text-ink-500">{roster.length} collaborateurs · {JOURNEYS.filter(j=>j.status==='in_progress').length} en cours d'onboarding</p>
+          <p className="text-sm font-medium text-ink-500">{roster.length} collaborateurs · {journeys.filter(j=>j.status==='in_progress').length} en cours d'onboarding</p>
         </div>
         <Button size="sm"><Rocket size={14} /> Nouveau parcours</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total parcours" value={String(JOURNEYS.length)} unit="historique" icon={Users} />
-        <StatCard label="Actifs" value={String(JOURNEYS.filter(j=>j.status==='in_progress').length)} unit="en cours" icon={Rocket} tone="amber" />
-        <StatCard label="Planifiés" value={String(JOURNEYS.filter(j=>j.status==='planned').length)} unit="à démarrer" icon={Rocket} />
-        <StatCard label="Complétés" value={String(JOURNEYS.filter(j=>j.status==='completed').length)} unit="archivés" icon={Users} />
+        <StatCard label="Total parcours" value={String(journeys.length)} unit="historique" icon={Users} />
+        <StatCard label="Actifs" value={String(journeys.filter(j=>j.status==='in_progress').length)} unit="en cours" icon={Rocket} tone="amber" />
+        <StatCard label="Planifiés" value={String(journeys.filter(j=>j.status==='planned').length)} unit="à démarrer" icon={Rocket} />
+        <StatCard label="Complétés" value={String(journeys.filter(j=>j.status==='completed').length)} unit="archivés" icon={Users} />
       </div>
 
       <Card inset={false}>
@@ -58,7 +60,7 @@ export function ArrivantsPage() {
               <option value="completed">Complétés</option>
             </select>
           </div>
-          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{JOURNEYS.length}</span>
+          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{journeys.length}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
