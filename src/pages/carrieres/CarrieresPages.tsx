@@ -19,9 +19,9 @@ import { useToast } from '../../components/ui/Toast';
 import { CarrieresSubNav } from '../../components/carrieres/CarrieresSubNav';
 import { M10LiveBanner } from '../../components/carrieres/M10LiveBanner';
 import {
-  FILIERES, TRAJECTORIES, CRITICAL_ROLES, HIGH_POTS, MENTORSHIPS,
-  OPPORTUNITIES, SKILLS_MAPPING, kpis, filiereByCode, successorsOf,
+  FILIERES, TRAJECTORIES, OPPORTUNITIES, SKILLS_MAPPING, filiereByCode,
 } from '../../lib/m10/mock';
+import { useM10Data } from '../../lib/m10/dataLive';
 import {
   PATH_TYPE_META, READINESS_META, HIGH_POT_PROGRAMS, BENCH_STRENGTH_META,
   CAREER_LEVELS, PROGRAM_TONES, RETENTION_BENCHMARKS, CAREER_ACTIONS,
@@ -32,8 +32,9 @@ import { cn } from '../../lib/cn';
 
 /* ─────────────────────────────────────── 1. COCKPIT */
 export function CockpitCarrieresPage() {
-  const k = useMemo(() => kpis(), []);
-  const weakRoles = CRITICAL_ROLES.filter((r) => r.benchStrength === 'weak' || r.benchStrength === 'none');
+  const m10 = useM10Data();
+  const k = useMemo(() => m10.kpis(), [m10]);
+  const weakRoles = m10.criticalRoles.filter((r) => r.benchStrength === 'weak' || r.benchStrength === 'none');
   return (
     <div className="animate-fade-up space-y-5">
       <CarrieresSubNav />
@@ -62,7 +63,7 @@ export function CockpitCarrieresPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card inset={false}>
-          <div className="p-5 pb-2"><CardHeader title="Postes clés" subtitle={`${CRITICAL_ROLES.length} postes · cliquer pour succession`} className="mb-0" /></div>
+          <div className="p-5 pb-2"><CardHeader title="Postes clés" subtitle={`${m10.criticalRoles.length} postes · cliquer pour succession`} className="mb-0" /></div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead><tr className="border-y border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
@@ -73,7 +74,7 @@ export function CockpitCarrieresPage() {
                 <th className="px-3 py-2 text-right" />
               </tr></thead>
               <tbody className="divide-y divide-line">
-                {CRITICAL_ROLES.map((r) => {
+                {m10.criticalRoles.map((r) => {
                   const holder = employeeById(r.currentHolderEmployeeId);
                   const bench = BENCH_STRENGTH_META[r.benchStrength];
                   return (
@@ -108,7 +109,7 @@ export function CockpitCarrieresPage() {
           <Card>
             <CardHeader title="Top hauts potentiels" subtitle="Programmes actifs" action={<Sparkles size={16} className="text-amber-deep" />} />
             <div className="space-y-1.5">
-              {HIGH_POTS.slice(0, 5).map((h) => {
+              {m10.highPots.slice(0, 5).map((h) => {
                 const emp = employeeById(h.employeeId);
                 if (!emp) return null;
                 return (
@@ -224,15 +225,16 @@ export function TrajectoiresPage() {
 
 /* ─────────────────────────────────────── 4. POSTES CLÉS */
 export function PostesClesPage() {
+  const m10 = useM10Data();
   return (
     <div className="animate-fade-up space-y-5">
       <CarrieresSubNav />
       <div>
         <h1 className="text-2xl font-semibold text-ink">Postes clés</h1>
-        <p className="text-sm font-medium text-ink-500">{CRITICAL_ROLES.length} postes critiques identifiés · bench strength suivi</p>
+        <p className="text-sm font-medium text-ink-500">{m10.criticalRoles.length} postes critiques identifiés · bench strength suivi</p>
       </div>
       <div className="space-y-3">
-        {CRITICAL_ROLES.map((r) => {
+        {m10.criticalRoles.map((r) => {
           const holder = employeeById(r.currentHolderEmployeeId);
           const bench = BENCH_STRENGTH_META[r.benchStrength];
           return (
@@ -259,6 +261,7 @@ export function PostesClesPage() {
 
 /* ─────────────────────────────────────── 5. SUCCESSION */
 export function SuccessionPage() {
+  const m10 = useM10Data();
   return (
     <div className="animate-fade-up space-y-5">
       <CarrieresSubNav />
@@ -267,9 +270,9 @@ export function SuccessionPage() {
         <p className="text-sm font-medium text-ink-500">Postes clés × successeurs · readiness ready_now / 1-2 ans / 3-5 ans</p>
       </div>
       <div className="space-y-3">
-        {CRITICAL_ROLES.map((r) => {
+        {m10.criticalRoles.map((r) => {
           const holder = employeeById(r.currentHolderEmployeeId);
-          const succs = successorsOf(r.id);
+          const succs = m10.successorsOf(r.id);
           const bench = BENCH_STRENGTH_META[r.benchStrength];
           return (
             <Card key={r.id}>
@@ -320,17 +323,18 @@ export function SuccessionPage() {
 
 /* ─────────────────────────────────────── 6. HAUTS POTENTIELS */
 export function HautsPotentielsPage() {
+  const m10 = useM10Data();
   return (
     <div className="animate-fade-up space-y-5">
       <CarrieresSubNav />
       <div>
         <h1 className="text-2xl font-semibold text-ink">Pool hauts potentiels</h1>
-        <p className="text-sm font-medium text-ink-500">{HIGH_POTS.length} collaborateurs · 4 programmes · mentor associé</p>
+        <p className="text-sm font-medium text-ink-500">{m10.highPots.length} collaborateurs · 4 programmes · mentor associé</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {(Object.keys(HIGH_POT_PROGRAMS) as Array<keyof typeof HIGH_POT_PROGRAMS>).map((p) => {
           const meta = HIGH_POT_PROGRAMS[p];
-          const count = HIGH_POTS.filter((h) => h.program === p).length;
+          const count = m10.highPots.filter((h) => h.program === p).length;
           return (
             <div key={p} className="rounded-xl border border-line bg-surface2/40 p-3">
               <p className="text-[11px] font-bold uppercase tracking-wider text-amber-deep">{meta.label}</p>
@@ -353,7 +357,7 @@ export function HautsPotentielsPage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {HIGH_POTS.map((h) => {
+              {m10.highPots.map((h) => {
                 const emp = employeeById(h.employeeId);
                 const mentor = h.mentorEmployeeId ? employeeById(h.mentorEmployeeId) : null;
                 if (!emp) return null;
@@ -378,15 +382,16 @@ export function HautsPotentielsPage() {
 
 /* ─────────────────────────────────────── 7. MENTORAT */
 export function MentoratPage() {
+  const m10 = useM10Data();
   return (
     <div className="animate-fade-up space-y-5">
       <CarrieresSubNav />
       <div>
         <h1 className="text-2xl font-semibold text-ink">Mentorat</h1>
-        <p className="text-sm font-medium text-ink-500">{MENTORSHIPS.length} pairings · senior accompagne junior/montant</p>
+        <p className="text-sm font-medium text-ink-500">{m10.mentorships.length} pairings · senior accompagne junior/montant</p>
       </div>
       <div className="space-y-3">
-        {MENTORSHIPS.map((m) => {
+        {m10.mentorships.map((m) => {
           const mentor = employeeById(m.mentorEmployeeId);
           const mentee = employeeById(m.menteeEmployeeId);
           if (!mentor || !mentee) return null;
@@ -513,7 +518,8 @@ export function MobiliteCarrieresPage() {
 /* ─────────────────────────────────────── 10. REPORTING */
 export function ReportingCarrieresPage() {
   const { toast } = useToast();
-  const k = kpis();
+  const m10 = useM10Data();
+  const k = m10.kpis();
   return (
     <div className="animate-fade-up space-y-5">
       <CarrieresSubNav />
@@ -534,8 +540,8 @@ export function ReportingCarrieresPage() {
         <CardHeader title="Bench strength par poste clé" subtitle="Distribution actuelle" action={<BarChart3 size={16} className="text-amber-deep" />} />
         <div className="space-y-1.5">
           {(['strong','adequate','weak','none'] as const).map((s) => {
-            const count = CRITICAL_ROLES.filter((r) => r.benchStrength === s).length;
-            const pct = Math.round((count / CRITICAL_ROLES.length) * 100);
+            const count = m10.criticalRoles.filter((r) => r.benchStrength === s).length;
+            const pct = Math.round((count / m10.criticalRoles.length) * 100);
             const meta = BENCH_STRENGTH_META[s];
             return (
               <div key={s} className="flex items-center gap-3">
