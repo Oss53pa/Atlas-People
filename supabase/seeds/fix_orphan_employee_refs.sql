@@ -33,3 +33,26 @@ begin
   end loop;
   raise notice 'remapped % employee refs', total;
 end $$;
+
+-- 2e passe (colonnes de référence employé à noms spécifiques, repérées par
+-- balayage exhaustif des colonnes uuid) — updates directs.
+update atlas_people.m6_arrivants set manager_id = ('e1000001-0000-0000-0000-' || lpad(right(manager_id::text,2),12,'0'))::uuid where manager_id::text like '11111111-2222-%' or manager_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m6_arrivants set rh_referent_id = ('e1000001-0000-0000-0000-' || lpad(right(rh_referent_id::text,2),12,'0'))::uuid where rh_referent_id::text like '11111111-2222-%' or rh_referent_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m12_audits set lead_auditor_employee_id = ('e1000001-0000-0000-0000-' || lpad(right(lead_auditor_employee_id::text,2),12,'0'))::uuid where lead_auditor_employee_id::text like '11111111-2222-%' or lead_auditor_employee_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m12_audit_findings set owner_employee_id = ('e1000001-0000-0000-0000-' || lpad(right(owner_employee_id::text,2),12,'0'))::uuid where owner_employee_id::text like '11111111-2222-%' or owner_employee_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m7_check_ins set author_id = ('e1000001-0000-0000-0000-' || lpad(right(author_id::text,2),12,'0'))::uuid where author_id::text like '11111111-2222-%' or author_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m5_referrals set referrer_employee_id = ('e1000001-0000-0000-0000-' || lpad(right(referrer_employee_id::text,2),12,'0'))::uuid where referrer_employee_id::text like '11111111-2222-%' or referrer_employee_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m5_needs set hiring_manager_id = ('e1000001-0000-0000-0000-' || lpad(right(hiring_manager_id::text,2),12,'0'))::uuid where hiring_manager_id::text like '11111111-2222-%' or hiring_manager_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m5_jobs set hiring_manager_id = ('e1000001-0000-0000-0000-' || lpad(right(hiring_manager_id::text,2),12,'0'))::uuid where hiring_manager_id::text like '11111111-2222-%' or hiring_manager_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m5_jobs set recruiter_id = ('e1000001-0000-0000-0000-' || lpad(right(recruiter_id::text,2),12,'0'))::uuid where recruiter_id::text like '11111111-2222-%' or recruiter_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m8_evaluations set manager_id = ('e1000001-0000-0000-0000-' || lpad(right(manager_id::text,2),12,'0'))::uuid where manager_id::text like '11111111-2222-%' or manager_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m8_calibration_sessions set facilitator_id = ('e1000001-0000-0000-0000-' || lpad(right(facilitator_id::text,2),12,'0'))::uuid where facilitator_id::text like '11111111-2222-%' or facilitator_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m11_pif set manager_id = ('e1000001-0000-0000-0000-' || lpad(right(manager_id::text,2),12,'0'))::uuid where manager_id::text like '11111111-2222-%' or manager_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m9_pdc set manager_id = ('e1000001-0000-0000-0000-' || lpad(right(manager_id::text,2),12,'0'))::uuid where manager_id::text like '11111111-2222-%' or manager_id::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m10_promotions set proposed_by = ('e1000001-0000-0000-0000-' || lpad(right(proposed_by::text,2),12,'0'))::uuid where proposed_by::text like '11111111-2222-%' or proposed_by::text like '11111111-0000-0000-0011-1%';
+update atlas_people.m11_training_plans set created_by = ('e1000001-0000-0000-0000-' || lpad(right(created_by::text,2),12,'0'))::uuid where created_by::text like '11111111-2222-%' or created_by::text like '11111111-0000-0000-0011-1%';
+
+-- Restes ASSUMÉS après ces passes (ids non-employé, légitimes) :
+--   m11_training_plans.id (id du plan d'origine) et ses références
+--   m11_training_sessions.plan_id / m11_plan_items.plan_id,
+--   m7_suspicious_patterns.scope_id (référence de scope).
