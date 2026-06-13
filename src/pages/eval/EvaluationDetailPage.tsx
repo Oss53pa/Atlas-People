@@ -6,15 +6,16 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { EvalSubNav } from '../../components/eval/EvalSubNav';
-import { evaluationByEmployee, feedbacksByEval, devPlanByEmployee, boxOfEmployee } from '../../lib/m8/mock';
+import { useM8Data } from '../../lib/m8/dataLive';
 import { STATUS_META, BOX_LABELS, EVAL_WIZARD_STEPS, DEV_CATEGORIES } from '../../lib/m8/referentiels';
 import { employeeById, employeeName, matricule } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
 export function EvaluationDetailPage() {
+  const m8 = useM8Data();
   const { employeeId = '' } = useParams();
   const emp = employeeById(employeeId);
-  const ev = evaluationByEmployee(employeeId);
+  const ev = m8.evaluationByEmployee(employeeId);
   const { toast } = useToast();
 
   if (!emp || !ev) {
@@ -26,9 +27,9 @@ export function EvaluationDetailPage() {
     );
   }
   const mgr = employeeById(ev.managerEmployeeId);
-  const fb = feedbacksByEval(ev.id);
-  const box = boxOfEmployee(emp.id);
-  const dp = devPlanByEmployee(emp.id);
+  const fb = m8.feedbacksByEval(ev.id);
+  const box = m8.boxOfEmployee(emp.id);
+  const dp = m8.devPlanByEmployee(emp.id);
   const sm = STATUS_META[ev.status];
 
   return (

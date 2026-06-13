@@ -3,7 +3,7 @@ import { Grid3x3 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Avatar } from '../../components/ui/Avatar';
 import { EvalSubNav } from '../../components/eval/EvalSubNav';
-import { TALENT_BOXES } from '../../lib/m8/mock';
+import { useM8Data } from '../../lib/m8/dataLive';
 import { BOX_LABELS, CALIBRATION_DISTRIBUTION } from '../../lib/m8/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import type { TalentBoxKey } from '../../lib/m8/types';
@@ -59,13 +59,14 @@ export function TalentGridPage() {
 }
 
 function Box({ row }: { row: 'A' | 'B' | 'C' }) {
+  const m8 = useM8Data();
   return (
     <>
       <div className="flex items-center justify-end pr-2 text-[10px] font-bold uppercase tracking-wider text-ink-500">{row === 'A' ? 'Haut potentiel' : row === 'B' ? 'Potentiel moyen' : 'Faible potentiel'}</div>
       {COLS.map((c) => {
         const key = `${row}${c.code}` as TalentBoxKey;
         const meta = BOX_LABELS[key];
-        const occupants = TALENT_BOXES.filter((t) => t.box === key);
+        const occupants = m8.talentBoxes.filter((t) => t.box === key);
         return (
           <div key={key} className={cn('rounded-xl border p-3 min-h-[160px]',
             meta.tone === 'ok' ? 'border-ok/30 bg-ok/[0.04]' :

@@ -14,10 +14,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { EvalSubNav } from '../../components/eval/EvalSubNav';
-import {
-  CYCLES, EVALUATIONS, CALIBRATIONS, FEEDBACK_360, DEV_PLANS, ONE_ON_ONES,
-  activeCycle, kpis,
-} from '../../lib/m8/mock';
+import { useM8Data } from '../../lib/m8/dataLive';
 import {
   STATUS_META, CYCLE_TYPE_META, BOX_LABELS, DEV_CATEGORIES, EVAL_DIMENSIONS,
   SCORE_SCALE, ATLAS_VALUES, CALIBRATION_DISTRIBUTION, SLA,
@@ -28,6 +25,7 @@ import { cn } from '../../lib/cn';
 
 /* ─────────────────────────────────────── CYCLES */
 export function CyclesEvalPage() {
+  const m8 = useM8Data();
   const { toast } = useToast();
   return (
     <div className="animate-fade-up space-y-5">
@@ -35,7 +33,7 @@ export function CyclesEvalPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Cycles d'évaluation</h1>
-          <p className="text-sm font-medium text-ink-500">{CYCLES.length} cycles · annuel / mid-year / probatoire / 360°</p>
+          <p className="text-sm font-medium text-ink-500">{m8.cycles.length} cycles · annuel / mid-year / probatoire / 360°</p>
         </div>
         <Button size="sm" onClick={() => toast({ variant: 'info', title: 'Cycle', description: 'Wizard nouveau cycle' })}><Plus size={14} /> Nouveau cycle</Button>
       </div>
@@ -53,7 +51,7 @@ export function CyclesEvalPage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {CYCLES.map((c) => (
+              {m8.cycles.map((c) => (
                 <tr key={c.id}>
                   <td className="px-4 py-2 mono text-[11px] font-bold text-amber-deep">{c.ref}</td>
                   <td className="px-3 py-2 text-[12px] font-semibold text-ink">{c.label}</td>
@@ -85,8 +83,9 @@ export function CyclesEvalPage() {
 
 /* ─────────────────────────────────────── CAMPAGNES */
 export function CampagnesPage() {
+  const m8 = useM8Data();
   const { toast } = useToast();
-  const k = kpis();
+  const k = m8.kpis();
   return (
     <div className="animate-fade-up space-y-5">
       <EvalSubNav />
@@ -98,20 +97,20 @@ export function CampagnesPage() {
         <Button size="sm" onClick={() => toast({ variant: 'success', title: 'Campagne', description: 'Campagne envoyée à tous les collaborateurs' })}><Megaphone size={14} /> Lancer une campagne</Button>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Cycle actif" value={activeCycle.label} unit={activeCycle.status} icon={CalendarRange} />
-        <StatCard label="Participants" value={String(activeCycle.participantsCount)} unit="collaborateurs" icon={ClipboardList} />
+        <StatCard label="Cycle actif" value={m8.activeCycle.label} unit={m8.activeCycle.status} icon={CalendarRange} />
+        <StatCard label="Participants" value={String(m8.activeCycle.participantsCount)} unit="collaborateurs" icon={ClipboardList} />
         <StatCard label="Auto-éval soumises" value={`${k.autoEvalSubmittedPct} %`} unit={`SLA ${SLA.autoEvalDays} j`} icon={MessageSquare} />
         <StatCard label="Manager soumises" value={`${k.managerEvalSubmittedPct} %`} unit={`SLA ${SLA.managerEvalDays} j`} icon={MessageSquare} />
       </div>
       <Card>
-        <CardHeader title="Calendrier de la campagne" subtitle={`Cycle ${activeCycle.label}`} />
+        <CardHeader title="Calendrier de la campagne" subtitle={`Cycle ${m8.activeCycle.label}`} />
         <ol className="space-y-1.5">
           {[
-            { date: activeCycle.startDate, label: 'Lancement campagne · communication all-hands' },
-            { date: activeCycle.autoEvalDeadline, label: `Deadline auto-évaluation (SLA ${SLA.autoEvalDays} j)` },
-            { date: activeCycle.managerEvalDeadline, label: `Deadline évaluation manager (SLA ${SLA.managerEvalDays} j)` },
-            { date: activeCycle.calibrationDate ?? '—', label: 'Commission de calibration' },
-            { date: activeCycle.endDate, label: 'Restitution + signature collaborateur' },
+            { date: m8.activeCycle.startDate, label: 'Lancement campagne · communication all-hands' },
+            { date: m8.activeCycle.autoEvalDeadline, label: `Deadline auto-évaluation (SLA ${SLA.autoEvalDays} j)` },
+            { date: m8.activeCycle.managerEvalDeadline, label: `Deadline évaluation manager (SLA ${SLA.managerEvalDays} j)` },
+            { date: m8.activeCycle.calibrationDate ?? '—', label: 'Commission de calibration' },
+            { date: m8.activeCycle.endDate, label: 'Restitution + signature collaborateur' },
           ].map((j, i) => (
             <li key={i} className="flex items-center gap-3 rounded-lg bg-surface2/40 px-3 py-2">
               <span className="mono shrink-0 rounded-md bg-amber/15 px-2 py-0.5 text-[11px] font-bold text-amber-deep">{j.date}</span>
@@ -134,21 +133,22 @@ export function CampagnesPage() {
 
 /* ─────────────────────────────────────── LISTE ÉVALUATIONS */
 export function EvaluationsListPage() {
+  const m8 = useM8Data();
   const [q, setQ] = useState('');
   const [statF, setStatF] = useState<'all' | string>('all');
-  const list = useMemo(() => EVALUATIONS.filter((ev) => {
+  const list = useMemo(() => m8.evaluations.filter((ev) => {
     if (statF !== 'all' && ev.status !== statF) return false;
     const emp = employeeById(ev.employeeId);
     if (q && !`${emp ? employeeName(emp) : ''} ${ev.ref}`.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }), [q, statF]);
+  }), [q, statF, m8]);
 
   return (
     <div className="animate-fade-up space-y-5">
       <EvalSubNav />
       <div>
         <h1 className="text-2xl font-semibold text-ink">Toutes les évaluations</h1>
-        <p className="text-sm font-medium text-ink-500">{EVALUATIONS.length} évaluations sur cycle actif</p>
+        <p className="text-sm font-medium text-ink-500">{m8.evaluations.length} évaluations sur cycle actif</p>
       </div>
       <Card inset={false}>
         <div className="flex flex-wrap items-center gap-2 p-4 pb-2">
@@ -198,9 +198,10 @@ export function EvaluationsListPage() {
 
 /* ─────────────────────────────────────── 360° */
 export function Feedback360EvalPage() {
-  const submitted = FEEDBACK_360.filter((f) => f.status === 'submitted').length;
-  const invited = FEEDBACK_360.filter((f) => f.status === 'invited').length;
-  const inProgress = FEEDBACK_360.filter((f) => f.status === 'in_progress').length;
+  const m8 = useM8Data();
+  const submitted = m8.feedback360.filter((f) => f.status === 'submitted').length;
+  const invited = m8.feedback360.filter((f) => f.status === 'invited').length;
+  const inProgress = m8.feedback360.filter((f) => f.status === 'in_progress').length;
   return (
     <div className="animate-fade-up space-y-5">
       <EvalSubNav />
@@ -209,8 +210,8 @@ export function Feedback360EvalPage() {
         <p className="text-sm font-medium text-ink-500">Multi-acteurs : self · manager · pairs · directs · transverses</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Feedbacks envoyés" value={String(FEEDBACK_360.length)} unit="contributeurs" icon={Eye} />
-        <StatCard label="Soumis" value={String(submitted)} unit={`${Math.round((submitted/FEEDBACK_360.length)*100)} %`} icon={CheckCircle2} />
+        <StatCard label="Feedbacks envoyés" value={String(m8.feedback360.length)} unit="contributeurs" icon={Eye} />
+        <StatCard label="Soumis" value={String(submitted)} unit={`${Math.round((submitted/m8.feedback360.length)*100)} %`} icon={CheckCircle2} />
         <StatCard label="En cours" value={String(inProgress)} unit="à relancer" icon={Clock} tone="amber" />
         <StatCard label="Invités" value={String(invited)} unit="non démarré" icon={Eye} />
       </div>
@@ -230,6 +231,7 @@ export function Feedback360EvalPage() {
 
 /* ─────────────────────────────────────── CALIBRATION */
 export function CalibrationPage() {
+  const m8 = useM8Data();
   const { toast } = useToast();
   return (
     <div className="animate-fade-up space-y-5">
@@ -253,7 +255,7 @@ export function CalibrationPage() {
         </div>
       </Card>
       <div className="space-y-3">
-        {CALIBRATIONS.map((c) => {
+        {m8.calibrations.map((c) => {
           const fac = employeeById(c.facilitatorEmployeeId);
           return (
             <Card key={c.id}>
@@ -278,21 +280,22 @@ export function CalibrationPage() {
 
 /* ─────────────────────────────────────── PLANS DEV */
 export function PlansDevPage() {
+  const m8 = useM8Data();
   return (
     <div className="animate-fade-up space-y-5">
       <EvalSubNav />
       <div>
         <h1 className="text-2xl font-semibold text-ink">Plans de développement</h1>
-        <p className="text-sm font-medium text-ink-500">{DEV_PLANS.length} plans actifs · suite de l'évaluation · alimentent M9 compétences & M11 formation</p>
+        <p className="text-sm font-medium text-ink-500">{m8.devPlans.length} plans actifs · suite de l'évaluation · alimentent M9 compétences & M11 formation</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Plans actifs" value={String(DEV_PLANS.length)} unit="en cours" icon={TrendingUp} />
-        <StatCard label="Actions cumulées" value={String(DEV_PLANS.reduce((s, p) => s + p.actions.length, 0))} unit="à réaliser" icon={CheckCircle2} />
+        <StatCard label="Plans actifs" value={String(m8.devPlans.length)} unit="en cours" icon={TrendingUp} />
+        <StatCard label="Actions cumulées" value={String(m8.devPlans.reduce((s, p) => s + p.actions.length, 0))} unit="à réaliser" icon={CheckCircle2} />
         <StatCard label="Catégories disponibles" value={String(Object.keys(DEV_CATEGORIES).length)} unit="référentiel" icon={Settings} />
         <StatCard label="Échéance moyenne" value="2026-12" unit="fin d'année" icon={Clock} />
       </div>
       <div className="space-y-3">
-        {DEV_PLANS.map((p) => {
+        {m8.devPlans.map((p) => {
           const emp = employeeById(p.employeeId)!;
           return (
             <Card key={p.id}>
@@ -327,8 +330,9 @@ export function PlansDevPage() {
 
 /* ─────────────────────────────────────── 1-1 */
 export function OneOnOnePage() {
-  const planned = ONE_ON_ONES.filter((o) => o.status === 'planned');
-  const completed = ONE_ON_ONES.filter((o) => o.status === 'completed');
+  const m8 = useM8Data();
+  const planned = m8.oneOnOnes.filter((o) => o.status === 'planned');
+  const completed = m8.oneOnOnes.filter((o) => o.status === 'completed');
   return (
     <div className="animate-fade-up space-y-5">
       <EvalSubNav />
@@ -362,7 +366,7 @@ export function OneOnOnePage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {ONE_ON_ONES.slice(0, 20).map((o) => {
+              {m8.oneOnOnes.slice(0, 20).map((o) => {
                 const emp = employeeById(o.employeeId)!;
                 const mgr = employeeById(o.managerEmployeeId)!;
                 return (
@@ -385,11 +389,12 @@ export function OneOnOnePage() {
 
 /* ─────────────────────────────────────── REPORTING */
 export function ReportingEvalPage() {
+  const m8 = useM8Data();
   const { toast } = useToast();
-  const k = kpis();
+  const k = m8.kpis();
   const dist = SCORE_SCALE.map((s) => ({
     ...s,
-    count: EVALUATIONS.filter((ev) => ev.overallScore !== undefined && Math.round(ev.overallScore!) === s.value).length,
+    count: m8.evaluations.filter((ev) => ev.overallScore !== undefined && Math.round(ev.overallScore!) === s.value).length,
   }));
   return (
     <div className="animate-fade-up space-y-5">
@@ -411,7 +416,7 @@ export function ReportingEvalPage() {
         <CardHeader title="Distribution des scores" />
         <div className="space-y-1.5">
           {dist.map((d) => {
-            const pct = Math.round((d.count / Math.max(1, EVALUATIONS.length)) * 100);
+            const pct = Math.round((d.count / Math.max(1, m8.evaluations.length)) * 100);
             return (
               <div key={d.value} className="flex items-center gap-3">
                 <span className="w-24 shrink-0 text-[11px] font-bold uppercase tracking-wider text-ink-500">{d.value} · {d.label}</span>
@@ -427,7 +432,7 @@ export function ReportingEvalPage() {
         <div className="grid grid-cols-3 gap-2 max-w-md">
           {(Object.keys(BOX_LABELS) as Array<keyof typeof BOX_LABELS>).map((k) => {
             const meta = BOX_LABELS[k];
-            const c = EVALUATIONS.filter((ev) => {
+            const c = m8.evaluations.filter((ev) => {
               const pot = ev.potentialRating;
               const perf = ev.performanceRating;
               const row = pot === 'high' || pot === 'top' ? 'A' : pot === 'core' ? 'B' : 'C';
