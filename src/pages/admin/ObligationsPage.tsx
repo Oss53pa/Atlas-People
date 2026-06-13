@@ -3,12 +3,13 @@ import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { DPAE_RECORDS, LEGAL_OBLIGATIONS } from '../../lib/m4/mock';
+import { useM4AdminData } from '../../lib/m4/dataLive';
 import { DPAE_ORGANISMS, MANDATORY_REGISTERS, MANDATORY_DISPLAYS, EXTERNAL_CONTROLS } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
 export function ObligationsPage() {
+  const { dpae: DPAE_RECORDS, legalObligations: LEGAL_OBLIGATIONS } = useM4AdminData();
   const registers = LEGAL_OBLIGATIONS.filter(o => o.kind === 'register');
   const displays = LEGAL_OBLIGATIONS.filter(o => o.kind === 'display');
   const overdue = LEGAL_OBLIGATIONS.filter(o => o.status === 'overdue').length;

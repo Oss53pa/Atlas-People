@@ -3,25 +3,26 @@
  *
  * Tables seedées (supabase/seeds/m4_admin2_seed.sql) : m4_disciplinary_cases,
  * m4_representation_mandates, m4_representation_elections, m4_probation_periods,
- * m4_expat_files (+ m4_expat_documents / m4_expat_packages imbriqués).
- * `useM4AdminData()` est live-first (React Query) avec fallback mock, et expose
- * les datasets + helpers liés (disciplinaryOf, mandatesOf, probationOf).
+ * m4_expat_files (+ m4_expat_documents / m4_expat_packages imbriqués),
+ * m4_legal_dpae, m4_legal_registers_status + m4_legal_postings (obligations),
+ * m4_generated_documents (certificats). `useM4AdminData()` est live-first
+ * (React Query) avec fallback mock, et expose les datasets + helpers liés
+ * (disciplinaryOf, mandatesOf, probationOf).
  *
- * Les datasets dérivés du roster / référentiels (ALERTS, DPAE, CERTIFICATES,
- * LEGAL_OBLIGATIONS) restent calculés côté mock — ce ne sont pas des faits
- * indépendants mais des projections déterministes.
+ * Seul ALERTS reste calculé côté mock (projection déterministe des dates roster).
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase, isBackendConfigured } from '../supabase';
 import { useAuth } from '../auth';
 import { mockEmpId } from '../m1/roster';
 import {
-  DISCIPLINARY, MANDATES, ELECTIONS, PROBATIONS, EXPATS,
+  DISCIPLINARY, MANDATES, ELECTIONS, PROBATIONS, EXPATS, DPAE_RECORDS, LEGAL_OBLIGATIONS, CERTIFICATES,
 } from './mock';
 import type {
   DisciplinaryProcedure, DisciplinaryStatus, FauteLevel, SanctionType,
   RepresentationMandate, RepresentationElection, ProbationPeriod,
   ContractTypeCode, ProbationDecision, ExpatFile, ExpatPermitDoc,
+  DpaeRecord, LegalObligationItem, GeneratedCertificate, CertificateCategory,
 } from './types';
 
 const DEMO = '11111111-1111-1111-1111-111111111111';
@@ -43,6 +44,9 @@ interface M4AdminRaw {
   elections: RepresentationElection[];
   probations: ProbationPeriod[];
   expats: ExpatFile[];
+  dpae: DpaeRecord[];
+  legalObligations: LegalObligationItem[];
+  certificates: GeneratedCertificate[];
 }
 
 function useM4AdminRaw(tenantId?: string) {
@@ -52,7 +56,7 @@ function useM4AdminRaw(tenantId?: string) {
     queryFn: async (): Promise<M4AdminRaw | null> => {
       if (!supabase) return null;
       const ap = supabase.schema('atlas_people');
-      const [disc, mnd, elec, prob, exf, exd, exp] = await Promise.all([
+      const [disc, mnd, elec, prob, exf, exd, exp, dpae, reg, post, gdoc] = await Promise.all([
         ap.from('m4_disciplinary_cases').select('*').eq('tenant_id', tid).order('opened_at', { ascending: false }),
         ap.from('m4_representation_mandates').select('*').eq('tenant_id', tid).order('start_date', { ascending: false }),
         ap.from('m4_representation_elections').select('*').eq('tenant_id', tid).order('scrutin_date', { ascending: false }),
@@ -60,8 +64,12 @@ function useM4AdminRaw(tenantId?: string) {
         ap.from('m4_expat_files').select('*').eq('tenant_id', tid).order('mission_start', { ascending: false }),
         ap.from('m4_expat_documents').select('*').eq('tenant_id', tid),
         ap.from('m4_expat_packages').select('*').eq('tenant_id', tid),
+        ap.from('m4_legal_dpae').select('*').eq('tenant_id', tid).order('hire_date'),
+        ap.from('m4_legal_registers_status').select('*').eq('tenant_id', tid).order('register_code'),
+        ap.from('m4_legal_postings').select('*').eq('tenant_id', tid).order('document_code'),
+        ap.from('m4_generated_documents').select('*').eq('tenant_id', tid).order('generated_at', { ascending: false }),
       ]);
-      for (const r of [disc, mnd, elec, prob, exf, exd, exp]) if (r.error) throw r.error;
+      for (const r of [disc, mnd, elec, prob, exf, exd, exp, dpae, reg, post, gdoc]) if (r.error) throw r.error;
 
       const docsByExpat = new Map<string, Record<string, unknown>[]>();
       for (const d of (exd.data ?? []) as Record<string, unknown>[]) {
@@ -155,6 +163,46 @@ function useM4AdminRaw(tenantId?: string) {
             surSalairePct: x.sur_salaire_pct == null ? undefined : Number(x.sur_salaire_pct),
           };
         }),
+        dpae: ((dpae.data ?? []) as Record<string, unknown>[]).map((d): DpaeRecord => ({
+          id: (d.id as string),
+          employeeId: d.employee_id ? mockEmpId(d.employee_id as string) : '',
+          countryCode: (d.country_code as string) ?? '',
+          organism: (d.organisme as string) ?? '',
+          filedAt: day(d.submitted_at) ?? day(d.hire_date),
+          receiptRef: (d.receipt_number as string) ?? undefined,
+          status: (d.status as string) === 'receipt' ? 'received' : (d.status as string) === 'submitted' ? 'filed' : 'pending',
+          deadline: day(d.hire_date) ?? '',
+        })),
+        legalObligations: [
+          ...((reg.data ?? []) as Record<string, unknown>[]).map((r): LegalObligationItem => ({
+            id: (r.id as string),
+            kind: 'register',
+            label: (r.label as string) ?? '',
+            scope: 'Atlas Studio CI SARL',
+            status: (r.up_to_date as boolean) ? 'ok' : 'due',
+            lastUpdate: day(r.last_updated),
+            nextDue: '2026-12-31',
+          })),
+          ...((post.data ?? []) as Record<string, unknown>[]).map((p): LegalObligationItem => ({
+            id: (p.id as string),
+            kind: 'display',
+            label: (p.document_label as string) ?? '',
+            scope: (p.site as string) ?? '',
+            status: (p.status as string) === 'ok' ? 'ok' : (p.status as string) === 'attention' ? 'due' : 'overdue',
+            lastUpdate: day(p.displayed_at),
+          })),
+        ],
+        certificates: ((gdoc.data ?? []) as Record<string, unknown>[]).map((c): GeneratedCertificate => ({
+          id: (c.id as string),
+          ref: (c.document_number as string) ?? '',
+          employeeId: c.employee_id ? mockEmpId(c.employee_id as string) : '',
+          typeCode: (c.recipient as string) ?? '',
+          typeLabel: (c.purpose as string) ?? '',
+          category: ((c.category as string) ?? 'attestation') as CertificateCategory,
+          generatedAt: day(c.generated_at) ?? '',
+          status: c.revoked ? 'draft' : c.signed_at ? 'delivered' : 'generated',
+          signedBy: c.signed_by ? mockEmpId(c.signed_by as string) : undefined,
+        })),
       };
     },
     enabled: isBackendConfigured,
@@ -176,6 +224,7 @@ export function useM4AdminData(): M4AdminData {
   const live = isBackendConfigured && !!raw && raw.probations.length > 0;
   const ds: M4AdminRaw = live && raw ? raw : {
     disciplinary: DISCIPLINARY, mandates: MANDATES, elections: ELECTIONS, probations: PROBATIONS, expats: EXPATS,
+    dpae: DPAE_RECORDS, legalObligations: LEGAL_OBLIGATIONS, certificates: CERTIFICATES,
   };
   return {
     live,

@@ -1,8 +1,13 @@
 // Génère supabase/seeds/m4_admin2_seed.sql depuis les datasets mock M4 admin
 // (disciplinaire, mandats, élections, période d'essai). Usage : npx tsx scripts/gen-m4-admin2-seed.mjs
 // Purge + reseed (tables vides). FK employé par uuid (e1000001-…-NN).
-import { DISCIPLINARY, MANDATES, ELECTIONS, PROBATIONS, EXPATS } from '../src/lib/m4/mock.ts';
+import { DISCIPLINARY, MANDATES, ELECTIONS, PROBATIONS, EXPATS, DPAE_RECORDS, CERTIFICATES } from '../src/lib/m4/mock.ts';
+import { MANDATORY_REGISTERS, MANDATORY_DISPLAYS } from '../src/lib/m4/referentiels.ts';
+import { EMPLOYEES } from '../src/data/mock.ts';
 import { writeFileSync } from 'node:fs';
+
+const hireOf = new Map(EMPLOYEES.map((e) => [e.id, e.hireDate]));
+const pad2 = (i) => String(i).padStart(2, '0');
 
 const TENANT = '11111111-1111-1111-1111-111111111111';
 const emp = (eid) => eid == null ? null : `e1000001-0000-0000-0000-${String(parseInt(String(eid).slice(1), 10)).padStart(12, '0')}`;
@@ -50,12 +55,27 @@ const expatDocs = EXPATS.flatMap((x) => [
 sql += `insert into atlas_people.m4_expat_documents (id, tenant_id, expat_id, doc_type, label, ref, expiry, status)\nvalues\n${expatDocs.map((r) => `(gen_random_uuid(), '${TENANT}', '${expatId(r.eid)}', ${q(r.type)}, ${q(r.d.label)}, ${q(r.d.ref)}, ${q(r.d.expiry)}, 'valid')`).join(',\n')};\n`;
 sql += `insert into atlas_people.m4_expat_packages (id, tenant_id, expat_id, lines)\nvalues\n${EXPATS.map((x) => `(gen_random_uuid(), '${TENANT}', '${expatId(x.employeeId)}', ${js(x.package)})`).join(',\n')};\n\n`;
 
+// ── Obligations légales : DPAE + registres + affichages ──────
+sql += `delete from atlas_people.m4_legal_dpae where tenant_id='${TENANT}';\n`;
+sql += `insert into atlas_people.m4_legal_dpae (id, tenant_id, employee_id, country_code, organisme, hire_date, status, receipt_number, payload)\nvalues\n${DPAE_RECORDS.map((d) => `(gen_random_uuid(), '${TENANT}', ${q(emp(d.employeeId))}, ${q(d.countryCode)}, ${q(d.organism)}, ${q(hireOf.get(d.employeeId) ?? d.filedAt)}, 'receipt', ${q(d.receiptRef)}, '{}'::jsonb)`).join(',\n')};\n`;
+sql += `delete from atlas_people.m4_legal_registers_status where tenant_id='${TENANT}';\n`;
+sql += `insert into atlas_people.m4_legal_registers_status (id, tenant_id, register_code, label, up_to_date, last_updated, retention_years)\nvalues\n${MANDATORY_REGISTERS.map((r, i) => `(gen_random_uuid(), '${TENANT}', ${q('REG-' + pad2(i))}, ${q(r)}, ${i % 5 !== 0}, '2026-05-15', 5)`).join(',\n')};\n`;
+sql += `delete from atlas_people.m4_legal_postings where tenant_id='${TENANT}';\n`;
+sql += `insert into atlas_people.m4_legal_postings (id, tenant_id, site, document_code, document_label, displayed_at, status, last_verification)\nvalues\n${MANDATORY_DISPLAYS.map((d, i) => `(gen_random_uuid(), '${TENANT}', 'Tous établissements', ${q('DISP-' + pad2(i))}, ${q(d)}, '2026-01-10', ${q(i === 8 ? 'missing' : 'ok')}, '2026-01-10')`).join(',\n')};\n\n`;
+
+// ── Certificats / documents générés ──────────────────────────
+sql += `delete from atlas_people.m4_generated_documents where tenant_id='${TENANT}';\n`;
+sql += `insert into atlas_people.m4_generated_documents (id, tenant_id, document_number, employee_id, category, purpose, recipient, generated_at, generation_method, signed_at, revoked)\nvalues\n${CERTIFICATES.map((c) => `(gen_random_uuid(), '${TENANT}', ${q(c.ref)}, ${q(emp(c.employeeId))}, ${q(c.category)}, ${q(c.typeLabel)}, ${q(c.typeCode)}, ${q(c.generatedAt)}, 'automatic', ${q(['signed', 'delivered'].includes(c.status) ? c.generatedAt : null)}, false)`).join(',\n')};\n\n`;
+
 sql += `select (select count(*) from atlas_people.m4_disciplinary_cases where tenant_id='${TENANT}') as disc,
        (select count(*) from atlas_people.m4_representation_mandates where tenant_id='${TENANT}') as mandates,
        (select count(*) from atlas_people.m4_representation_elections where tenant_id='${TENANT}') as elections,
        (select count(*) from atlas_people.m4_probation_periods where tenant_id='${TENANT}') as probations,
        (select count(*) from atlas_people.m4_expat_files where tenant_id='${TENANT}') as expats,
-       (select count(*) from atlas_people.m4_expat_documents where tenant_id='${TENANT}') as expat_docs;\n`;
+       (select count(*) from atlas_people.m4_legal_dpae where tenant_id='${TENANT}') as dpae,
+       (select count(*) from atlas_people.m4_legal_registers_status where tenant_id='${TENANT}') as registers,
+       (select count(*) from atlas_people.m4_legal_postings where tenant_id='${TENANT}') as postings,
+       (select count(*) from atlas_people.m4_generated_documents where tenant_id='${TENANT}') as certificates;\n`;
 
 writeFileSync(new URL('../supabase/seeds/m4_admin2_seed.sql', import.meta.url), sql);
-console.log(`OK — disciplinary=${DISCIPLINARY.length} mandates=${MANDATES.length} elections=${ELECTIONS.length} probations=${PROBATIONS.length} expats=${EXPATS.length}`);
+console.log(`OK — disc=${DISCIPLINARY.length} mandates=${MANDATES.length} elections=${ELECTIONS.length} probations=${PROBATIONS.length} expats=${EXPATS.length} dpae=${DPAE_RECORDS.length} registers=${MANDATORY_REGISTERS.length} displays=${MANDATORY_DISPLAYS.length} certs=${CERTIFICATES.length}`);

@@ -7,7 +7,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { CERTIFICATES } from '../../lib/m4/mock';
+import { useM4AdminData } from '../../lib/m4/dataLive';
 import { CERTIFICATE_TYPES } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import type { CertificateCategory } from '../../lib/m4/types';
@@ -22,6 +22,7 @@ export function CertificatsPage() {
   const [cat, setCat] = useState<'all' | CertificateCategory>('all');
   const [pickedType, setPickedType] = useState<string | null>(null);
   const roster = useRoster();
+  const { certificates: CERTIFICATES } = useM4AdminData();
 
   const types = useMemo(() => CERTIFICATE_TYPES.filter((t) => {
     if (cat !== 'all' && t.category !== cat) return false;

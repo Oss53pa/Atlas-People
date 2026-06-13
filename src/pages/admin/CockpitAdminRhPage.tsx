@@ -9,7 +9,8 @@ import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { ALERTS, CONTRACTS, DISCIPLINARY, EXPATS, MANDATES, cockpitKPIs } from '../../lib/m4/mock';
+import { ALERTS, CONTRACTS, cockpitKPIs } from '../../lib/m4/mock';
+import { useM4AdminData } from '../../lib/m4/dataLive';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import { useRoster } from '../../lib/m1/roster';
@@ -19,6 +20,7 @@ const KIND_ICON = { cdd: FileSignature, probation: Hourglass, expat: Globe2, man
 export function CockpitAdminRhPage() {
   const kpi = useMemo(() => cockpitKPIs(), []);
   const roster = useRoster();
+  const { disciplinary: DISCIPLINARY, expats: EXPATS, mandates: MANDATES } = useM4AdminData();
   const [filter, setFilter] = useState<'all' | 'danger' | 'warn'>('all');
   const alerts = useMemo(() => (filter === 'all' ? ALERTS : ALERTS.filter((a) => a.severity === filter)), [filter]);
 
