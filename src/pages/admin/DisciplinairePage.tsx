@@ -7,12 +7,13 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { DISCIPLINARY } from '../../lib/m4/mock';
+import { useM4AdminData } from '../../lib/m4/dataLive';
 import { SANCTION_SCALE, DISCIPLINARY_PROCEDURE_STEPS, DISCIPLINARY_RECOURS, FAUTE_META } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 
 export function DisciplinairePage() {
   const { toast } = useToast();
+  const { disciplinary: DISCIPLINARY } = useM4AdminData();
 
   return (
     <div className="animate-fade-up space-y-5">

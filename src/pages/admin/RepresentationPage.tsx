@@ -6,11 +6,12 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { MANDATES, ELECTIONS } from '../../lib/m4/mock';
+import { useM4AdminData } from '../../lib/m4/dataLive';
 import { MANDATE_TYPES, ELECTION_PHASES } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 
 export function RepresentationPage() {
+  const { mandates: MANDATES, elections: ELECTIONS } = useM4AdminData();
   return (
     <div className="animate-fade-up space-y-5">
       <AdminRhSubNav />

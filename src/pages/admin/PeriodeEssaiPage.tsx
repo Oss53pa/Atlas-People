@@ -6,13 +6,15 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { PROBATIONS, ALERTS } from '../../lib/m4/mock';
+import { ALERTS } from '../../lib/m4/mock';
+import { useM4AdminData } from '../../lib/m4/dataLive';
 import { PROBATION_LEGAL, PROBATION_ALERT_THRESHOLDS } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 
 export function PeriodeEssaiPage() {
   const roster = useRoster();
+  const { probations: PROBATIONS } = useM4AdminData();
   const inProgress = PROBATIONS.filter((p) => p.decision === 'pending');
   const confirmed = PROBATIONS.filter((p) => p.decision !== 'pending');
   const probationAlerts = ALERTS.filter((a) => a.kind === 'probation');
