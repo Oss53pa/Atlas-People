@@ -2,25 +2,26 @@
  * M4 Admin RH (2e lot) — lecture live mappée sur les types métier du module.
  *
  * Tables seedées (supabase/seeds/m4_admin2_seed.sql) : m4_disciplinary_cases,
- * m4_representation_mandates, m4_representation_elections, m4_probation_periods.
+ * m4_representation_mandates, m4_representation_elections, m4_probation_periods,
+ * m4_expat_files (+ m4_expat_documents / m4_expat_packages imbriqués).
  * `useM4AdminData()` est live-first (React Query) avec fallback mock, et expose
  * les datasets + helpers liés (disciplinaryOf, mandatesOf, probationOf).
  *
  * Les datasets dérivés du roster / référentiels (ALERTS, DPAE, CERTIFICATES,
- * LEGAL_OBLIGATIONS, EXPATS nested) restent calculés côté mock — ce ne sont pas
- * des faits indépendants mais des projections déterministes.
+ * LEGAL_OBLIGATIONS) restent calculés côté mock — ce ne sont pas des faits
+ * indépendants mais des projections déterministes.
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase, isBackendConfigured } from '../supabase';
 import { useAuth } from '../auth';
 import { mockEmpId } from '../m1/roster';
 import {
-  DISCIPLINARY, MANDATES, ELECTIONS, PROBATIONS,
+  DISCIPLINARY, MANDATES, ELECTIONS, PROBATIONS, EXPATS,
 } from './mock';
 import type {
   DisciplinaryProcedure, DisciplinaryStatus, FauteLevel, SanctionType,
   RepresentationMandate, RepresentationElection, ProbationPeriod,
-  ContractTypeCode, ProbationDecision,
+  ContractTypeCode, ProbationDecision, ExpatFile, ExpatPermitDoc,
 } from './types';
 
 const DEMO = '11111111-1111-1111-1111-111111111111';
@@ -41,6 +42,7 @@ interface M4AdminRaw {
   mandates: RepresentationMandate[];
   elections: RepresentationElection[];
   probations: ProbationPeriod[];
+  expats: ExpatFile[];
 }
 
 function useM4AdminRaw(tenantId?: string) {
@@ -50,13 +52,28 @@ function useM4AdminRaw(tenantId?: string) {
     queryFn: async (): Promise<M4AdminRaw | null> => {
       if (!supabase) return null;
       const ap = supabase.schema('atlas_people');
-      const [disc, mnd, elec, prob] = await Promise.all([
+      const [disc, mnd, elec, prob, exf, exd, exp] = await Promise.all([
         ap.from('m4_disciplinary_cases').select('*').eq('tenant_id', tid).order('opened_at', { ascending: false }),
         ap.from('m4_representation_mandates').select('*').eq('tenant_id', tid).order('start_date', { ascending: false }),
         ap.from('m4_representation_elections').select('*').eq('tenant_id', tid).order('scrutin_date', { ascending: false }),
         ap.from('m4_probation_periods').select('*').eq('tenant_id', tid).order('start_date', { ascending: false }),
+        ap.from('m4_expat_files').select('*').eq('tenant_id', tid).order('mission_start', { ascending: false }),
+        ap.from('m4_expat_documents').select('*').eq('tenant_id', tid),
+        ap.from('m4_expat_packages').select('*').eq('tenant_id', tid),
       ]);
-      for (const r of [disc, mnd, elec, prob]) if (r.error) throw r.error;
+      for (const r of [disc, mnd, elec, prob, exf, exd, exp]) if (r.error) throw r.error;
+
+      const docsByExpat = new Map<string, Record<string, unknown>[]>();
+      for (const d of (exd.data ?? []) as Record<string, unknown>[]) {
+        const k = d.expat_id as string;
+        (docsByExpat.get(k) ?? docsByExpat.set(k, []).get(k)!).push(d);
+      }
+      const pkgByExpat = new Map<string, Record<string, unknown>>();
+      for (const p of (exp.data ?? []) as Record<string, unknown>[]) pkgByExpat.set(p.expat_id as string, p);
+      const permitOf = (docs: Record<string, unknown>[], type: string): ExpatPermitDoc | undefined => {
+        const d = docs.find((x) => x.doc_type === type);
+        return d ? { label: (d.label as string) ?? '', ref: (d.ref as string) ?? undefined, expiry: day(d.expiry) ?? '' } : undefined;
+      };
 
       return {
         disciplinary: ((disc.data ?? []) as Record<string, unknown>[]).map((d): DisciplinaryProcedure => ({
@@ -119,6 +136,25 @@ function useM4AdminRaw(tenantId?: string) {
             decisionNotifiedAt: day(p.decision_notified_at),
           };
         }),
+        expats: ((exf.data ?? []) as Record<string, unknown>[]).map((x): ExpatFile => {
+          const docs = docsByExpat.get(x.id as string) ?? [];
+          const pkg = pkgByExpat.get(x.id as string);
+          const lines = (pkg?.lines as { label: string; value: string }[]) ?? [];
+          return {
+            id: (x.id as string),
+            employeeId: x.employee_id ? mockEmpId(x.employee_id as string) : '',
+            originCountry: (x.origin_country as string) ?? '',
+            hostCountry: (x.host_country as string) ?? '',
+            missionType: (x.mission_type as string) ?? '',
+            missionStart: day(x.mission_start) ?? '',
+            missionEnd: day(x.mission_end) ?? '',
+            visa: permitOf(docs, 'visa'),
+            workPermit: permitOf(docs, 'work_permit'),
+            residenceCard: permitOf(docs, 'residence_card'),
+            package: lines,
+            surSalairePct: x.sur_salaire_pct == null ? undefined : Number(x.sur_salaire_pct),
+          };
+        }),
       };
     },
     enabled: isBackendConfigured,
@@ -139,7 +175,7 @@ export function useM4AdminData(): M4AdminData {
   const { data: raw } = useM4AdminRaw(tenantId ?? undefined);
   const live = isBackendConfigured && !!raw && raw.probations.length > 0;
   const ds: M4AdminRaw = live && raw ? raw : {
-    disciplinary: DISCIPLINARY, mandates: MANDATES, elections: ELECTIONS, probations: PROBATIONS,
+    disciplinary: DISCIPLINARY, mandates: MANDATES, elections: ELECTIONS, probations: PROBATIONS, expats: EXPATS,
   };
   return {
     live,

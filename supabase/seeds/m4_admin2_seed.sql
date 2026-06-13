@@ -37,7 +37,24 @@ values
 (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'e1000001-0000-0000-0000-000000000013', 'CDI'::atlas_people.m4_contract_type, 'Cadre', 6, '2020-07-30', '2021-01-26', 'confirmed'::atlas_people.m4_probation_decision, '2021-01-23'),
 (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'e1000001-0000-0000-0000-000000000014', 'CDI'::atlas_people.m4_contract_type, 'Cadre', 3, '2021-11-11', '2022-02-09', 'confirmed'::atlas_people.m4_probation_decision, '2022-02-06');
 
+delete from atlas_people.m4_expat_packages where tenant_id='11111111-1111-1111-1111-111111111111';
+delete from atlas_people.m4_expat_documents where tenant_id='11111111-1111-1111-1111-111111111111';
+delete from atlas_people.m4_expat_files where tenant_id='11111111-1111-1111-1111-111111111111';
+insert into atlas_people.m4_expat_files (id, tenant_id, employee_id, category, origin_country, host_country, mission_type, mission_start, mission_end, sur_salaire_pct, tax_equalization)
+values
+('44444444-0000-0000-0004-000000000010', '11111111-1111-1111-1111-111111111111', 'e1000001-0000-0000-0000-000000000010', 'Contrat local', 'CM', 'CI', 'Contrat local', '2024-06-01', '2027-05-31', 25, false);
+insert into atlas_people.m4_expat_documents (id, tenant_id, expat_id, doc_type, label, ref, expiry, status)
+values
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '44444444-0000-0000-0004-000000000010', 'visa', 'Visa de travail D-1', null, '2026-06-30', 'valid'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '44444444-0000-0000-0004-000000000010', 'work_permit', 'Permis de travail', 'PT-2024-1245', '2026-12-31', 'valid'),
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '44444444-0000-0000-0004-000000000010', 'residence_card', 'Carte de séjour', null, '2027-05-31', 'valid');
+insert into atlas_people.m4_expat_packages (id, tenant_id, expat_id, lines)
+values
+(gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '44444444-0000-0000-0004-000000000010', '[{"label":"Logement de fonction","value":"Villa Cocody (1 500 000 FCFA / mois)"},{"label":"Scolarité enfants","value":"Lycée Français A. Camus"},{"label":"Voyages annuels","value":"2 A/R Cameroun / personne"},{"label":"Assurance santé internationale","value":"MSH International Premium"}]'::jsonb);
+
 select (select count(*) from atlas_people.m4_disciplinary_cases where tenant_id='11111111-1111-1111-1111-111111111111') as disc,
        (select count(*) from atlas_people.m4_representation_mandates where tenant_id='11111111-1111-1111-1111-111111111111') as mandates,
        (select count(*) from atlas_people.m4_representation_elections where tenant_id='11111111-1111-1111-1111-111111111111') as elections,
-       (select count(*) from atlas_people.m4_probation_periods where tenant_id='11111111-1111-1111-1111-111111111111') as probations;
+       (select count(*) from atlas_people.m4_probation_periods where tenant_id='11111111-1111-1111-1111-111111111111') as probations,
+       (select count(*) from atlas_people.m4_expat_files where tenant_id='11111111-1111-1111-1111-111111111111') as expats,
+       (select count(*) from atlas_people.m4_expat_documents where tenant_id='11111111-1111-1111-1111-111111111111') as expat_docs;

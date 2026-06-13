@@ -1,7 +1,7 @@
 // Génère supabase/seeds/m4_admin2_seed.sql depuis les datasets mock M4 admin
 // (disciplinaire, mandats, élections, période d'essai). Usage : npx tsx scripts/gen-m4-admin2-seed.mjs
 // Purge + reseed (tables vides). FK employé par uuid (e1000001-…-NN).
-import { DISCIPLINARY, MANDATES, ELECTIONS, PROBATIONS } from '../src/lib/m4/mock.ts';
+import { DISCIPLINARY, MANDATES, ELECTIONS, PROBATIONS, EXPATS } from '../src/lib/m4/mock.ts';
 import { writeFileSync } from 'node:fs';
 
 const TENANT = '11111111-1111-1111-1111-111111111111';
@@ -36,10 +36,26 @@ sql += `insert into atlas_people.m4_representation_elections (id, tenant_id, ins
 sql += `delete from atlas_people.m4_probation_periods where tenant_id='${TENANT}';\n`;
 sql += `insert into atlas_people.m4_probation_periods (id, tenant_id, employee_id, contract_type, category, duration_months, start_date, end_date, decision, decision_notified_at)\nvalues\n${PROBATIONS.map((p) => `(gen_random_uuid(), '${TENANT}', ${q(emp(p.employeeId))}, ${q(CT_MAP(p.contractType))}::atlas_people.m4_contract_type, ${q(p.category)}, ${Math.max(1, Math.round(p.durationMonths))}, ${q(p.startDate)}, ${q(p.endDate)}, ${q(DEC_MAP[p.decision] ?? 'pending')}::atlas_people.m4_probation_decision, ${q(p.decisionNotifiedAt)})`).join(',\n')};\n\n`;
 
+// ── Expatriés (fichier + documents + package, id fichier déterministe) ──
+const expatId = (eid) => `44444444-0000-0000-0004-${String(parseInt(String(eid).slice(1), 10)).padStart(12, '0')}`;
+sql += `delete from atlas_people.m4_expat_packages where tenant_id='${TENANT}';\n`;
+sql += `delete from atlas_people.m4_expat_documents where tenant_id='${TENANT}';\n`;
+sql += `delete from atlas_people.m4_expat_files where tenant_id='${TENANT}';\n`;
+sql += `insert into atlas_people.m4_expat_files (id, tenant_id, employee_id, category, origin_country, host_country, mission_type, mission_start, mission_end, sur_salaire_pct, tax_equalization)\nvalues\n${EXPATS.map((x) => `('${expatId(x.employeeId)}', '${TENANT}', ${q(emp(x.employeeId))}, ${q(x.missionType)}, ${q(x.originCountry)}, ${q(x.hostCountry)}, ${q(x.missionType)}, ${q(x.missionStart)}, ${q(x.missionEnd)}, ${qn(x.surSalairePct)}, false)`).join(',\n')};\n`;
+const expatDocs = EXPATS.flatMap((x) => [
+  x.visa && { eid: x.employeeId, type: 'visa', d: x.visa },
+  x.workPermit && { eid: x.employeeId, type: 'work_permit', d: x.workPermit },
+  x.residenceCard && { eid: x.employeeId, type: 'residence_card', d: x.residenceCard },
+].filter(Boolean));
+sql += `insert into atlas_people.m4_expat_documents (id, tenant_id, expat_id, doc_type, label, ref, expiry, status)\nvalues\n${expatDocs.map((r) => `(gen_random_uuid(), '${TENANT}', '${expatId(r.eid)}', ${q(r.type)}, ${q(r.d.label)}, ${q(r.d.ref)}, ${q(r.d.expiry)}, 'valid')`).join(',\n')};\n`;
+sql += `insert into atlas_people.m4_expat_packages (id, tenant_id, expat_id, lines)\nvalues\n${EXPATS.map((x) => `(gen_random_uuid(), '${TENANT}', '${expatId(x.employeeId)}', ${js(x.package)})`).join(',\n')};\n\n`;
+
 sql += `select (select count(*) from atlas_people.m4_disciplinary_cases where tenant_id='${TENANT}') as disc,
        (select count(*) from atlas_people.m4_representation_mandates where tenant_id='${TENANT}') as mandates,
        (select count(*) from atlas_people.m4_representation_elections where tenant_id='${TENANT}') as elections,
-       (select count(*) from atlas_people.m4_probation_periods where tenant_id='${TENANT}') as probations;\n`;
+       (select count(*) from atlas_people.m4_probation_periods where tenant_id='${TENANT}') as probations,
+       (select count(*) from atlas_people.m4_expat_files where tenant_id='${TENANT}') as expats,
+       (select count(*) from atlas_people.m4_expat_documents where tenant_id='${TENANT}') as expat_docs;\n`;
 
 writeFileSync(new URL('../supabase/seeds/m4_admin2_seed.sql', import.meta.url), sql);
-console.log(`OK — disciplinary=${DISCIPLINARY.length} mandates=${MANDATES.length} elections=${ELECTIONS.length} probations=${PROBATIONS.length}`);
+console.log(`OK — disciplinary=${DISCIPLINARY.length} mandates=${MANDATES.length} elections=${ELECTIONS.length} probations=${PROBATIONS.length} expats=${EXPATS.length}`);

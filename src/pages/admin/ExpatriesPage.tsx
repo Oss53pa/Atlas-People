@@ -7,12 +7,14 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { EXPATS, ALERTS } from '../../lib/m4/mock';
+import { ALERTS } from '../../lib/m4/mock';
+import { useM4AdminData } from '../../lib/m4/dataLive';
 import { EXPAT_MOBILITY_TYPES, EXPAT_PACKAGE_COMPONENTS, EXPAT_RENEWAL_THRESHOLDS } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 
 export function ExpatriesPage() {
   const { toast } = useToast();
+  const { expats: EXPATS } = useM4AdminData();
   const expatAlerts = ALERTS.filter(a => a.kind === 'expat');
 
   return (
