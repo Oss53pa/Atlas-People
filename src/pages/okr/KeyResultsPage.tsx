@@ -4,43 +4,44 @@ import { Card } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
-import { KEY_RESULTS, objectiveById } from '../../lib/m7/mock';
+import { useM7Data } from '../../lib/m7/dataLive';
 import { CONFIDENCE_META, KR_TYPE_META, LEVEL_META } from '../../lib/m7/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
-import type { ConfidenceLevel, KrType } from '../../lib/m7/types';
+import type { ConfidenceLevel, KrType, KeyResult } from '../../lib/m7/types';
 import { cn } from '../../lib/cn';
 
-function krProgress(k: typeof KEY_RESULTS[number]) {
+function krProgress(k: KeyResult) {
   return Math.max(0, Math.min(1, (k.currentValue - k.startValue) / Math.max(0.0001, k.targetValue - k.startValue)));
 }
 
 export function KeyResultsPage() {
+  const m7 = useM7Data();
   const [q, setQ] = useState('');
   const [confF, setConfF] = useState<'all' | ConfidenceLevel>('all');
   const [typeF, setTypeF] = useState<'all' | KrType>('all');
 
-  const list = useMemo(() => KEY_RESULTS.filter((k) => {
-    const o = objectiveById(k.objectiveId);
+  const list = useMemo(() => m7.keyResults.filter((k) => {
+    const o = m7.objectiveById(k.objectiveId);
     if (!o || o.status !== 'active') return false;
     if (confF !== 'all' && k.confidence !== confF) return false;
     if (typeF !== 'all' && k.type !== typeF) return false;
     if (q && !`${k.title} ${o.title}`.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }), [q, confF, typeF]);
+  }), [q, confF, typeF, m7]);
 
   return (
     <div className="animate-fade-up space-y-5">
       <OkrSubNav />
       <div>
         <h1 className="text-2xl font-semibold text-ink">Key Results</h1>
-        <p className="text-sm font-medium text-ink-500">{KEY_RESULTS.length} KRs sur cycle actif · mesurables · datés · pondérés</p>
+        <p className="text-sm font-medium text-ink-500">{m7.keyResults.length} KRs sur cycle actif · mesurables · datés · pondérés</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="KRs actifs" value={String(KEY_RESULTS.length)} unit="suivis" icon={Target} />
-        <StatCard label="On track" value={String(KEY_RESULTS.filter(k=>k.confidence==='green').length)} unit="green" icon={Target} />
-        <StatCard label="À risque" value={String(KEY_RESULTS.filter(k=>k.confidence==='amber').length)} unit="amber" icon={Target} tone="amber" />
-        <StatCard label="En retard" value={String(KEY_RESULTS.filter(k=>k.confidence==='red').length)} unit="red" icon={Target} />
+        <StatCard label="KRs actifs" value={String(m7.keyResults.length)} unit="suivis" icon={Target} />
+        <StatCard label="On track" value={String(m7.keyResults.filter(k=>k.confidence==='green').length)} unit="green" icon={Target} />
+        <StatCard label="À risque" value={String(m7.keyResults.filter(k=>k.confidence==='amber').length)} unit="amber" icon={Target} tone="amber" />
+        <StatCard label="En retard" value={String(m7.keyResults.filter(k=>k.confidence==='red').length)} unit="red" icon={Target} />
       </div>
 
       <Card inset={false}>
@@ -59,7 +60,7 @@ export function KeyResultsPage() {
               {Object.entries(KR_TYPE_META).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
-          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{KEY_RESULTS.length}</span>
+          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{m7.keyResults.length}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
@@ -73,7 +74,7 @@ export function KeyResultsPage() {
             </tr></thead>
             <tbody className="divide-y divide-line">
               {list.map((k) => {
-                const o = objectiveById(k.objectiveId)!;
+                const o = m7.objectiveById(k.objectiveId)!;
                 const owner = k.ownerEmployeeId ? employeeById(k.ownerEmployeeId) : null;
                 const conf = CONFIDENCE_META[k.confidence];
                 const prog = krProgress(k);

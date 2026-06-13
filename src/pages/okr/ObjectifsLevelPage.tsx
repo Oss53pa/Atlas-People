@@ -7,7 +7,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
-import { OBJECTIVES, activeCycle, krsByObjective, objectiveById } from '../../lib/m7/mock';
+import { useM7Data } from '../../lib/m7/dataLive';
 import { LEVEL_META, CONFIDENCE_META, KR_TYPE_META } from '../../lib/m7/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import type { OkrLevel, KeyResult } from '../../lib/m7/types';
@@ -21,8 +21,9 @@ function fmtKr(k: KeyResult) {
 }
 
 export function ObjectifsLevelPage({ level }: { level: OkrLevel }) {
+  const m7 = useM7Data();
   const { toast } = useToast();
-  const items = useMemo(() => OBJECTIVES.filter((o) => o.level === level && o.cycleId === activeCycle.id), [level]);
+  const items = useMemo(() => m7.objectives.filter((o) => o.level === level && o.cycleId === m7.activeCycle.id), [level, m7]);
   const meta = LEVEL_META[level];
   const Icon = level === 'company' ? Building2 : level === 'individual' ? User : Users;
   const avgProg = items.length ? Math.round((items.reduce((s, o) => s + o.progress, 0) / items.length) * 100) : 0;
@@ -33,7 +34,7 @@ export function ObjectifsLevelPage({ level }: { level: OkrLevel }) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Objectifs · {meta.label}</h1>
-          <p className="text-sm font-medium text-ink-500">{items.length} OKRs sur cycle <b className="text-amber-deep">{activeCycle.label}</b></p>
+          <p className="text-sm font-medium text-ink-500">{items.length} OKRs sur cycle <b className="text-amber-deep">{m7.activeCycle.label}</b></p>
         </div>
         <Button size="sm" onClick={() => toast({ variant: 'info', title: 'Objectif', description: `Nouveau OKR ${meta.label}` })}>+ Nouveau</Button>
       </div>
@@ -48,8 +49,8 @@ export function ObjectifsLevelPage({ level }: { level: OkrLevel }) {
       <div className="space-y-3">
         {items.map((o) => {
           const owner = o.ownerEmployeeId ? employeeById(o.ownerEmployeeId) : null;
-          const parent = o.parentObjectiveId ? objectiveById(o.parentObjectiveId) : null;
-          const krs = krsByObjective(o.id);
+          const parent = o.parentObjectiveId ? m7.objectiveById(o.parentObjectiveId) : null;
+          const krs = m7.krsByObjective(o.id);
           const conf = CONFIDENCE_META[o.confidence];
           return (
             <Card key={o.id}>

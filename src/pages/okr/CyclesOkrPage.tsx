@@ -5,10 +5,11 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { useToast } from '../../components/ui/Toast';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
-import { OKR_CYCLES, OBJECTIVES } from '../../lib/m7/mock';
+import { useM7Data } from '../../lib/m7/dataLive';
 import { CHECKIN_CADENCES, BEST_PRACTICES } from '../../lib/m7/referentiels';
 
 export function CyclesOkrPage() {
+  const m7 = useM7Data();
   const { toast } = useToast();
   const tone: Record<string, 'ok' | 'amber' | 'neutral' | 'warn'> = {
     active: 'ok', planned: 'amber', review: 'warn', closed: 'neutral',
@@ -25,10 +26,10 @@ export function CyclesOkrPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Cycles total" value={String(OKR_CYCLES.length)} unit="historique + futur" icon={CalendarRange} />
-        <StatCard label="Actifs" value={String(OKR_CYCLES.filter(c=>c.status==='active').length)} unit="en cours" icon={CalendarRange} tone="amber" />
-        <StatCard label="Planifiés" value={String(OKR_CYCLES.filter(c=>c.status==='planned').length)} unit="à démarrer" icon={CalendarRange} />
-        <StatCard label="Clôturés" value={String(OKR_CYCLES.filter(c=>c.status==='closed').length)} unit="archivés" icon={CalendarRange} />
+        <StatCard label="Cycles total" value={String(m7.cycles.length)} unit="historique + futur" icon={CalendarRange} />
+        <StatCard label="Actifs" value={String(m7.cycles.filter(c=>c.status==='active').length)} unit="en cours" icon={CalendarRange} tone="amber" />
+        <StatCard label="Planifiés" value={String(m7.cycles.filter(c=>c.status==='planned').length)} unit="à démarrer" icon={CalendarRange} />
+        <StatCard label="Clôturés" value={String(m7.cycles.filter(c=>c.status==='closed').length)} unit="archivés" icon={CalendarRange} />
       </div>
 
       <Card inset={false}>
@@ -44,8 +45,8 @@ export function CyclesOkrPage() {
               <th className="px-3 py-2 text-center">Statut</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {OKR_CYCLES.sort((a,b)=>b.startDate.localeCompare(a.startDate)).map((c) => {
-                const count = OBJECTIVES.filter((o) => o.cycleId === c.id).length;
+              {[...m7.cycles].sort((a,b)=>b.startDate.localeCompare(a.startDate)).map((c) => {
+                const count = m7.objectives.filter((o) => o.cycleId === c.id).length;
                 return (
                   <tr key={c.id}>
                     <td className="px-4 py-2 mono text-[11px] font-bold text-amber-deep">{c.ref}</td>

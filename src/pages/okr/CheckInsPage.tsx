@@ -7,17 +7,18 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
-import { CHECKINS, objectiveById } from '../../lib/m7/mock';
+import { useM7Data } from '../../lib/m7/dataLive';
 import { CONFIDENCE_META, LEVEL_META } from '../../lib/m7/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
 export function CheckInsPage() {
+  const m7 = useM7Data();
   const { toast } = useToast();
   const [week, setWeek] = useState<'all' | string>('2026-W21');
 
-  const weeks = Array.from(new Set(CHECKINS.map((c) => c.weekOf))).sort();
-  const list = useMemo(() => CHECKINS.filter((c) => week === 'all' || c.weekOf === week).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)), [week]);
+  const weeks = Array.from(new Set(m7.checkins.map((c) => c.weekOf))).sort();
+  const list = useMemo(() => m7.checkins.filter((c) => week === 'all' || c.weekOf === week).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)), [week, m7]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -31,10 +32,10 @@ export function CheckInsPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Check-ins cycle" value={String(CHECKINS.length)} unit="cumul" icon={MessageSquare} />
-        <StatCard label="Cette semaine (W21)" value={String(CHECKINS.filter(c=>c.weekOf==='2026-W21').length)} unit="soumis" icon={MessageSquare} />
-        <StatCard label="On track" value={String(CHECKINS.filter(c=>c.confidence==='green').length)} unit="green" icon={TrendingUp} />
-        <StatCard label="Avec blocker" value={String(CHECKINS.filter(c=>c.blockers).length)} unit="à débloquer" icon={MessageSquare} tone="amber" />
+        <StatCard label="Check-ins cycle" value={String(m7.checkins.length)} unit="cumul" icon={MessageSquare} />
+        <StatCard label="Cette semaine (W21)" value={String(m7.checkins.filter(c=>c.weekOf==='2026-W21').length)} unit="soumis" icon={MessageSquare} />
+        <StatCard label="On track" value={String(m7.checkins.filter(c=>c.confidence==='green').length)} unit="green" icon={TrendingUp} />
+        <StatCard label="Avec blocker" value={String(m7.checkins.filter(c=>c.blockers).length)} unit="à débloquer" icon={MessageSquare} tone="amber" />
       </div>
 
       <div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1 w-fit text-[12px] font-semibold">
@@ -46,7 +47,7 @@ export function CheckInsPage() {
 
       <div className="space-y-2">
         {list.map((c) => {
-          const o = objectiveById(c.objectiveId);
+          const o = m7.objectiveById(c.objectiveId);
           const author = employeeById(c.authorEmployeeId);
           const conf = CONFIDENCE_META[c.confidence];
           if (!o) return null;

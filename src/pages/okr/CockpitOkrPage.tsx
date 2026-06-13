@@ -10,18 +10,17 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
 import { M7LiveBanner } from '../../components/okr/M7LiveBanner';
-import {
-  OBJECTIVES, KEY_RESULTS, CHECKINS, OKR_CYCLES, activeCycle, kpis, krsByObjective,
-} from '../../lib/m7/mock';
+import { useM7Data } from '../../lib/m7/dataLive';
 import { LEVEL_META, CONFIDENCE_META } from '../../lib/m7/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
 export function CockpitOkrPage() {
-  const k = useMemo(() => kpis(), []);
-  const companyOkrs = OBJECTIVES.filter((o) => o.level === 'company' && o.cycleId === activeCycle.id);
-  const recentCheckIns = [...CHECKINS].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).slice(0, 6);
-  const atRisk = OBJECTIVES.filter((o) => o.confidence !== 'green' && o.status === 'active');
+  const m7 = useM7Data();
+  const k = useMemo(() => m7.kpis(), [m7]);
+  const companyOkrs = m7.objectives.filter((o) => o.level === 'company' && o.cycleId === m7.activeCycle.id);
+  const recentCheckIns = [...m7.checkins].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).slice(0, 6);
+  const atRisk = m7.objectives.filter((o) => o.confidence !== 'green' && o.status === 'active');
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -31,7 +30,7 @@ export function CockpitOkrPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Objectifs (OKR)</h1>
-          <p className="text-sm font-medium text-ink-500">Cycle actif <b className="text-amber-deep">{activeCycle.label}</b> · {activeCycle.startDate} → {activeCycle.endDate} · cadence {activeCycle.checkInCadence}</p>
+          <p className="text-sm font-medium text-ink-500">Cycle actif <b className="text-amber-deep">{m7.activeCycle.label}</b> · {m7.activeCycle.startDate} → {m7.activeCycle.endDate} · cadence {m7.activeCycle.checkInCadence}</p>
         </div>
         <div className="flex gap-2">
           <Link to="/objectifs/cycles"><Button variant="outline" size="sm"><CalendarRange size={14} /> Cycles</Button></Link>
@@ -60,7 +59,7 @@ export function CockpitOkrPage() {
           <div className="space-y-2 px-5 pb-5">
             {companyOkrs.map((o) => {
               const owner = o.ownerEmployeeId ? employeeById(o.ownerEmployeeId) : null;
-              const krs = krsByObjective(o.id);
+              const krs = m7.krsByObjective(o.id);
               const conf = CONFIDENCE_META[o.confidence];
               return (
                 <div key={o.id} className="rounded-xl border border-line bg-surface2/40 p-3">
@@ -92,7 +91,7 @@ export function CockpitOkrPage() {
             <div className="space-y-1.5">
               {recentCheckIns.map((c) => {
                 const author = employeeById(c.authorEmployeeId);
-                const o = OBJECTIVES.find((x) => x.id === c.objectiveId);
+                const o = m7.objectives.find((x) => x.id === c.objectiveId);
                 const conf = CONFIDENCE_META[c.confidence];
                 return (
                   <div key={c.id} className="rounded-lg bg-surface2/40 px-3 py-2">
@@ -131,7 +130,7 @@ export function CockpitOkrPage() {
         <CardHeader title="Répartition par niveau" subtitle="Cascade Entreprise → Département → Équipe → Individuel" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {(['company','department','team','individual'] as const).map((lv) => {
-            const items = OBJECTIVES.filter((o) => o.level === lv && o.cycleId === activeCycle.id);
+            const items = m7.objectives.filter((o) => o.level === lv && o.cycleId === m7.activeCycle.id);
             const meta = LEVEL_META[lv];
             const avgProg = items.length ? items.reduce((s, o) => s + o.progress, 0) / items.length : 0;
             return (
@@ -146,7 +145,7 @@ export function CockpitOkrPage() {
         </div>
       </Card>
 
-      <p className="text-[11px] font-medium text-ink-400">M7 OKR · méthodologie Doerr · cascade {OBJECTIVES.length} objectifs · {KEY_RESULTS.length} Key Results · {CHECKINS.length} check-ins · {OKR_CYCLES.length} cycles suivis · cible scoring 0.7 en clôture (atteinte excellente).</p>
+      <p className="text-[11px] font-medium text-ink-400">M7 OKR · méthodologie Doerr · cascade {m7.objectives.length} objectifs · {m7.keyResults.length} Key Results · {m7.checkins.length} check-ins · {m7.cycles.length} cycles suivis · cible scoring 0.7 en clôture (atteinte excellente).</p>
     </div>
   );
 }
