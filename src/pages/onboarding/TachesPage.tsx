@@ -6,31 +6,32 @@ import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { JOURNEYS, TASKS } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { TASK_CATEGORY_META, MILESTONE_META, OWNER_LABEL } from '../../lib/m6/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import type { TaskCategory, MilestoneCode, TaskStatus } from '../../lib/m6/types';
 import { cn } from '../../lib/cn';
 
 export function TachesPage() {
+  const m6 = useM6Data();
   const [q, setQ] = useState('');
   const [catF, setCatF] = useState<'all' | TaskCategory>('all');
   const [statF, setStatF] = useState<'all' | TaskStatus>('all');
   const [msF, setMsF] = useState<'all' | MilestoneCode>('all');
 
-  const list = useMemo(() => TASKS.filter((t) => {
+  const list = useMemo(() => m6.tasks.filter((t) => {
     if (catF !== 'all' && t.category !== catF) return false;
     if (statF !== 'all' && t.status !== statF) return false;
     if (msF !== 'all' && t.milestone !== msF) return false;
     if (q) {
-      const j = JOURNEYS.find((x) => x.id === t.journeyId);
+      const j = m6.journeys.find((x) => x.id === t.journeyId);
       const emp = j && employeeById(j.employeeId);
       if (!`${t.title} ${emp ? employeeName(emp) : ''}`.toLowerCase().includes(q.toLowerCase())) return false;
     }
     return true;
-  }).slice(0, 200), [q, catF, statF, msF]);
+  }).slice(0, 200), [q, catF, statF, msF, m6]);
 
-  const late = TASKS.filter((t) => {
+  const late = m6.tasks.filter((t) => {
     if (t.status === 'completed' || t.status === 'skipped') return false;
     return (new Date(t.dueDate).getTime() - new Date('2026-05-31').getTime()) / 86_400_000 < 0;
   }).length;
@@ -42,14 +43,14 @@ export function TachesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Tâches d'onboarding</h1>
-          <p className="text-sm font-medium text-ink-500">{TASKS.length} tâches actives toutes catégories · filtres par milestone, catégorie, statut</p>
+          <p className="text-sm font-medium text-ink-500">{m6.tasks.length} tâches actives toutes catégories · filtres par milestone, catégorie, statut</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total tâches" value={String(TASKS.length)} unit="actives + historique" icon={ListChecks} />
-        <StatCard label="Complétées" value={String(TASKS.filter(t=>t.status==='completed').length)} unit={`${Math.round(TASKS.filter(t=>t.status==='completed').length/TASKS.length*100)} %`} icon={CheckCircle2} />
-        <StatCard label="En cours" value={String(TASKS.filter(t=>t.status==='in_progress').length)} unit="à débloquer" icon={Clock} tone="amber" />
+        <StatCard label="Total tâches" value={String(m6.tasks.length)} unit="actives + historique" icon={ListChecks} />
+        <StatCard label="Complétées" value={String(m6.tasks.filter(t=>t.status==='completed').length)} unit={`${Math.round(m6.tasks.filter(t=>t.status==='completed').length/m6.tasks.length*100)} %`} icon={CheckCircle2} />
+        <StatCard label="En cours" value={String(m6.tasks.filter(t=>t.status==='in_progress').length)} unit="à débloquer" icon={Clock} tone="amber" />
         <StatCard label="En retard" value={String(late)} unit="échéance dépassée" icon={AlertTriangle} tone={late ? 'amber' : 'default'} />
       </div>
 
@@ -93,7 +94,7 @@ export function TachesPage() {
             </tr></thead>
             <tbody className="divide-y divide-line">
               {list.map((t) => {
-                const j = JOURNEYS.find((x) => x.id === t.journeyId);
+                const j = m6.journeys.find((x) => x.id === t.journeyId);
                 const emp = j && employeeById(j.employeeId);
                 const cat = TASK_CATEGORY_META[t.category];
                 const ms = MILESTONE_META[t.milestone];

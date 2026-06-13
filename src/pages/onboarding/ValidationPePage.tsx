@@ -7,7 +7,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { JOURNEYS, tasksByJourney } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { employeeById, employeeName } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 
@@ -15,10 +15,11 @@ const TODAY = new Date('2026-05-31');
 
 export function ValidationPePage() {
   const { toast } = useToast();
+  const m6 = useM6Data();
   const roster = useRoster();
 
   // Parcours J+60 à J+90 ou e11 (en cours)
-  const ready = JOURNEYS.filter((j) => {
+  const ready = m6.journeys.filter((j) => {
     if (j.status !== 'in_progress') return false;
     const d = Math.round((TODAY.getTime() - new Date(j.hireDate).getTime()) / 86_400_000);
     return d >= 60;
@@ -38,7 +39,7 @@ export function ValidationPePage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Parcours à valider" value={String(ready.length)} unit="≥ J+60" icon={BadgeCheck} tone={ready.length ? 'amber' : 'default'} />
-        <StatCard label="Confirmés ce trimestre" value={String(JOURNEYS.filter(j => j.status === 'completed').length)} unit="historique" icon={CheckCircle2} />
+        <StatCard label="Confirmés ce trimestre" value={String(m6.journeys.filter(j => j.status === 'completed').length)} unit="historique" icon={CheckCircle2} />
         <StatCard label="Périodes d'essai actives" value={String(probationActive.length)} unit="suivies M4" icon={BadgeCheck} />
         <StatCard label="Délai légal" value="3 j avant fin" unit="notification" icon={AlertTriangle} />
       </div>
@@ -59,7 +60,7 @@ export function ValidationPePage() {
               {ready.map((j) => {
                 const emp = employeeById(j.employeeId);
                 if (!emp) return null;
-                const tasks = tasksByJourney(j.id);
+                const tasks = m6.tasksByJourney(j.id);
                 const blockingDone = tasks.filter(t => t.blocking && t.status === 'completed').length;
                 const blockingTotal = tasks.filter(t => t.blocking).length;
                 const ready4Validation = blockingDone === blockingTotal;

@@ -7,18 +7,19 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { JOURNEYS, PULSES } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { PULSE_QUESTIONS } from '../../lib/m6/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
 export function PulsePage() {
   const { toast } = useToast();
+  const m6 = useM6Data();
   const [milestone, setMilestone] = useState<'J7' | 'J30' | 'J60' | 'J90'>('J90');
 
-  const filtered = useMemo(() => PULSES.filter((p) => p.milestone === milestone), [milestone]);
+  const filtered = useMemo(() => m6.pulses.filter((p) => p.milestone === milestone), [milestone, m6]);
   const avgOverall = filtered.length ? filtered.reduce((s, p) => s + p.overallScore, 0) / filtered.length : 0;
-  const npsScores = PULSES.filter(p => p.milestone === 'J90' && typeof p.npsScore === 'number').map(p => p.npsScore!);
+  const npsScores = m6.pulses.filter(p => p.milestone === 'J90' && typeof p.npsScore === 'number').map(p => p.npsScore!);
   const avgNps = npsScores.length ? Math.round(npsScores.reduce((s, n) => s + n, 0) / npsScores.length) : 0;
 
   return (
@@ -34,10 +35,10 @@ export function PulsePage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Pulses collectés" value={String(PULSES.length)} unit="cumul" icon={MessageSquareHeart} />
+        <StatCard label="Pulses collectés" value={String(m6.pulses.length)} unit="cumul" icon={MessageSquareHeart} />
         <StatCard label="Score moyen" value={`${avgOverall.toFixed(1)}/5`} unit={`milestone ${milestone}`} icon={TrendingUp} />
         <StatCard label="NPS J+90" value={String(avgNps)} unit="cible ≥ 50" icon={MessageSquareHeart} tone={avgNps >= 50 ? 'default' : 'amber'} />
-        <StatCard label="Couverture" value={`${Math.round(PULSES.length / Math.max(1, JOURNEYS.length * 4) * 100)} %`} unit="vs attendus" icon={MessageSquareHeart} />
+        <StatCard label="Couverture" value={`${Math.round(m6.pulses.length / Math.max(1, m6.journeys.length * 4) * 100)} %`} unit="vs attendus" icon={MessageSquareHeart} />
       </div>
 
       <div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-1 w-fit text-[12px] font-semibold">
@@ -72,7 +73,7 @@ export function PulsePage() {
             </tr></thead>
             <tbody className="divide-y divide-line">
               {filtered.map((p) => {
-                const j = JOURNEYS.find((jj) => jj.id === p.journeyId);
+                const j = m6.journeys.find((jj) => jj.id === p.journeyId);
                 const emp = j && employeeById(j.employeeId);
                 if (!emp) return null;
                 return (

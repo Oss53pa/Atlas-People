@@ -6,7 +6,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { JOURNEYS, TASKS, PULSES, BUDDIES } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { cn } from '../../lib/cn';
 
 const EVENT_CATEGORIES = [
@@ -52,6 +52,7 @@ const SEV_TONE = { low: 'neutral', moderate: 'amber', high: 'warn', critical: 'd
 
 export function AuditM6Page() {
   const { toast } = useToast();
+  const m6 = useM6Data();
   const [q, setQ] = useState('');
   const totalEvents = EVENT_CATEGORIES.reduce((s, c) => s + c.events.length, 0);
 
@@ -69,7 +70,7 @@ export function AuditM6Page() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Événements tracés" value={String(JOURNEYS.length * 8 + TASKS.length + PULSES.length + BUDDIES.length)} unit="audit log" icon={ShieldCheck} />
+        <StatCard label="Événements tracés" value={String(m6.journeys.length * 8 + m6.tasks.length + m6.pulses.length + m6.buddies.length)} unit="audit log" icon={ShieldCheck} />
         <StatCard label="Chaîne intègre" value="OK" unit="SHA-256 chaîné" icon={CheckCircle2} />
         <StatCard label="Patterns anti-fraude" value={String(ANTI_FRAUD.length)} unit="détecteurs cron" icon={AlertTriangle} />
         <StatCard label="Contrôles conformité" value={String(COMPLIANCE_CHECKS.length)} unit="continus" icon={CheckCircle2} />

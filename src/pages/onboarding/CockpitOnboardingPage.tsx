@@ -11,7 +11,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
 import { M6LiveBanner } from '../../components/onboarding/M6LiveBanner';
-import { TASKS, BUDDIES, kpis, templateMeta } from '../../lib/m6/mock';
+import { templateMeta } from '../../lib/m6/mock';
 import { useM6Data } from '../../lib/m6/dataLive';
 import { MILESTONE_META } from '../../lib/m6/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
@@ -19,10 +19,10 @@ import { cn } from '../../lib/cn';
 import { useRoster } from '../../lib/m1/roster';
 
 export function CockpitOnboardingPage() {
-  const k = useMemo(() => kpis(), []);
   const roster = useRoster();
   const m6 = useM6Data();
   const journeys = m6.journeys;
+  const k = useMemo(() => m6.kpis(), [m6]);
 
   const active = useMemo(() => journeys.filter((j) => j.status === 'in_progress')
     .sort((a, b) => a.hireDate.localeCompare(b.hireDate)), [journeys]);
@@ -32,10 +32,10 @@ export function CockpitOnboardingPage() {
     return d > 0 && d <= 14;
   }), [journeys]);
 
-  const lateTasks = useMemo(() => TASKS.filter((t) => {
+  const lateTasks = useMemo(() => m6.tasks.filter((t) => {
     if (t.status === 'completed' || t.status === 'skipped') return false;
     return (new Date(t.dueDate).getTime() - new Date('2026-05-31').getTime()) / 86_400_000 < 0;
-  }).slice(0, 8), []);
+  }).slice(0, 8), [m6]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -158,7 +158,7 @@ export function CockpitOnboardingPage() {
         <Card>
           <CardHeader title="Activité récente" subtitle="Progression onboarding" action={<Sparkles size={16} className="text-amber-deep" />} />
           <div className="space-y-1.5">
-            {TASKS.filter(t => t.status === 'completed').sort((a,b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')).slice(0, 6).map((t) => {
+            {m6.tasks.filter(t => t.status === 'completed').sort((a,b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')).slice(0, 6).map((t) => {
               const j = m6.journeyById(t.journeyId)!;
               const emp = employeeById(j.employeeId)!;
               const m = MILESTONE_META[t.milestone];
@@ -174,9 +174,9 @@ export function CockpitOnboardingPage() {
 
         {/* Buddy program */}
         <Card>
-          <CardHeader title="Programme buddy" subtitle={`${BUDDIES.filter(b => b.status === 'active').length} pairings actifs`} action={<Link to="/onboarding/buddy" className="text-[11px] font-semibold text-amber-deep hover:underline">Tous →</Link>} />
+          <CardHeader title="Programme buddy" subtitle={`${m6.buddies.filter(b => b.status === 'active').length} pairings actifs`} action={<Link to="/onboarding/buddy" className="text-[11px] font-semibold text-amber-deep hover:underline">Tous →</Link>} />
           <div className="space-y-1.5">
-            {BUDDIES.filter(b => b.status === 'active').slice(0, 5).map((b) => {
+            {m6.buddies.filter(b => b.status === 'active').slice(0, 5).map((b) => {
               const newc = employeeById(b.newcomerEmployeeId)!;
               const bud = employeeById(b.buddyEmployeeId)!;
               return (
@@ -196,7 +196,7 @@ export function CockpitOnboardingPage() {
         </Card>
       </div>
 
-      <p className="text-[11px] font-medium text-ink-400">M6 Onboarding · parcours 30/60/90 j · {journeys.length} parcours suivis (actifs + complétés) · {TASKS.length} tâches générées · intégrations M5 (handoff hire) ↔ M4 (validation PE) ↔ M11 (formations) ↔ M1 (dossier).</p>
+      <p className="text-[11px] font-medium text-ink-400">M6 Onboarding · parcours 30/60/90 j · {journeys.length} parcours suivis (actifs + complétés) · {m6.tasks.length} tâches générées ·intégrations M5 (handoff hire) ↔ M4 (validation PE) ↔ M11 (formations) ↔ M1 (dossier).</p>
     </div>
   );
 }
