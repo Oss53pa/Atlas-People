@@ -4,7 +4,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isBackendConfigured } from '../supabase';
-import { getSupabaseOrThrow, resolveSessionContext, mapSupabaseError } from '../session';
+import { getSupabaseOrThrow, resolveSessionContext, mapSupabaseError, SupabaseWriteError } from '../session';
 import { appendAuditEntry } from '../auditLog';
 export { isBackendConfigured };
 
@@ -253,6 +253,67 @@ export function useCreateDisciplinaryCase() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['m4-disciplinary'] });
       qc.invalidateQueries({ queryKey: ['m4-live'] });
+    },
+  });
+}
+
+/** Enregistre la décision finale de période d'essai via Edge Function. */
+export function useEvaluateProbation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      probationId,
+      decision,
+      rationale,
+    }: {
+      probationId: string;
+      decision: 'confirmed' | 'extended' | 'terminated';
+      rationale?: string;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      await resolveSessionContext();
+      const idempotencyKey = crypto.randomUUID();
+      const { data, error } = await sb.functions.invoke('evaluate-probation-decision', {
+        body: { probationId, decision, rationale, idempotencyKey },
+      });
+      if (error) throw new SupabaseWriteError(error.message, 'EDGE_FUNCTION_ERROR');
+      const res = data as { error?: { message?: string; code?: string } } | null;
+      if (res?.error) throw new SupabaseWriteError(res.error.message ?? res.error.code ?? 'Erreur EF', res.error.code);
+      return data as { probationId: string; decision: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-admin2-raw'] });
+      qc.invalidateQueries({ queryKey: ['m4-live'] });
+    },
+  });
+}
+
+/** Génère un document RH officiel via Edge Function generate-hr-document. */
+export function useGenerateHrDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      docType,
+      employeeId,
+      purpose,
+    }: {
+      docType: string;
+      employeeId: string;
+      purpose?: string;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      await resolveSessionContext();
+      const idempotencyKey = crypto.randomUUID();
+      const { data, error } = await sb.functions.invoke('generate-hr-document', {
+        body: { docType, employeeId, idempotencyKey, purpose },
+      });
+      if (error) throw new SupabaseWriteError(error.message, 'EDGE_FUNCTION_ERROR');
+      const res = data as { error?: { message?: string; code?: string } } | null;
+      if (res?.error) throw new SupabaseWriteError(res.error.message ?? res.error.code ?? 'Erreur EF', res.error.code);
+      return data as { docId: string; docType: string; employeeId: string; generatedAt: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-admin2-raw'] });
     },
   });
 }

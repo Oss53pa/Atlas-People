@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Stamp, Search, CheckCircle2, FileText, Sparkles } from 'lucide-react';
+import { Stamp, Search, CheckCircle2, FileText, Sparkles, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -8,6 +8,9 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
 import { useM4AdminData } from '../../lib/m4/dataLive';
+import { useGenerateHrDocument, isBackendConfigured } from '../../lib/m4/supabaseLive';
+import { useEmployees } from '../../lib/m1/supabaseLive';
+import { useAuth } from '../../lib/auth';
 import { CERTIFICATE_TYPES } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import type { CertificateCategory } from '../../lib/m4/types';
@@ -18,11 +21,15 @@ const CAT_LABEL: Record<CertificateCategory, string> = { certificat: 'Certificat
 
 export function CertificatsPage() {
   const { toast } = useToast();
+  const { tenantId } = useAuth();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<'all' | CertificateCategory>('all');
   const [pickedType, setPickedType] = useState<string | null>(null);
+  const [genEmpId, setGenEmpId] = useState('');
   const roster = useRoster();
   const { certificates: CERTIFICATES } = useM4AdminData();
+  const generateDoc = useGenerateHrDocument();
+  const { data: liveEmps } = useEmployees(tenantId ?? undefined);
 
   const types = useMemo(() => CERTIFICATE_TYPES.filter((t) => {
     if (cat !== 'all' && t.category !== cat) return false;
@@ -39,7 +46,7 @@ export function CertificatsPage() {
           <h1 className="text-2xl font-semibold text-ink">Certificats & attestations</h1>
           <p className="text-sm font-medium text-ink-500">Bibliothèque {CERTIFICATE_TYPES.length}+ documents · génération DocJourney · signature DRH ADVIST · 2FA</p>
         </div>
-        <Button size="sm" onClick={() => toast({ variant: 'success', title: 'Génération', description: 'Choisir un modèle dans la bibliothèque' })}><Stamp size={14} /> Générer un document</Button>
+        <Button size="sm" onClick={() => { setPickedType(CERTIFICATE_TYPES[0]?.code ?? null); }}><Stamp size={14} /> Générer un document</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -76,12 +83,46 @@ export function CertificatsPage() {
           ))}
         </div>
         {pickedType && (
-          <div className="mt-3 rounded-xl border border-amber/40 bg-amber/[0.06] p-3">
-            <p className="text-[12px] font-bold text-ink">Génération : {CERTIFICATE_TYPES.find(t => t.code === pickedType)?.label}</p>
-            <p className="mt-1 text-[11px] font-medium text-ink-500">Sélectionner un collaborateur parmi les {roster.length} pour pré-remplir, valider, signer ADVIST puis livrer.</p>
-            <div className="mt-2 flex gap-2">
-              <Button size="sm" onClick={() => { toast({ variant: 'success', title: 'Brouillon', description: `${CERTIFICATE_TYPES.find(t => t.code === pickedType)?.label} prêt à signer` }); setPickedType(null); }}>Démarrer la génération</Button>
-              <Button variant="ghost" size="sm" onClick={() => setPickedType(null)}>Annuler</Button>
+          <div className="mt-3 rounded-xl border border-amber/40 bg-amber/[0.06] p-3 space-y-2">
+            <p className="text-[12px] font-bold text-ink">
+              Génération : {CERTIFICATE_TYPES.find(t => t.code === pickedType)?.label}
+              {isBackendConfigured && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span>}
+            </p>
+            {isBackendConfigured && liveEmps && liveEmps.length > 0 ? (
+              <select
+                value={genEmpId}
+                onChange={(e) => setGenEmpId(e.target.value)}
+                className="h-9 w-full max-w-xs rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              >
+                <option value="">— choisir un collaborateur —</option>
+                {liveEmps.map((e) => <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}
+              </select>
+            ) : (
+              <p className="text-[11px] font-medium text-ink-500">Sélectionner un collaborateur parmi les {roster.length} pour pré-remplir, valider, signer ADVIST puis livrer.</p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                disabled={generateDoc.isPending || (isBackendConfigured ? !genEmpId : false)}
+                onClick={async () => {
+                  if (!isBackendConfigured) {
+                    toast({ variant: 'success', title: 'Brouillon', description: `${CERTIFICATE_TYPES.find(t => t.code === pickedType)?.label} prêt à signer (mode démo)` });
+                    setPickedType(null);
+                    return;
+                  }
+                  try {
+                    await generateDoc.mutateAsync({ docType: pickedType, employeeId: genEmpId });
+                    setPickedType(null);
+                    setGenEmpId('');
+                    toast({ variant: 'success', title: 'Document généré', description: `${CERTIFICATE_TYPES.find(t => t.code === pickedType)?.label} — en attente de signature DRH` });
+                  } catch (e) {
+                    toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                  }
+                }}
+              >
+                {generateDoc.isPending ? 'Génération…' : 'Démarrer la génération'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setPickedType(null); setGenEmpId(''); }}>Annuler</Button>
             </div>
           </div>
         )}

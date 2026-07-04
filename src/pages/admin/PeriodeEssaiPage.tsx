@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Hourglass, AlertTriangle, CheckCircle2, ArrowUpRight, MapPin } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
@@ -5,19 +6,42 @@ import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
+import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
 import { ALERTS } from '../../lib/m4/mock';
 import { useM4AdminData } from '../../lib/m4/dataLive';
+import { useEvaluateProbation, isBackendConfigured } from '../../lib/m4/supabaseLive';
 import { PROBATION_LEGAL, PROBATION_ALERT_THRESHOLDS } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 
 export function PeriodeEssaiPage() {
+  const { toast } = useToast();
   const roster = useRoster();
   const { probations: PROBATIONS } = useM4AdminData();
+  const evaluateProbation = useEvaluateProbation();
+  const [activeDecide, setActiveDecide] = useState<string | null>(null);
+  const [decisionVal, setDecisionVal] = useState<'confirmed' | 'extended' | 'terminated'>('confirmed');
+  const [rationaleVal, setRationaleVal] = useState('');
   const inProgress = PROBATIONS.filter((p) => p.decision === 'pending');
   const confirmed = PROBATIONS.filter((p) => p.decision !== 'pending');
   const probationAlerts = ALERTS.filter((a) => a.kind === 'probation');
+
+  const handleDecide = async (probationId: string) => {
+    if (!isBackendConfigured) {
+      toast({ variant: 'info', title: 'Décision PE', description: 'Persistance disponible en mode live (authentification requise).' });
+      setActiveDecide(null);
+      return;
+    }
+    try {
+      await evaluateProbation.mutateAsync({ probationId, decision: decisionVal, rationale: rationaleVal || undefined });
+      setActiveDecide(null);
+      setRationaleVal('');
+      toast({ variant: 'success', title: 'Décision enregistrée', description: `Période d'essai : ${decisionVal}` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -60,9 +84,28 @@ export function PeriodeEssaiPage() {
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <Link to={`/collaborateurs/${emp.id}`}><Button variant="outline" size="sm">Ouvrir dossier <ArrowUpRight size={12} /></Button></Link>
-                    <Button variant="ghost" size="sm">Évaluer</Button>
-                    <Button variant="ghost" size="sm">Décider</Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setActiveDecide(p.id); setDecisionVal('confirmed'); }}>Évaluer</Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setActiveDecide(p.id); setDecisionVal('confirmed'); }}>Décider</Button>
                   </div>
+                  {activeDecide === p.id && (
+                    <div className="mt-2 rounded-xl border border-amber/30 bg-amber/[0.05] p-3 space-y-2">
+                      <div className="flex flex-wrap gap-3">
+                        {(['confirmed', 'extended', 'terminated'] as const).map((d) => (
+                          <label key={d} className="flex items-center gap-1.5 cursor-pointer text-[12px] font-semibold text-ink">
+                            <input type="radio" name={`dec-${p.id}`} checked={decisionVal === d} onChange={() => setDecisionVal(d)} className="accent-amber-deep" />
+                            {d === 'confirmed' ? 'Confirmé' : d === 'extended' ? 'Prolongé' : 'Rompu'}
+                          </label>
+                        ))}
+                      </div>
+                      <input value={rationaleVal} onChange={(e) => setRationaleVal(e.target.value)} placeholder="Motif (facultatif)…" className="h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" />
+                      <div className="flex gap-2">
+                        <Button size="sm" disabled={evaluateProbation.isPending} onClick={() => handleDecide(p.id)}>
+                          {evaluateProbation.isPending ? 'Envoi…' : 'Enregistrer la décision'}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setActiveDecide(null)}>Annuler</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
