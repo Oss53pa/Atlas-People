@@ -140,15 +140,19 @@
       gardant le contenu, format A4 paysage par défaut.
    ────────────────────────────────────────────────────────────── */
 @media print {
-  /* ════════════════════════════════════════════════════════════════
-   * Mode 1 — BULLETIN DE PAIE : A4 portrait, contenu PLEINE PAGE adapté
-   *  - Le wrapper occupe TOUTE la largeur (210mm − 5mm × 2 = 200mm)
-   *  - La table s'étire sur toute la largeur (width 100%)
-   *  - Densité (font-size, padding, line-height) dynamique selon le nombre
-   *    de lignes, via data-density appliqué inline par le composant React
-   *  - Pas de transform : la densité gère le fit, pas un scale
-   *  - max-height: contraint à la page A4 utile
-   * ════════════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════════
+   * Mode 1 — BULLETIN DE PAIE : 1 page A4 portrait garantie.
+   *
+   * Architecture :
+   *   1. visibility:hidden sur tout le DOM
+   *   2. visibility:visible sur .payslip-print uniquement
+   *   3. position:fixed → le bulletin est plaqué en haut de la page,
+   *      indépendamment de son conteneur DOM (modal overlay, wrappers…)
+   *   4. PayslipModal neutralise le CSS transform du scaler via beforeprint,
+   *      ce qui garantit que position:fixed est relatif à la page A4 et non
+   *      au parent transformé (= 1 seule page physique garantie).
+   *   5. @page payslipPage → 210×297mm explicites, marge 0
+   * ═══════════════════════════════════════════════════════════════ */
   body.print-payslip * {
     visibility: hidden;
   }
@@ -158,22 +162,14 @@
   }
   body.print-payslip {
     background: white !important;
+    page: payslipPage;
   }
   body.print-payslip .payslip-print {
-    /* CLEF DU FIX v2 : position FIXED pour ignorer les modal/wrappers parents
-       qui sont en position: fixed eux-mêmes (PayslipModal a fixed inset-0).
-       Avec absolute, le payslip se cale dans le modal -> moitié page.
-       Avec fixed + 100vw/100vh + z-index 9999, le payslip se cale
-       directement sur le viewport print = pleine page A4. */
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: auto !important;
     bottom: auto !important;
-    /* Dimensions physiques EXACTES d'une page A4 (avec @page margin:0).
-       On évite 100vw/100vh : en média paginé leur référence (page vs zone
-       imprimable) varie selon le navigateur et provoque un débordement
-       de quelques mm → 2e page. 210×297mm + margin:0 = 1 page certaine. */
     width: 210mm !important;
     height: 297mm !important;
     max-width: none !important;
@@ -183,92 +179,19 @@
     z-index: 9999 !important;
     background: white !important;
     box-shadow: none !important;
-    padding: 8mm 9mm !important;
-    line-height: 1.2 !important;
-    transform: none !important;
     overflow: hidden !important;
+    transform: none !important;
+    /* Padding intentionnellement absent :
+       le composant React gère son propre padding (6mm 7mm). */
   }
-  /* Force display sur les ancêtres pour que le payslip puisse s'afficher */
-  body.print-payslip .payslip-print {
-    display: block !important;
-  }
-  /* Cache le modal overlay sombre du PayslipModal (backdrop ink/50) */
-  body.print-payslip [class*="bg-ink/50"],
+  /* Cache la barre chrome du modal */
   body.print-payslip .no-print {
     display: none !important;
   }
-
-  /* Tableaux : pleine largeur + table-layout auto pour bien remplir */
-  body.print-payslip .payslip-print table,
-  body.print-payslip .payslip-print .payslip-table {
+  /* Tables : pleine largeur */
+  body.print-payslip .payslip-print table {
     width: 100% !important;
-    table-layout: auto !important;
   }
-  body.print-payslip .payslip-print td,
-  body.print-payslip .payslip-print th {
-    padding-top: 1px !important;
-    padding-bottom: 1px !important;
-  }
-  body.print-payslip .payslip-print tfoot td {
-    padding-top: 2.5px !important;
-    padding-bottom: 2.5px !important;
-  }
-
-  /* ──────────────────────────────────────────────────────────────
-   * Densité dynamique : 6 paliers selon data-density appliqué par
-   * le composant React (basé sur le nombre de lignes du bulletin).
-   * Chaque palier ajuste font-size base + tableau pour remplir
-   * exactement la hauteur A4 utile.
-   * ─────────────────────────────────────────────────────────── */
-
-  /* Densité 1.20 : 0-8 lignes → bulletin "court" très aéré */
-  body.print-payslip .payslip-print[data-density="1.20"]              { font-size: 11.5pt !important; }
-  body.print-payslip .payslip-print[data-density="1.20"] table        { font-size: 10pt !important; }
-  body.print-payslip .payslip-print[data-density="1.20"] thead th     { font-size: 8pt !important; }
-  body.print-payslip .payslip-print[data-density="1.20"] tfoot td     { font-size: 10.5pt !important; }
-  body.print-payslip .payslip-print[data-density="1.20"] td,
-  body.print-payslip .payslip-print[data-density="1.20"] th           { padding-top: 3px !important; padding-bottom: 3px !important; }
-
-  /* Densité 1.08 : 9-12 lignes → léger surfilling */
-  body.print-payslip .payslip-print[data-density="1.08"]              { font-size: 10.5pt !important; }
-  body.print-payslip .payslip-print[data-density="1.08"] table        { font-size: 9pt !important; }
-  body.print-payslip .payslip-print[data-density="1.08"] thead th     { font-size: 7.5pt !important; }
-  body.print-payslip .payslip-print[data-density="1.08"] tfoot td     { font-size: 9.5pt !important; }
-  body.print-payslip .payslip-print[data-density="1.08"] td,
-  body.print-payslip .payslip-print[data-density="1.08"] th           { padding-top: 2px !important; padding-bottom: 2px !important; }
-
-  /* Densité 1.00 : 13-16 lignes → standard */
-  body.print-payslip .payslip-print[data-density="1.00"]              { font-size: 9.5pt !important; }
-  body.print-payslip .payslip-print[data-density="1.00"] table        { font-size: 8.5pt !important; }
-  body.print-payslip .payslip-print[data-density="1.00"] thead th     { font-size: 7pt !important; }
-  body.print-payslip .payslip-print[data-density="1.00"] tfoot td     { font-size: 9pt !important; }
-  body.print-payslip .payslip-print[data-density="1.00"] td,
-  body.print-payslip .payslip-print[data-density="1.00"] th           { padding-top: 1.5px !important; padding-bottom: 1.5px !important; }
-
-  /* Densité 0.92 : 17-20 lignes → légèrement resserré */
-  body.print-payslip .payslip-print[data-density="0.92"]              { font-size: 9pt !important; }
-  body.print-payslip .payslip-print[data-density="0.92"] table        { font-size: 8pt !important; }
-  body.print-payslip .payslip-print[data-density="0.92"] thead th     { font-size: 6.5pt !important; }
-  body.print-payslip .payslip-print[data-density="0.92"] tfoot td     { font-size: 8.5pt !important; }
-  body.print-payslip .payslip-print[data-density="0.92"] td,
-  body.print-payslip .payslip-print[data-density="0.92"] th           { padding-top: 1px !important; padding-bottom: 1px !important; }
-
-  /* Densité 0.85 : 21-24 lignes → resserré */
-  body.print-payslip .payslip-print[data-density="0.85"]              { font-size: 8.5pt !important; line-height: 1.15 !important; }
-  body.print-payslip .payslip-print[data-density="0.85"] table        { font-size: 7.5pt !important; line-height: 1.1 !important; }
-  body.print-payslip .payslip-print[data-density="0.85"] thead th     { font-size: 6pt !important; }
-  body.print-payslip .payslip-print[data-density="0.85"] tfoot td     { font-size: 8pt !important; }
-  body.print-payslip .payslip-print[data-density="0.85"] td,
-  body.print-payslip .payslip-print[data-density="0.85"] th           { padding-top: 0.6px !important; padding-bottom: 0.6px !important; }
-
-  /* Densité 0.78 : 25+ lignes → extreme compaction (limite légale) */
-  body.print-payslip .payslip-print[data-density="0.78"]              { font-size: 8pt !important; line-height: 1.1 !important; }
-  body.print-payslip .payslip-print[data-density="0.78"] table        { font-size: 7pt !important; line-height: 1.05 !important; }
-  body.print-payslip .payslip-print[data-density="0.78"] thead th     { font-size: 5.5pt !important; }
-  body.print-payslip .payslip-print[data-density="0.78"] tfoot td     { font-size: 7.5pt !important; }
-  body.print-payslip .payslip-print[data-density="0.78"] td,
-  body.print-payslip .payslip-print[data-density="0.78"] th           { padding-top: 0.3px !important; padding-bottom: 0.3px !important; }
-
   /* Pas de coupure dans le bulletin */
   body.print-payslip .payslip-print,
   body.print-payslip .payslip-print > * {
@@ -362,16 +285,11 @@
     margin: 12mm;
   }
 
-  /* Bulletin de paie : A4 portrait, marge @page à 0 — la zone de sécurité
-     est gérée par le padding interne de .payslip-print (8mm 9mm). Ainsi
-     l'élément 210×297mm correspond EXACTEMENT à une page physique, sans
-     décalage de marge qui ferait déborder sur une 2e page. */
+  /* Bulletin de paie : dimensions physiques explicites 210×297mm, marge 0.
+     Le composant React gère le padding interne (6mm 7mm). */
   @page payslipPage {
-    size: A4 portrait;
+    size: 210mm 297mm;
     margin: 0;
-  }
-  body.print-payslip {
-    page: payslipPage;
   }
 
   /* ════════════════════════════════════════════════════════════════
