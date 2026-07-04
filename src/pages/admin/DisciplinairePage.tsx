@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Gavel, Lock, AlertTriangle, ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { Gavel, Lock, AlertTriangle, ShieldCheck, ArrowUpRight, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -8,12 +9,22 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
 import { useM4AdminData } from '../../lib/m4/dataLive';
+import { useCreateDisciplinaryCase, isBackendConfigured } from '../../lib/m4/supabaseLive';
+import { useEmployees } from '../../lib/m1/supabaseLive';
+import { useAuth } from '../../lib/auth';
 import { SANCTION_SCALE, DISCIPLINARY_PROCEDURE_STEPS, DISCIPLINARY_RECOURS, FAUTE_META } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 
 export function DisciplinairePage() {
   const { toast } = useToast();
+  const { tenantId } = useAuth();
   const { disciplinary: DISCIPLINARY } = useM4AdminData();
+  const createCase = useCreateDisciplinaryCase();
+  const { data: liveEmps } = useEmployees(tenantId ?? undefined);
+  const [showForm, setShowForm] = useState(false);
+  const [discEmpId, setDiscEmpId] = useState('');
+  const [discFacts, setDiscFacts] = useState('');
+  const [discDate, setDiscDate] = useState(new Date().toISOString().slice(0, 10));
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -28,9 +39,84 @@ export function DisciplinairePage() {
               <p className="text-[12px] font-medium text-ink-500">Accès STRICTEMENT restreint — DRH + Juriste social · toute consultation tracée</p>
             </div>
           </div>
-          <Button size="sm" onClick={() => toast({ variant: 'info', title: 'Procédure', description: 'Ouverture procédure (4-eyes DRH+Juriste)' })}><Gavel size={14} /> Initier une procédure</Button>
+          <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+            <Gavel size={14} /> {showForm ? 'Annuler' : 'Initier une procédure'}
+          </Button>
         </div>
       </Card>
+
+      {showForm && (
+        <Card className="border-danger/30">
+          <CardHeader
+            title="Ouverture de procédure disciplinaire"
+            subtitle="4-eyes DRH + Juriste social · audit SHA-256"
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined}
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Collaborateur</label>
+              {isBackendConfigured && liveEmps && liveEmps.length > 0 ? (
+                <select
+                  value={discEmpId}
+                  onChange={(e) => setDiscEmpId(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-danger/40 focus:outline-none"
+                >
+                  <option value="">— choisir —</option>
+                  {liveEmps.map((e) => (
+                    <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-[12px] font-medium text-ink-500">Authentification requise pour sélectionner un collaborateur.</p>
+              )}
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date des faits</label>
+              <input
+                type="date"
+                value={discDate}
+                onChange={(e) => setDiscDate(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-danger/40 focus:outline-none"
+              />
+            </div>
+            <div className="sm:col-span-1">
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Description des faits</label>
+              <textarea
+                value={discFacts}
+                onChange={(e) => setDiscFacts(e.target.value)}
+                rows={2}
+                placeholder="Décrire les faits reprochés…"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink focus:border-danger/40 focus:outline-none resize-none"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              disabled={createCase.isPending || (isBackendConfigured ? (!discEmpId || !discFacts.trim()) : false)}
+              onClick={async () => {
+                if (!isBackendConfigured) {
+                  setShowForm(false);
+                  toast({ variant: 'info', title: 'Procédure', description: 'Ouverture procédure (mode démo — 4-eyes DRH+Juriste)' });
+                  return;
+                }
+                try {
+                  await createCase.mutateAsync({ employeeId: discEmpId, factsDate: discDate, factsDescription: discFacts.trim() });
+                  setShowForm(false);
+                  setDiscEmpId('');
+                  setDiscFacts('');
+                  setDiscDate(new Date().toISOString().slice(0, 10));
+                  toast({ variant: 'success', title: 'Procédure ouverte', description: 'Dossier créé — délai de prescription calculé automatiquement.' });
+                } catch (e) {
+                  toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                }
+              }}
+            >
+              {createCase.isPending ? 'Enregistrement…' : 'Ouvrir la procédure'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Actives" value={String(DISCIPLINARY.filter(d=>d.status!=='closed').length)} unit="en cours" icon={Gavel} tone="amber" />

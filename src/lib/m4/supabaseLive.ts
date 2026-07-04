@@ -2,9 +2,16 @@
  * M4 Admin RH — couche live Supabase.
  * Tables : m4_contracts, m4_departures, m4_disciplinary_cases
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isBackendConfigured } from '../supabase';
+import { getSupabaseOrThrow, resolveSessionContext, mapSupabaseError } from '../session';
+import { appendAuditEntry } from '../auditLog';
 export { isBackendConfigured };
+
+// DB enum uses CDD_CHANT; UI code uses CDD_CHANTIER
+function toDbContractType(uiCode: string): string {
+  return uiCode === 'CDD_CHANTIER' ? 'CDD_CHANT' : uiCode;
+}
 
 const DEMO = '11111111-1111-1111-1111-111111111111';
 
@@ -156,5 +163,96 @@ export function useM4Disciplinary(tenantId = DEMO) {
     },
     enabled: isBackendConfigured,
     staleTime: 60_000,
+  });
+}
+
+export function useCreateContract() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      type,
+      effectiveDate,
+    }: {
+      employeeId: string;
+      type: string;
+      effectiveDate?: string;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const id = crypto.randomUUID();
+      const ref = `CTR-${new Date().toISOString().slice(2, 7).replace('-', '')}-${id.slice(0, 8).toUpperCase()}`;
+      const { error } = await sb.schema('atlas_people').from('m4_contracts').insert({
+        id,
+        tenant_id: ctx.tenantId,
+        employee_id: employeeId,
+        ref,
+        type: toDbContractType(type),
+        status: 'draft',
+        initiated_by: ctx.userId,
+        effective_date: effectiveDate ?? null,
+      });
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'contract.create',
+        entity: 'm4_contracts', entityId: id,
+        payload: { type: toDbContractType(type), ref, effectiveDate: effectiveDate ?? null },
+        surface: 'backoffice',
+      });
+      return id;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-contracts'] });
+      qc.invalidateQueries({ queryKey: ['m4-live'] });
+    },
+  });
+}
+
+export function useCreateDisciplinaryCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      factsDate,
+      factsDescription,
+    }: {
+      employeeId: string;
+      factsDate: string;
+      factsDescription: string;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const id = crypto.randomUUID();
+      const today = new Date().toISOString().slice(0, 10);
+      const caseNumber = `DISC-${new Date().getFullYear()}-${id.slice(0, 6).toUpperCase()}`;
+      // R6 : délai de prescription = 2 mois après les faits
+      const fd = new Date(factsDate);
+      fd.setMonth(fd.getMonth() + 2);
+      const prescriptionDeadline = fd.toISOString().slice(0, 10);
+      const { error } = await sb.schema('atlas_people').from('m4_disciplinary_cases').insert({
+        id,
+        tenant_id: ctx.tenantId,
+        employee_id: employeeId,
+        case_number: caseNumber,
+        opened_at: today,
+        opened_by: ctx.userId,
+        facts_date: factsDate,
+        facts_description: factsDescription,
+        prescription_deadline: prescriptionDeadline,
+        status: 'opened',
+      });
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'disciplinary.create',
+        entity: 'm4_disciplinary_cases', entityId: id,
+        payload: { caseNumber, employeeId, factsDate },
+        surface: 'backoffice',
+      });
+      return id;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-disciplinary'] });
+      qc.invalidateQueries({ queryKey: ['m4-live'] });
+    },
   });
 }

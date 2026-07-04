@@ -13,19 +13,25 @@ import { CONTRACT_TYPES, CONTRACT_STATUS_META, CONTRACT_WIZARD_STEPS, CONTRACT_S
 import { employeeById, employeeName } from '../../data/mock';
 import type { ContractTypeCode, ContractStatus, EmploymentContract } from '../../lib/m4/types';
 import { cn } from '../../lib/cn';
-import { useM4Contracts, isBackendConfigured } from '../../lib/m4/supabaseLive';
+import { useM4Contracts, useCreateContract, isBackendConfigured } from '../../lib/m4/supabaseLive';
 import { useAuth } from '../../lib/auth';
 import { useRoster, mockEmpId } from '../../lib/m1/roster';
+import { useEmployees } from '../../lib/m1/supabaseLive';
 
 export function ContratsPage() {
   const { toast } = useToast();
   const { tenantId } = useAuth();
   const { data: liveContracts } = useM4Contracts(tenantId ?? undefined);
+  const { data: liveEmps } = useEmployees(tenantId ?? undefined);
   const roster = useRoster();
+  const createContract = useCreateContract();
   const [q, setQ] = useState('');
   const [typeF, setTypeF] = useState<'all' | ContractTypeCode>('all');
   const [statF, setStatF] = useState<'all' | ContractStatus>('all');
   const [wizard, setWizard] = useState(false);
+  const [wizEmpId, setWizEmpId] = useState('');
+  const [wizType, setWizType] = useState<string>('CDI');
+  const [wizDate, setWizDate] = useState('');
 
   // Liste live-first : lignes m4_contracts (DB) fusionnées avec le builder
   // déterministe pour les champs hors schéma (société, dates, convention…).
@@ -161,8 +167,69 @@ export function ContratsPage() {
               </li>
             ))}
           </ol>
-          <div className="mt-3 flex items-center gap-2"><Filter size={12} className="text-ink-400" /><p className="text-[11px] font-medium text-ink-500">Sélectionner le collaborateur cible parmi les {roster.length} pour commencer.</p></div>
-          <div className="mt-2 flex gap-2"><Button size="sm" onClick={() => { setWizard(false); toast({ variant: 'success', title: 'Wizard', description: 'Contrat en brouillon créé (étape 1/10)' }); }}>Démarrer le wizard</Button></div>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Collaborateur</label>
+              {isBackendConfigured && liveEmps && liveEmps.length > 0 ? (
+                <select
+                  value={wizEmpId}
+                  onChange={(e) => setWizEmpId(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+                >
+                  <option value="">— choisir —</option>
+                  {liveEmps.map((e) => (
+                    <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="flex items-center gap-2"><Filter size={12} className="text-ink-400" /><p className="text-[11px] font-medium text-ink-500">{roster.length} collaborateurs (mode démo)</p></div>
+              )}
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Type de contrat</label>
+              <select
+                value={wizType}
+                onChange={(e) => setWizType(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              >
+                {CONTRACT_TYPES.map((t) => <option key={t.code} value={t.code}>{t.short} — {t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date d'effet</label>
+              <input
+                type="date"
+                value={wizDate}
+                onChange={(e) => setWizDate(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              disabled={createContract.isPending || (isBackendConfigured ? !wizEmpId : false)}
+              onClick={async () => {
+                if (!isBackendConfigured) {
+                  setWizard(false);
+                  toast({ variant: 'success', title: 'Wizard', description: 'Contrat en brouillon créé (mode démo — étape 1/10)' });
+                  return;
+                }
+                try {
+                  await createContract.mutateAsync({ employeeId: wizEmpId, type: wizType, effectiveDate: wizDate || undefined });
+                  setWizard(false);
+                  setWizEmpId('');
+                  setWizType('CDI');
+                  setWizDate('');
+                  toast({ variant: 'success', title: 'Contrat créé', description: `Brouillon ${wizType} enregistré (étape 1/10)` });
+                } catch (e) {
+                  toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                }
+              }}
+            >
+              {createContract.isPending ? 'Création…' : 'Créer le brouillon (étape 1/10)'}
+            </Button>
+          </div>
         </Card>
       )}
     </div>
