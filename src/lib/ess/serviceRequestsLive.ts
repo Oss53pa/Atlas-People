@@ -7,7 +7,6 @@ import { supabase, isBackendConfigured } from '../supabase';
 export { isBackendConfigured };
 
 const DEMO = '11111111-1111-1111-1111-111111111111';
-const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002';
 
 export interface ServiceRequestRow {
   id: string;
@@ -22,11 +21,11 @@ export interface ServiceRequestRow {
   sla_deadline: string | null;
 }
 
-export function useMyServiceRequests(tenantId = DEMO, employeeId = DEMO_EMP_ID) {
+export function useMyServiceRequests(tenantId = DEMO, employeeId?: string) {
   return useQuery({
     queryKey: ['ess-service-requests', tenantId, employeeId],
     queryFn: async () => {
-      if (!supabase) return [];
+      if (!supabase || !employeeId) return [];
       const { data, error } = await supabase.schema('atlas_people')
         .from('service_requests')
         .select('id,reference,request_type_code,subject,description,urgency,status,created_at,resolved_at,sla_deadline')
@@ -37,7 +36,7 @@ export function useMyServiceRequests(tenantId = DEMO, employeeId = DEMO_EMP_ID) 
       if (error) throw error;
       return (data ?? []) as ServiceRequestRow[];
     },
-    enabled: isBackendConfigured,
+    enabled: isBackendConfigured && Boolean(employeeId),
     staleTime: 30_000,
   });
 }

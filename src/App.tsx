@@ -51,7 +51,6 @@ import {
   DeclarationsPage as DeclarationsConformitePage, VisitesMedicalesPage, HabilitationsPage, AuditsPage,
   InspectionsPage as InspectionsConformitePage, ConservationPage, ParametresConformitePage,
 } from './pages/conformite/ConformitePages';
-import { ConformitePage as LegacyComplianceGuard } from './pages/ConformitePage';
 import { JournalAuditPage } from './pages/JournalAuditPage';
 import { SelfServicePage } from './pages/SelfServicePage';
 import { MonTempsPage } from './pages/ess/MonTempsPage';
@@ -424,7 +423,6 @@ function App() {
         <Route path="/conformite/inspections" element={<InspectionsConformitePage />} />
         <Route path="/conformite/conservation" element={<ConservationPage />} />
         <Route path="/conformite/parametres" element={<ParametresConformitePage />} />
-        <Route path="/conformite/legacy-guard" element={<LegacyComplianceGuard />} />
         <Route path="/objectifs/methodologie" element={<MethodologieOkrPage />} />
         <Route path="/objectifs/notation" element={<NotationOkrPage />} />
         <Route path="/objectifs/retrospective" element={<RetrospectiveOkrPage />} />

@@ -15,9 +15,7 @@ import { leaveTypeByCode } from '../../lib/m2/leaveTypes';
 import { employeeById } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import { useMyLeaveRequests, isBackendConfigured } from '../../lib/ess/supabaseLive';
-import { useAuth } from '../../lib/auth';
-
-const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info'> = { pending: 'warn', approved: 'ok', refused: 'danger', info_requested: 'info' };
@@ -34,8 +32,8 @@ export function MesCongesPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const [tab, setTab] = useState('balances');
-  const { tenantId } = useAuth();
-  const { data: liveRequests } = useMyLeaveRequests(tenantId ?? undefined, DEMO_EMP_ID);
+  const { data: ctx } = useSessionContext();
+  const { data: liveRequests } = useMyLeaveRequests(ctx?.tenantId, ctx?.employeeId);
   const employee = employeeById(SELF_ID)!;
   const mockRequests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
   const requests = mockRequests;

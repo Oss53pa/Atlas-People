@@ -13,10 +13,9 @@ import { useSurface } from '../../store/useSurface';
 import { useCorrespondence } from '../../store/useCorrespondence';
 import { employeeById, employeeName, mobileMoney, employeeCompensation, employeeCurrency } from '../../data/mock';
 import { useMyBulletins, isBackendConfigured } from '../../lib/ess/supabaseLive';
-import { useAuth } from '../../lib/auth';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
-const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002'; // Kouadio N'Guessan dans la DB démo
 
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
 const STATUS_LABEL_BUL: Record<string, string> = {
@@ -48,8 +47,8 @@ export function MaPaiePage() {
 
   const [tab, setTab] = useState('bulletins');
   const [showSlip, setShowSlip] = useState<string | null>(null);
-  const { tenantId } = useAuth();
-  const { data: liveBulletins } = useMyBulletins(tenantId ?? undefined, DEMO_EMP_ID);
+  const { data: ctx } = useSessionContext();
+  const { data: liveBulletins } = useMyBulletins(ctx?.tenantId, ctx?.employeeId);
 
   const attestations = useCorrespondence((s) => s.items).filter((c) => c.employeeId === SELF_ID && (c.type.startsWith('CUR-ATT') || c.typeLabel.toLowerCase().includes('attestation')));
   const compLines = employeeCompensation(employee);

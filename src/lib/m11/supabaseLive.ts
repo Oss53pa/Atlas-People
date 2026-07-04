@@ -9,6 +9,7 @@
  * renvoie `null` et l'UI tombe sur les KPIs mock.
  */
 import { isBackendConfigured, supabase } from '../supabase';
+import { resolveSessionContext } from '../session';
 
 
 
@@ -35,6 +36,7 @@ const sum = (arr: Array<number | null | undefined>): number =>
 export async function fetchM11CockpitLive(): Promise<M11CockpitLive | null> {
   if (!isBackendConfigured || !supabase) return null;
   try {
+    const { tenantId } = await resolveSessionContext(); // lève si pas de session → catch → mock
     const sb = supabase.schema('atlas_people');
 
     const [parcoursR, enrollR, pifR, lmsR, badgesR, formateursR, patternsR] = await Promise.all([

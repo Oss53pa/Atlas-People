@@ -1,15 +1,18 @@
 /**
  * CyclesPage — liste des cycles de paie, live-first Supabase.
  */
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarRange, Plus, Lock, ArrowRight, Wifi, RefreshCw } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
+import { Modal } from '../../components/ui/overlays';
+import { FormField, TextInput } from '../../components/ui/FormField';
 import { useToast } from '../../components/ui/Toast';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
-import { usePayrollCycles, isBackendConfigured } from '../../lib/m3/supabaseLive';
+import { usePayrollCycles, useCreatePayrollCycle, isBackendConfigured } from '../../lib/m3/supabaseLive';
 import { useAuth } from '../../lib/auth';
 import { cn } from '../../lib/cn';
 
@@ -31,6 +34,30 @@ export function CyclesPage() {
   const { tenantId } = useAuth();
   const { toast } = useToast();
   const { data: liveCycles, isLoading, refetch } = usePayrollCycles(tenantId ?? undefined);
+  const createCycle = useCreatePayrollCycle();
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [period, setPeriod] = useState('2026-06');
+  const [label, setLabel] = useState('Juin 2026');
+
+  const openCycleModal = () => {
+    if (!isBackendConfigured) {
+      toast({ variant: 'info', title: 'Mode démo', description: "L'ouverture de cycle nécessite le backend (connectez-vous en RH)." });
+      return;
+    }
+    setCreateOpen(true);
+  };
+
+  const submitCreate = async () => {
+    if (!tenantId || !period.trim() || !label.trim()) return;
+    try {
+      await createCycle.mutateAsync({ tenantId, period: period.trim(), label: label.trim(), countryCode: 'CI' });
+      setCreateOpen(false);
+      toast({ variant: 'success', title: 'Cycle ouvert', description: `${label} — statut « Ouvert », phase préparation.` });
+    } catch (e) {
+      toast({ variant: 'error', title: "Échec de l'ouverture", description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
 
   const cycles = liveCycles ?? [];
   const openCycles = cycles.filter((c) => !['closed', 'archived'].includes(c.status));
@@ -57,11 +84,32 @@ export function CyclesPage() {
               <RefreshCw size={13} /> Rafraîchir
             </Button>
           )}
-          <Button size="sm" onClick={() => toast({ variant: 'info', title: 'Ouverture de cycle', description: 'Fonctionnalité disponible avec le module M3 complet.' })}>
+          <Button size="sm" onClick={openCycleModal}>
             <Plus size={14} /> Ouvrir un cycle
           </Button>
         </div>
       </div>
+
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Ouvrir un cycle de paie"
+        footer={<>
+          <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>Annuler</Button>
+          <Button size="sm" onClick={submitCreate} disabled={createCycle.isPending || !period.trim() || !label.trim()}>
+            {createCycle.isPending ? 'Création…' : 'Ouvrir le cycle'}
+          </Button>
+        </>}
+      >
+        <div className="space-y-3">
+          <FormField label="Période (AAAA-MM)">
+            <TextInput value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="2026-06" />
+          </FormField>
+          <FormField label="Libellé">
+            <TextInput value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Juin 2026" />
+          </FormField>
+        </div>
+      </Modal>
 
       {/* Cycles actifs */}
       {openCycles.length > 0 ? (

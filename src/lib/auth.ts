@@ -11,6 +11,7 @@ import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isBackendConfigured } from './supabase';
+import { clearSessionContextCache } from './session';
 export { isBackendConfigured };
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   signOut: async () => {
+    clearSessionContextCache();
     if (!supabase) return;
     await supabase.auth.signOut();
     set({ session: null, user: null, tenantId: null, role: 'employee' });
@@ -137,6 +139,7 @@ function initAuthListener() {
   });
 
   supabase.auth.onAuthStateChange((_event, session) => {
+    clearSessionContextCache();
     useAuthStore.getState()._setSession(session);
     useAuthStore.getState()._setLoading(false);
     if (session?.user) {

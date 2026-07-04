@@ -16,10 +16,8 @@ import { LEAVE_CATALOG, leaveTypeByCode, COUNT_UNIT_LABEL } from '../../lib/m2/l
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import { useSubmitLeaveRequest } from '../../lib/ess/supabaseLive';
-import { useAuth } from '../../lib/auth';
+import { useSessionContext } from '../../lib/useSession';
 import { isBackendConfigured } from '../../lib/supabase';
-
-const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002';
 
 const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
@@ -31,7 +29,7 @@ type Check = { status: 'ok' | 'warn' | 'block'; message: string };
 export function PoserDemandePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { tenantId } = useAuth();
+  const { data: ctx } = useSessionContext();
   const submitToDb = useSubmitLeaveRequest();
   const employee = employeeById(SELF_ID)!;
   const requests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
@@ -74,23 +72,29 @@ export function PoserDemandePage() {
 
   const submit = async () => {
     if (blocking) return;
-    // Toujours écrire dans le store local (optimistic)
-    requestLeave({
-      id: `to_${Date.now()}`, employeeId: SELF_ID, code, label: type.label,
-      start, end, countedDays: counted, status: 'pending', reason: reason || undefined,
-      approver: employee.manager ?? 'Valentina Okou', surface: 'ess', createdAt: TODAY,
-    });
-    // En plus : persistance Supabase si backend configuré
-    if (isBackendConfigured && tenantId) {
+    if (isBackendConfigured) {
+      // Live : Supabase est la source de vérité. Identité résolue depuis la session.
+      if (!ctx) {
+        toast({ variant: 'error', title: 'Session requise', description: 'Connectez-vous pour envoyer une demande.' });
+        return;
+      }
       try {
         await submitToDb.mutateAsync({
-          tenantId, employeeId: DEMO_EMP_ID,
+          tenantId: ctx.tenantId, employeeId: ctx.employeeId,
           leaveTypeCode: code, startDate: start, endDate: end,
           countedDays: counted, reason: reason || undefined,
         });
-      } catch {
-        // Echec silencieux — le store local garantit la cohérence UI
+      } catch (e) {
+        toast({ variant: 'error', title: "Échec de l'envoi", description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+        return; // pas de toast de succès si la persistance a échoué
       }
+    } else {
+      // Démo local (pas de backend) : store Zustand.
+      requestLeave({
+        id: `to_${Date.now()}`, employeeId: SELF_ID, code, label: type.label,
+        start, end, countedDays: counted, status: 'pending', reason: reason || undefined,
+        approver: employee.manager ?? 'Valentina Okou', surface: 'ess', createdAt: TODAY,
+      });
     }
     toast({ variant: 'success', title: 'Demande envoyée', description: `${type.label} · ${counted} j · transmise à ${employee.manager ?? 'votre manager'} pour validation.` });
     navigate('/me/time');

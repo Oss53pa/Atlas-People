@@ -4,6 +4,8 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isBackendConfigured } from '../supabase';
+import { getSupabaseOrThrow, resolveSessionContext, mapSupabaseError, NoRowsAffectedError } from '../session';
+import { appendAuditEntry } from '../auditLog';
 export { isBackendConfigured };
 
 const DEMO = '11111111-1111-1111-1111-111111111111';
@@ -83,19 +85,31 @@ export function useAllLeaveRequests(tenantId = DEMO) {
   });
 }
 
+/** Décision manager sur une demande de congé (contrat §3.1 : id réel, écriture
+ *  vérifiée, audit chaîné). Statuts conformes au CHECK leave_requests_status. */
 export function useDecideLeave() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ requestId, decision, tenantId }: { requestId: string; decision: 'approved' | 'rejected'; tenantId: string }) => {
-      if (!supabase) throw new Error('Backend non configuré');
-      const { error } = await supabase.schema('atlas_people').from('leave_requests')
+    mutationFn: async ({ requestId, decision, tenantId }: { requestId: string; decision: 'approved' | 'refused' | 'info_requested'; tenantId: string }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const { data, error } = await sb.schema('atlas_people').from('leave_requests')
         .update({ status: decision, decided_at: new Date().toISOString() })
-        .eq('id', requestId).eq('tenant_id', tenantId);
-      if (error) throw error;
+        .eq('id', requestId).eq('tenant_id', tenantId)
+        .select('id');
+      if (error) throw mapSupabaseError(error);
+      if (!data || data.length === 0) throw new NoRowsAffectedError('decideLeave');
+      await appendAuditEntry({
+        tenantId, actorId: ctx.userId, action: `leave.${decision}`,
+        entity: 'leave_requests', entityId: requestId, payload: { decision }, surface: 'mss',
+      });
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['mss-approvals', vars.tenantId] });
       qc.invalidateQueries({ queryKey: ['mss-all-leaves', vars.tenantId] });
+      qc.invalidateQueries({ queryKey: ['m2-leaves', vars.tenantId] });
+      qc.invalidateQueries({ queryKey: ['m2-leaves-full', vars.tenantId] });
+      qc.invalidateQueries({ queryKey: ['m2-time-stats', vars.tenantId] });
     },
   });
 }
