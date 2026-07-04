@@ -44,7 +44,7 @@ export async function resolveCaller(req: Request): Promise<Caller | null> {
   if (!auth?.user) return null;
 
   const { data: membership } = await supa
-    .from('memberships')
+    .from('tenant_memberships')
     .select('tenant_id, role')
     .eq('user_id', auth.user.id)
     .limit(1)
@@ -66,4 +66,5 @@ export async function resolveCaller(req: Request): Promise<Caller | null> {
   };
 }
 
-export const isHrOrAdmin = (c: Caller) => c.role === 'hr' || c.role === 'admin';
+export const isHrOrAdmin = (c: Caller) =>
+  ['rh', 'admin', 'drh', 'paie'].includes(c.role);
