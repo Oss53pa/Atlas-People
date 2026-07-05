@@ -297,6 +297,123 @@ export function useTeamObjectives(tenantId = DEMO) {
   });
 }
 
+// ── Développement équipe — validations formation (m11) & compétences (m9) ──
+
+export interface TeamTrainingRequestRow {
+  id: string;
+  employee_id: string;
+  session_id: string;
+  status: string;
+  requested_at: string;
+  allocated_cost: number | null;
+  course_title?: string;
+  employee_first_name?: string;
+  employee_last_name?: string;
+}
+
+/** Demandes d'inscription formation de l'équipe en attente de validation manager. */
+export function useTeamTrainingRequests(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-training-requests', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const sb = supabase.schema('atlas_people');
+      const { data, error } = await sb
+        .from('m11_registrations')
+        .select('id,employee_id,session_id,status,requested_at,allocated_cost,employees!employee_id(first_name,last_name)')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'requested')
+        .order('requested_at', { ascending: false });
+      if (error) throw error;
+      const rows = (data ?? []) as Record<string, unknown>[];
+      // Résolution de l'intitulé : registration → session.course_id → course.title
+      const sessionIds = [...new Set(rows.map((r) => r['session_id'] as string).filter(Boolean))];
+      const titleBySession = new Map<string, string>();
+      if (sessionIds.length) {
+        const { data: sess } = await sb.from('m11_training_sessions').select('id,course_id').in('id', sessionIds);
+        const courseIds = [...new Set((sess ?? []).map((s: Record<string, unknown>) => s['course_id'] as string).filter(Boolean))];
+        const titleByCourse = new Map<string, string>();
+        if (courseIds.length) {
+          const { data: courses } = await sb.from('m11_courses').select('id,title').in('id', courseIds);
+          (courses ?? []).forEach((c: Record<string, unknown>) => titleByCourse.set(c['id'] as string, c['title'] as string));
+        }
+        (sess ?? []).forEach((s: Record<string, unknown>) => titleBySession.set(s['id'] as string, titleByCourse.get(s['course_id'] as string) ?? ''));
+      }
+      return rows.map((r) => {
+        const emp = r['employees'] as Record<string, string> | null;
+        return {
+          id: r['id'], employee_id: r['employee_id'], session_id: r['session_id'], status: r['status'],
+          requested_at: r['requested_at'], allocated_cost: r['allocated_cost'],
+          course_title: titleBySession.get(r['session_id'] as string),
+          employee_first_name: emp?.first_name, employee_last_name: emp?.last_name,
+        } as TeamTrainingRequestRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 30_000,
+  });
+}
+
+/** Décision manager sur une demande de formation (approve/refuse) + audit 'mss'. */
+export function useDecideTrainingRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ registrationId, decision, tenantId }: { registrationId: string; decision: 'approved' | 'cancelled'; tenantId: string }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const patch = decision === 'approved'
+        ? { status: 'approved', approved_at: new Date().toISOString(), approved_by: ctx.employeeId }
+        : { status: 'cancelled', cancelled_at: new Date().toISOString() };
+      const { data, error } = await sb.schema('atlas_people').from('m11_registrations')
+        .update(patch).eq('id', registrationId).eq('tenant_id', tenantId).select('id');
+      if (error) throw mapSupabaseError(error);
+      if (!data || data.length === 0) throw new NoRowsAffectedError('decideTraining');
+      await appendAuditEntry({
+        tenantId, actorId: ctx.userId, action: `training.${decision === 'approved' ? 'approved' : 'refused'}`,
+        entity: 'm11_registrations', entityId: registrationId, payload: { decision }, surface: 'mss',
+      });
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['mss-training-requests', vars.tenantId] }),
+  });
+}
+
+export interface TeamSkillMatrixRow {
+  id: string;
+  employee_id: string;
+  skill_id: string;
+  level: number;
+  target_level: number | null;
+  certified: boolean;
+  skill_name?: string;
+  employee_first_name?: string;
+  employee_last_name?: string;
+}
+
+export function useTeamSkillMatrix(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-skill-matrix', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('m9_skill_matrix')
+        .select('id,employee_id,skill_id,level,target_level,certified,m9_skills!skill_id(name),employees!employee_id(first_name,last_name)')
+        .eq('tenant_id', tenantId);
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const sk = r['m9_skills'] as Record<string, string> | null;
+        const emp = r['employees'] as Record<string, string> | null;
+        return {
+          id: r['id'], employee_id: r['employee_id'], skill_id: r['skill_id'], level: r['level'],
+          target_level: r['target_level'], certified: r['certified'],
+          skill_name: sk?.name, employee_first_name: emp?.first_name, employee_last_name: emp?.last_name,
+        } as TeamSkillMatrixRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 60_000,
+  });
+}
+
 export function useMssTeamStats(tenantId = DEMO) {
   return useQuery({
     queryKey: ['mss-team-stats', tenantId],

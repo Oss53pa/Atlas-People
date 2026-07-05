@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ClipboardCheck, Check, X, Info, RefreshCw, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { ClipboardCheck, Check, X, Info, RefreshCw, ShieldAlert, AlertTriangle, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -13,6 +13,11 @@ import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { trainingValidations, fmtFCFA, type TrainingRequest } from '../../lib/mss/dev';
 import { employeeName } from '../../data/mock';
+import { isBackendConfigured, useTeamTrainingRequests, useDecideTrainingRequest } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
+
+const frDate = (d: string) => new Date(d).toLocaleDateString('fr-FR');
 
 type Decision = 'approve' | 'refuse' | 'info' | 'alt';
 
@@ -24,6 +29,35 @@ export function TeamTrainingValidationsPage() {
   const employees = useDirectory((s) => s.employees);
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
+  const teamIds = useMemo(() => new Set(team.map((e) => e.id)), [team]);
+
+  // ── Branche LIVE — demandes de formation en attente de validation manager ──
+  const { data: ctx } = useSessionContext();
+  const { data: liveRequests } = useTeamTrainingRequests(ctx?.tenantId);
+  const decideLive = useDecideTrainingRequest();
+  const liveScoped = useMemo(
+    () => (liveRequests ?? []).filter((r) => teamIds.has(mockEmpId(r.employee_id))),
+    [liveRequests, teamIds],
+  );
+  const hasLive = isBackendConfigured && liveScoped.length > 0;
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const decideLiveRequest = async (id: string, decision: 'approved' | 'cancelled', who: string, title: string) => {
+    if (!ctx?.tenantId) return;
+    setBusyId(id);
+    try {
+      await decideLive.mutateAsync({ registrationId: id, decision, tenantId: ctx.tenantId });
+      toast({
+        variant: decision === 'approved' ? 'success' : 'warning',
+        title: decision === 'approved' ? 'Validée et envoyée à la RH (budget)' : 'Refusée — décision transmise',
+        description: `${who} · ${title} · décision tracée individuellement (audit).`,
+      });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Échec de la décision', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const [decided, setDecided] = useState<Record<string, string>>({});
   const [active, setActive] = useState<TrainingRequest | null>(null);
@@ -53,10 +87,39 @@ export function TeamTrainingValidationsPage() {
       <DevelopmentSubNav />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-ink">Formations à valider</h1>
-        <StatusPill tone={requests.length > 0 ? 'warn' : 'ok'} dot={false}>{requests.length} en attente</StatusPill>
+        <div className="flex items-center gap-2">
+          {hasLive && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-ok/[0.1] px-2 py-1 text-[11px] font-semibold text-ok"><Wifi size={11} /> Live DB</span>
+          )}
+          <StatusPill tone={(hasLive ? liveScoped.length : requests.length) > 0 ? 'warn' : 'ok'} dot={false}>{hasLive ? liveScoped.length : requests.length} en attente</StatusPill>
+        </div>
       </div>
 
-      {requests.length === 0 ? (
+      {hasLive ? (
+        <div className="space-y-3">
+          {liveScoped.map((r) => {
+            const who = `${r.employee_first_name ?? ''} ${r.employee_last_name ?? ''}`.trim() || '—';
+            const title = r.course_title || 'Formation';
+            return (
+              <Card key={r.id}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5"><Avatar name={who} size="sm" />
+                    <div>
+                      <p className="text-sm font-bold text-ink">{who} — {title}</p>
+                      <p className="text-[11px] font-medium text-ink-400">Demande du {frDate(r.requested_at)}{r.allocated_cost != null ? ` · ${r.allocated_cost.toLocaleString('fr-FR')} FCFA` : ''}</p>
+                    </div>
+                  </div>
+                  <StatusPill tone="warn" dot={false}>En attente</StatusPill>
+                </div>
+                <div className="mt-3 flex justify-end gap-1.5">
+                  <Button size="sm" variant="ghost" disabled={busyId === r.id} onClick={() => decideLiveRequest(r.id, 'cancelled', who, title)}><X size={14} /> Refuser</Button>
+                  <Button size="sm" disabled={busyId === r.id} onClick={() => decideLiveRequest(r.id, 'approved', who, title)}><Check size={14} /> Approuver</Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : requests.length === 0 ? (
         <Card><p className="py-6 text-center text-sm font-medium text-ink-400">Aucune demande de formation en attente.</p></Card>
       ) : (
         <div className="space-y-3">
