@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { CalendarOff, CalendarClock, Clock, AlertTriangle, Lock } from 'lucide-react';
+import { CalendarOff, CalendarClock, Clock, AlertTriangle, Lock, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { ReportingSubNav } from '../../components/mss/ReportingSubNav';
@@ -9,6 +9,8 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { ABSENCE_CAUSES, overtimeByMember, timeStats } from '../../lib/mss/reporting';
+import { isBackendConfigured, useMssReportingLive } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 export function ReportingTimePage() {
   const setSurface = useSurface((s) => s.setSurface);
@@ -21,6 +23,11 @@ export function ReportingTimePage() {
   const ot = overtimeByMember(team);
   const t = timeStats(team);
   const topOt = ot[0];
+
+  const { data: ctx } = useSessionContext();
+  const { data: live } = useMssReportingLive(ctx?.tenantId);
+  const showLive = isBackendConfigured && !!live;
+  const liveTag = <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500"><Wifi size={12} /> Live DB</span>;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -43,11 +50,21 @@ export function ReportingTimePage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Congés" action={<CalendarClock size={16} className="text-ink-400" />} />
+          <CardHeader title="Congés" action={showLive ? liveTag : <CalendarClock size={16} className="text-ink-400" />} />
           <div className="space-y-1 text-sm font-medium text-ink-700">
-            <p>Solde équipe : <span className="mono font-semibold text-ink">{t.leaveBalance} j</span> disponibles</p>
-            <p>Pris ce trimestre : <span className="mono font-semibold text-ink">{t.leaveTakenQ} j</span></p>
-            <p className="text-warn">Péremption à venir : {t.leaveExpiring} j (chez {t.expiringPeople} membre(s))</p>
+            {showLive ? (
+              <>
+                <p>Demandes approuvées : <span className="mono font-semibold text-ink">{live.leaveApproved.toLocaleString('fr-FR')}</span></p>
+                <p>Jours approuvés (cumul) : <span className="mono font-semibold text-ink">{Math.round(live.leaveDays).toLocaleString('fr-FR')} j</span></p>
+                <p className="text-warn">Péremption à venir : {t.leaveExpiring} j (chez {t.expiringPeople} membre(s))</p>
+              </>
+            ) : (
+              <>
+                <p>Solde équipe : <span className="mono font-semibold text-ink">{t.leaveBalance} j</span> disponibles</p>
+                <p>Pris ce trimestre : <span className="mono font-semibold text-ink">{t.leaveTakenQ} j</span></p>
+                <p className="text-warn">Péremption à venir : {t.leaveExpiring} j (chez {t.expiringPeople} membre(s))</p>
+              </>
+            )}
           </div>
         </Card>
         <Card>
@@ -60,7 +77,7 @@ export function ReportingTimePage() {
       </div>
 
       <Card>
-        <CardHeader title="Heures supplémentaires par membre" subtitle={`Cumul année : ${t.otTotal}h équipe · cible max ${t.otTarget.toLocaleString('fr-FR')}h · ${t.otPaidPct}% payées / ${t.otRecupPct}% récupérées`} action={<Clock size={16} className="text-ink-400" />} />
+        <CardHeader title="Heures supplémentaires par membre" subtitle={`Cumul${showLive ? ' (live) ' : ' année '}: ${showLive ? Math.round(live.overtimeHours).toLocaleString('fr-FR') : t.otTotal}h équipe · cible max ${t.otTarget.toLocaleString('fr-FR')}h · ${t.otPaidPct}% payées / ${t.otRecupPct}% récupérées`} action={showLive ? liveTag : <Clock size={16} className="text-ink-400" />} />
         <HBars data={ot.map((o) => ({ label: o.name, value: o.hours }))} unit="h" />
         {topOt && topOt.pct >= 35 && (
           <p className="mt-3 flex items-center gap-1.5 text-[12px] font-semibold text-warn"><AlertTriangle size={13} /> {topOt.name} concentre {topOt.pct}% des HS de l’équipe.</p>

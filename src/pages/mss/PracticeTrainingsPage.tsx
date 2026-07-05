@@ -1,19 +1,55 @@
 import { useEffect } from 'react';
-import { GraduationCap, Sparkles, BookOpen } from 'lucide-react';
+import { GraduationCap, Sparkles, BookOpen, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { StatusPill } from '../../components/ui/StatusPill';
 import { PracticeSubNav } from '../../components/mss/PracticeSubNav';
 import { useSurface } from '../../store/useSurface';
 import { MANAGER_TRAININGS } from '../../lib/mss/practice';
+import { isBackendConfigured, empUuid, useManagerOwnPractice } from '../../lib/mss/supabaseLive';
+import { MANAGER_ID } from '../../lib/mss/scope';
+import { useSessionContext } from '../../lib/useSession';
+
+const TRAINING_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info' | 'neutral'> = {
+  requested: 'warn', approved: 'info', confirmed: 'info', attended: 'ok', completed: 'ok', cancelled: 'danger',
+};
+const TRAINING_LABEL: Record<string, string> = {
+  requested: 'Demandée', approved: 'Approuvée', confirmed: 'Confirmée', attended: 'Suivie', completed: 'Terminée', cancelled: 'Annulée',
+};
 
 export function PracticeTrainingsPage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('mss'); }, [setSurface]);
 
+  const { data: ctx } = useSessionContext();
+  const { data: live } = useManagerOwnPractice(ctx?.tenantId, empUuid(MANAGER_ID));
+  const liveTrainings = isBackendConfigured && live && live.trainings.length > 0 ? live.trainings : null;
+
   return (
     <div className="animate-fade-up space-y-5">
       <PracticeSubNav />
       <h1 className="text-2xl font-semibold text-ink">Mes formations manager</h1>
+
+      {liveTrainings && (
+        <Card>
+          <CardHeader
+            title="Mes formations"
+            subtitle={`${liveTrainings.length} inscription(s) · Live DB`}
+            action={<Wifi size={13} className="text-emerald-500" />}
+          />
+          <div className="space-y-2">
+            {liveTrainings.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 rounded-xl bg-surface2 px-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-ink">{t.course_title || 'Formation'}</p>
+                  {t.requested_at && <p className="text-[11px] font-medium text-ink-400">Demandée le {new Date(t.requested_at).toLocaleDateString('fr-FR')}</p>}
+                </div>
+                <StatusPill tone={TRAINING_TONE[t.status] ?? 'neutral'} dot={false}>{TRAINING_LABEL[t.status] ?? t.status}</StatusPill>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <CardHeader title="En cours" action={<GraduationCap size={16} className="text-ink-400" />} />

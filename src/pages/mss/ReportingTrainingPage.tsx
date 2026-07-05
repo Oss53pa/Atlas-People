@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { GraduationCap, Wallet, Clock, Star } from 'lucide-react';
+import { GraduationCap, Wallet, Clock, Star, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { ReportingSubNav } from '../../components/mss/ReportingSubNav';
 import { HBars, BudgetGauge, StackBar } from '../../components/mss/charts';
@@ -8,6 +8,8 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { TRAINING_CATEGORIES, trainingByMember, fcfa } from '../../lib/mss/reporting';
+import { isBackendConfigured, useMssReportingLive } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const CAT_COLORS = ['bg-info', 'bg-info/60', 'bg-amber/70', 'bg-ink-300'];
 
@@ -23,6 +25,12 @@ export function ReportingTrainingPage() {
   const byMember = trainingByMember(team);
   const totalHours = byMember.reduce((s, m) => s + m.hours, 0);
   const avg = team.length ? Math.round(totalHours / team.length) : 0;
+
+  const { data: ctx } = useSessionContext();
+  const { data: live } = useMssReportingLive(ctx?.tenantId);
+  const showLive = isBackendConfigured && !!live;
+  const liveHours = showLive ? Math.round(live.trainingHours) : totalHours;
+  const liveAvg = showLive && team.length ? Math.round(liveHours / team.length) : avg;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -42,11 +50,12 @@ export function ReportingTrainingPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Heures de formation" action={<Clock size={16} className="text-ink-400" />} />
+          <CardHeader title="Heures de formation" action={showLive ? <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500"><Wifi size={12} /> Live DB</span> : <Clock size={16} className="text-ink-400" />} />
           <div className="space-y-1 text-sm font-medium text-ink-700">
-            <p>Total équipe : <span className="mono font-semibold text-ink">{totalHours}h</span></p>
-            <p>Moyenne par membre : <span className="mono font-semibold text-ink">{avg}h</span></p>
-            <p className={avg < 21 ? 'text-warn' : 'text-ok'}>Cible : 21h/membre/an {avg < 21 ? '(sous l’objectif)' : '(atteinte)'}</p>
+            {showLive && <p>Formations validées : <span className="mono font-semibold text-ink">{live.trainingCount.toLocaleString('fr-FR')}</span></p>}
+            <p>Total équipe : <span className="mono font-semibold text-ink">{liveHours.toLocaleString('fr-FR')}h</span></p>
+            <p>Moyenne par membre : <span className="mono font-semibold text-ink">{liveAvg}h</span></p>
+            <p className={liveAvg < 21 ? 'text-warn' : 'text-ok'}>Cible : 21h/membre/an {liveAvg < 21 ? '(sous l’objectif)' : '(atteinte)'}</p>
           </div>
         </Card>
         <Card>

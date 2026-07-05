@@ -1,20 +1,62 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Gauge, ThumbsUp, Target, ArrowRight, Sparkles } from 'lucide-react';
+import { Gauge, ThumbsUp, Target, ArrowRight, Sparkles, Wifi, Award } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { StatusPill } from '../../components/ui/StatusPill';
 import { PracticeSubNav } from '../../components/mss/PracticeSubNav';
 import { useSurface } from '../../store/useSurface';
 import { PRACTICE_OVERVIEW as o } from '../../lib/mss/practice';
+import { isBackendConfigured, empUuid, useManagerOwnPractice } from '../../lib/mss/supabaseLive';
+import { MANAGER_ID } from '../../lib/mss/scope';
+import { useSessionContext } from '../../lib/useSession';
+
+const EVAL_STATUS_LABEL: Record<string, string> = {
+  draft: 'Brouillon', in_progress: 'En cours', submitted: 'Soumise', validated: 'Validée', closed: 'Clôturée',
+};
 
 export function PracticeOverviewPage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('mss'); }, [setSurface]);
 
+  const { data: ctx } = useSessionContext();
+  const { data: live } = useManagerOwnPractice(ctx?.tenantId, empUuid(MANAGER_ID));
+  const showLive = isBackendConfigured && live && (live.evaluation !== null || live.trainings.length > 0);
+
   return (
     <div className="animate-fade-up space-y-5">
       <PracticeSubNav />
       <h1 className="text-2xl font-semibold text-ink">Ma pratique managériale</h1>
+
+      {showLive && (
+        <Card>
+          <CardHeader
+            title="Mon développement (live)"
+            subtitle="Ma propre évaluation et mes formations"
+            action={<Wifi size={13} className="text-emerald-500" />}
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-line bg-surface2 px-3 py-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Ma note finale</p>
+              <p className="mono mt-1 text-2xl font-semibold text-ink">{live!.evaluation?.note_finale != null ? `${live!.evaluation.note_finale}/5` : '—'}</p>
+            </div>
+            <div className="rounded-xl border border-line bg-surface2 px-3 py-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Ma classe</p>
+              <div className="mt-1.5 flex items-center gap-2">
+                {live!.evaluation?.classe ? (
+                  <StatusPill tone="amber" dot={false}><Award size={12} /> {live!.evaluation.classe}</StatusPill>
+                ) : <span className="mono text-2xl font-semibold text-ink-400">—</span>}
+                {live!.evaluation?.status && <span className="text-[11px] font-medium text-ink-400">{EVAL_STATUS_LABEL[live!.evaluation.status] ?? live!.evaluation.status}</span>}
+              </div>
+            </div>
+            <div className="rounded-xl border border-line bg-surface2 px-3 py-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Mes formations</p>
+              <p className="mono mt-1 text-2xl font-semibold text-ink">{live!.trainings.length}</p>
+              <p className="text-[11px] text-ink-400">inscription(s)</p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card><p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Efficacité managériale</p><p className="mono mt-1 text-2xl font-semibold text-ink">{o.effectiveness}/5</p><p className="text-[11px] text-ink-400">Feedback 360 + KPI équipe</p></Card>

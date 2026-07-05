@@ -584,6 +584,173 @@ export function useTeamClockings(tenantId = DEMO) {
   });
 }
 
+// ── Paramètres — Délégations de validation (table manager_delegations) ──
+
+/** eNN → uuid démo (mapping fixe du tenant de démonstration). */
+const empUuid = (mockId: string) => 'e1000001-0000-0000-0000-' + String(parseInt(mockId.slice(1), 10) || 0).padStart(12, '0');
+export { empUuid };
+
+export interface DelegationRow {
+  id: string;
+  delegator_employee_id: string;
+  delegate_employee_id: string;
+  delegate_name: string | null;
+  scope: string[];
+  status: string;
+  message: string | null;
+  valid_from: string | null;
+  valid_until: string | null;
+}
+
+export function useMyDelegations(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-delegations', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('manager_delegations')
+        .select('id,delegator_employee_id,delegate_employee_id,delegate_name,scope,status,message,valid_from,valid_until')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as DelegationRow[];
+    },
+    enabled: isBackendConfigured,
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateDelegation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { tenantId: string; delegatorEmployeeId: string; delegateEmployeeId: string; delegateName: string; scope: string[]; message?: string; validFrom?: string; validUntil?: string }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const { data, error } = await sb.schema('atlas_people').from('manager_delegations').insert({
+        tenant_id: v.tenantId,
+        delegator_employee_id: v.delegatorEmployeeId,
+        delegate_employee_id: v.delegateEmployeeId,
+        delegate_name: v.delegateName,
+        scope: v.scope,
+        status: 'active',
+        message: v.message ?? null,
+        valid_from: v.validFrom ?? null,
+        valid_until: v.validUntil ?? null,
+        created_by: ctx.employeeId,
+      }).select('id').single();
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({ tenantId: v.tenantId, actorId: ctx.userId, action: 'delegation.created', entity: 'manager_delegations', entityId: data.id as string, payload: { delegate: v.delegateName, scope: v.scope }, surface: 'mss' });
+      return data;
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['mss-delegations', v.tenantId] }),
+  });
+}
+
+export function useRevokeDelegation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, tenantId }: { id: string; tenantId: string }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const { data, error } = await sb.schema('atlas_people').from('manager_delegations')
+        .update({ status: 'revoked', revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', id).eq('tenant_id', tenantId).select('id');
+      if (error) throw mapSupabaseError(error);
+      if (!data || data.length === 0) throw new NoRowsAffectedError('revokeDelegation');
+      await appendAuditEntry({ tenantId, actorId: ctx.userId, action: 'delegation.revoked', entity: 'manager_delegations', entityId: id, payload: {}, surface: 'mss' });
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['mss-delegations', v.tenantId] }),
+  });
+}
+
+// ── Reporting — agrégats live (compléments aux dérivations roster) ──────
+
+export interface MssReportingLive {
+  leaveApproved: number;
+  leaveDays: number;
+  overtimeHours: number;
+  trainingCount: number;
+  trainingHours: number;
+  payrollNetMass: number;
+  payrollBrutMass: number;
+  evalClasses: Record<string, number>;
+}
+
+export function useMssReportingLive(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-reporting-live', tenantId],
+    queryFn: async (): Promise<MssReportingLive> => {
+      const empty: MssReportingLive = { leaveApproved: 0, leaveDays: 0, overtimeHours: 0, trainingCount: 0, trainingHours: 0, payrollNetMass: 0, payrollBrutMass: 0, evalClasses: {} };
+      if (!supabase) return empty;
+      const sb = supabase.schema('atlas_people');
+      const [leaves, overtime, trainings, bulletins, evals] = await Promise.all([
+        sb.from('leave_requests').select('counted_days,status').eq('tenant_id', tenantId).eq('status', 'approved'),
+        sb.from('overtime_records').select('hours,status').eq('tenant_id', tenantId).eq('status', 'validated'),
+        sb.from('m11_registrations').select('attended_hours,status').eq('tenant_id', tenantId).in('status', ['approved', 'confirmed', 'attended', 'completed']),
+        sb.from('payroll_bulletins').select('net_a_payer,brut_total,status').eq('tenant_id', tenantId).in('status', ['calculated', 'validated_n1', 'validated_n2', 'signed', 'diffused', 'closed']),
+        sb.from('m8_evaluations').select('classe').eq('tenant_id', tenantId),
+      ]);
+      const sum = (rows: unknown, key: string) => ((rows as Record<string, number>[] | null) ?? []).reduce((s, r) => s + (Number(r[key]) || 0), 0);
+      const evalClasses: Record<string, number> = {};
+      ((evals.data as { classe: string | null }[] | null) ?? []).forEach((e) => { if (e.classe) evalClasses[e.classe] = (evalClasses[e.classe] ?? 0) + 1; });
+      return {
+        leaveApproved: (leaves.data ?? []).length,
+        leaveDays: sum(leaves.data, 'counted_days'),
+        overtimeHours: sum(overtime.data, 'hours'),
+        trainingCount: (trainings.data ?? []).length,
+        trainingHours: sum(trainings.data, 'attended_hours'),
+        payrollNetMass: sum(bulletins.data, 'net_a_payer'),
+        payrollBrutMass: sum(bulletins.data, 'brut_total'),
+        evalClasses,
+      };
+    },
+    enabled: isBackendConfigured,
+    staleTime: 60_000,
+  });
+}
+
+// ── Ma pratique — développement propre du manager ──────────────────────
+
+export interface ManagerPracticeData {
+  trainings: { id: string; status: string; course_title?: string; requested_at: string | null }[];
+  evaluation: { note_finale: number | null; classe: string | null; status: string } | null;
+}
+
+export function useManagerOwnPractice(tenantId = DEMO, managerEmployeeId?: string) {
+  return useQuery({
+    queryKey: ['mss-practice', tenantId, managerEmployeeId],
+    queryFn: async (): Promise<ManagerPracticeData> => {
+      const empty: ManagerPracticeData = { trainings: [], evaluation: null };
+      if (!supabase || !managerEmployeeId) return empty;
+      const sb = supabase.schema('atlas_people');
+      const [regs, evalRes] = await Promise.all([
+        sb.from('m11_registrations').select('id,status,session_id,requested_at').eq('tenant_id', tenantId).eq('employee_id', managerEmployeeId).order('requested_at', { ascending: false }),
+        sb.from('m8_evaluations').select('note_finale,classe,status').eq('tenant_id', tenantId).eq('employee_id', managerEmployeeId).maybeSingle(),
+      ]);
+      // Résolution intitulé formation (registration → session → course).
+      const regRows = (regs.data ?? []) as Record<string, unknown>[];
+      const sessionIds = [...new Set(regRows.map((r) => r['session_id'] as string).filter(Boolean))];
+      const titleBySession = new Map<string, string>();
+      if (sessionIds.length) {
+        const { data: sess } = await sb.from('m11_training_sessions').select('id,course_id').in('id', sessionIds);
+        const courseIds = [...new Set((sess ?? []).map((s: Record<string, unknown>) => s['course_id'] as string).filter(Boolean))];
+        const titleByCourse = new Map<string, string>();
+        if (courseIds.length) {
+          const { data: courses } = await sb.from('m11_courses').select('id,title').in('id', courseIds);
+          (courses ?? []).forEach((c: Record<string, unknown>) => titleByCourse.set(c['id'] as string, c['title'] as string));
+        }
+        (sess ?? []).forEach((s: Record<string, unknown>) => titleBySession.set(s['id'] as string, titleByCourse.get(s['course_id'] as string) ?? ''));
+      }
+      return {
+        trainings: regRows.map((r) => ({ id: r['id'] as string, status: r['status'] as string, course_title: titleBySession.get(r['session_id'] as string), requested_at: (r['requested_at'] as string) ?? null })),
+        evaluation: (evalRes.data as ManagerPracticeData['evaluation']) ?? null,
+      };
+    },
+    enabled: isBackendConfigured && Boolean(managerEmployeeId),
+    staleTime: 60_000,
+  });
+}
+
 export function useMssTeamStats(tenantId = DEMO) {
   return useQuery({
     queryKey: ['mss-team-stats', tenantId],

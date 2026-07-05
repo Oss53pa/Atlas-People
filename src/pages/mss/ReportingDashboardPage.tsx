@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Users, RefreshCw, CalendarOff, Clock, Wallet, GraduationCap, Target, HeartPulse, Lock } from 'lucide-react';
+import { Users, RefreshCw, CalendarOff, Clock, Wallet, GraduationCap, Target, HeartPulse, Lock, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { ReportingSubNav } from '../../components/mss/ReportingSubNav';
@@ -8,6 +8,8 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { kpiSummary, fcfa } from '../../lib/mss/reporting';
+import { isBackendConfigured, useMssReportingLive } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 export function ReportingDashboardPage() {
   const setSurface = useSurface((s) => s.setSurface);
@@ -17,6 +19,10 @@ export function ReportingDashboardPage() {
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
   const k = kpiSummary(team);
+
+  const { data: ctx } = useSessionContext();
+  const { data: live } = useMssReportingLive(ctx?.tenantId);
+  const showLive = isBackendConfigured && !!live;
 
   const Block = ({ icon: Icon, title, children }: { icon: typeof Users; title: string; children: React.ReactNode }) => (
     <Card>
@@ -34,6 +40,21 @@ export function ReportingDashboardPage() {
         <h1 className="text-2xl font-semibold text-ink">Reporting &amp; pilotage</h1>
         <StatusPill tone="info" dot={false}>Période : Mai 2026</StatusPill>
       </div>
+
+      {showLive && (
+        <Card>
+          <CardHeader
+            title="Indicateurs live"
+            action={<span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-500"><Wifi size={13} /> Live DB</span>}
+          />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div><p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Congés approuvés</p><p className="mono text-lg font-semibold text-ink">{Math.round(live.leaveDays).toLocaleString('fr-FR')} j</p></div>
+            <div><p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Heures sup.</p><p className="mono text-lg font-semibold text-ink">{Math.round(live.overtimeHours).toLocaleString('fr-FR')} h</p></div>
+            <div><p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Formations</p><p className="mono text-lg font-semibold text-ink">{live.trainingCount.toLocaleString('fr-FR')}</p></div>
+            <div><p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Masse nette</p><p className="mono text-lg font-semibold text-ink">{Math.round(live.payrollNetMass).toLocaleString('fr-FR')} FCFA</p></div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Block icon={Users} title="Effectif">
