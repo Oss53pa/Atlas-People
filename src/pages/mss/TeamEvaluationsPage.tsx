@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ClipboardCheck, Check, Pencil, Send, ShieldAlert, CalendarClock } from 'lucide-react';
+import { ClipboardCheck, Check, Pencil, Send, ShieldAlert, CalendarClock, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -10,11 +10,24 @@ import { PerformanceSubNav } from '../../components/mss/PerformanceSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
-import { scopedTeam } from '../../lib/mss/scope';
+import { scopedTeam, scopedTeamIds } from '../../lib/mss/scope';
 import { memberEval, frDate } from '../../lib/mss/perf';
 import { employeeName, type EmployeeRecord } from '../../data/mock';
+import { isBackendConfigured, useTeamEvaluations, type TeamEvaluationRow } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
 
 const DEADLINE = '2026-06-30';
+
+const EVAL_STATUS_META: Record<string, { label: string; tone: 'ok' | 'info' | 'warn' | 'danger' }> = {
+  draft: { label: 'Brouillon', tone: 'warn' },
+  auto_submitted: { label: 'Auto-éval reçue', tone: 'info' },
+  manager_review: { label: 'Revue manager', tone: 'info' },
+  calibrated: { label: 'Calibrée', tone: 'ok' },
+  entretien_pending: { label: 'Entretien à venir', tone: 'warn' },
+  signed: { label: 'Signée', tone: 'ok' },
+  closed: { label: 'Clôturée', tone: 'ok' },
+};
 
 export function TeamEvaluationsPage() {
   const setSurface = useSurface((s) => s.setSurface);
@@ -24,7 +37,16 @@ export function TeamEvaluationsPage() {
   const employees = useDirectory((s) => s.employees);
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
+  const teamIds = useMemo(() => scopedTeamIds(depth, employees), [depth, employees]);
   const [edit, setEdit] = useState<EmployeeRecord | null>(null);
+
+  const { data: ctx } = useSessionContext();
+  const { data: liveEvals } = useTeamEvaluations(ctx?.tenantId ?? undefined);
+  const liveRows = useMemo<TeamEvaluationRow[] | null>(() => {
+    if (!isBackendConfigured || !liveEvals || liveEvals.length === 0) return null;
+    const scoped = liveEvals.filter((r) => teamIds.has(mockEmpId(r.employee_id)));
+    return scoped.length > 0 ? scoped : null;
+  }, [liveEvals, teamIds]);
 
   const rows = team.map((e) => ({ e, ev: memberEval(e) }));
   const notSubmitted = rows.filter((r) => !r.ev.autoEval);
@@ -37,9 +59,56 @@ export function TeamEvaluationsPage() {
           <h1 className="text-2xl font-semibold text-ink">Campagne : Évaluation annuelle 2026</h1>
           <p className="text-sm font-medium text-ink-500">Période 01/05 → 30/06/2026 · échéance {frDate(DEADLINE)}</p>
         </div>
-        {notSubmitted.length > 0 && <Button variant="outline" size="sm" onClick={() => toast({ variant: 'info', title: 'Relance envoyée', description: `${notSubmitted.length} collaborateur(s) relancé(s) pour leur auto-évaluation.` })}><Send size={14} /> Relancer ({notSubmitted.length})</Button>}
+        <div className="flex items-center gap-2">
+          {liveRows && <StatusPill tone="ok" dot={false}><span className="inline-flex items-center gap-1"><Wifi size={12} /> Live DB</span></StatusPill>}
+          {!liveRows && notSubmitted.length > 0 && <Button variant="outline" size="sm" onClick={() => toast({ variant: 'info', title: 'Relance envoyée', description: `${notSubmitted.length} collaborateur(s) relancé(s) pour leur auto-évaluation.` })}><Send size={14} /> Relancer ({notSubmitted.length})</Button>}
+        </div>
       </div>
 
+      {liveRows ? (
+        <Card inset={false}>
+          <div className="p-5 pb-3"><CardHeader title="Évaluations d'équipe (live)" subtitle="Périmètre managérial · données confidentielles" className="mb-0" /></div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-y border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                  <th className="px-4 py-2.5 text-left">Membre</th>
+                  <th className="px-3 py-2.5 text-left">Réf.</th>
+                  <th className="px-3 py-2.5 text-left">Statut</th>
+                  <th className="px-3 py-2.5 text-center">Note</th>
+                  <th className="px-3 py-2.5 text-center">Classe</th>
+                  <th className="px-3 py-2.5 text-center" title="OKR">D1</th>
+                  <th className="px-3 py-2.5 text-center" title="Compétences">D2</th>
+                  <th className="px-3 py-2.5 text-center" title="Comportements">D3</th>
+                  <th className="px-3 py-2.5 text-center" title="Évolution">D4</th>
+                  <th className="px-3 py-2.5 text-center" title="Développement">D5</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {liveRows.map((r) => {
+                  const name = `${r.employee_first_name ?? ''} ${r.employee_last_name ?? ''}`.trim() || '—';
+                  const meta = EVAL_STATUS_META[r.status] ?? { label: r.status, tone: 'info' as const };
+                  const dim = (v: number | null) => v == null ? <span className="text-ink-300">—</span> : <span className="mono text-ink-600">{Number(v).toFixed(1)}</span>;
+                  return (
+                    <tr key={r.id}>
+                      <td className="px-4 py-2.5"><div className="flex items-center gap-2.5"><Avatar name={name} size="xs" /><div className="min-w-0"><span className="block text-[13px] font-semibold text-ink">{name}</span>{r.employee_department && <span className="block text-[10px] font-medium text-ink-400">{r.employee_department}</span>}</div></div></td>
+                      <td className="px-3 py-2.5 text-[11px] font-medium text-ink-500">{r.ref ?? '—'}</td>
+                      <td className="px-3 py-2.5"><StatusPill tone={meta.tone} dot={false}>{meta.label}</StatusPill></td>
+                      <td className="px-3 py-2.5 text-center">{r.note_finale != null ? <span className="mono text-[13px] font-semibold text-ink">{Number(r.note_finale).toFixed(1)}<span className="text-[10px] font-medium text-ink-400">/5</span></span> : <span className="text-ink-300">—</span>}</td>
+                      <td className="px-3 py-2.5 text-center">{r.classe ? <span className={`inline-flex h-6 w-6 items-center justify-center rounded-lg text-[12px] font-bold ${r.classe === 'A' || r.classe === 'B' ? 'bg-ok/12 text-ok' : r.classe === 'C' ? 'bg-info/12 text-info' : r.classe === 'D' ? 'bg-warn/12 text-warn' : 'bg-danger/12 text-danger'}`}>{r.classe}</span> : <span className="text-ink-300">—</span>}</td>
+                      <td className="px-3 py-2.5 text-center text-[12px]">{dim(r.score_dim1_okr)}</td>
+                      <td className="px-3 py-2.5 text-center text-[12px]">{dim(r.score_dim2_competences)}</td>
+                      <td className="px-3 py-2.5 text-center text-[12px]">{dim(r.score_dim3_comportements)}</td>
+                      <td className="px-3 py-2.5 text-center text-[12px]">{dim(r.score_dim4_evolution)}</td>
+                      <td className="px-3 py-2.5 text-center text-[12px]">{dim(r.score_dim5_developpement)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : (
       <Card inset={false}>
         <div className="p-5 pb-3"><CardHeader title="Avancement par membre" className="mb-0" /></div>
         <div className="overflow-x-auto">
@@ -69,6 +138,7 @@ export function TeamEvaluationsPage() {
           </table>
         </div>
       </Card>
+      )}
 
       <Card className="border-warn/25">
         <p className="flex items-start gap-2 text-[12px] font-medium text-ink-700"><ShieldAlert size={14} className="mt-0.5 shrink-0 text-warn" /> Règle dure : vous ne saisissez <strong>aucun montant salarial</strong>. Vous pouvez recommander une augmentation (Oui/Non) ; la RH/DRH décide les montants. La signature de l'employé vaut accusé de réception, jamais approbation forcée.</p>

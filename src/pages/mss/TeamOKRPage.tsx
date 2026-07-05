@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, ChevronDown, Target, ArrowRight, Sparkles } from 'lucide-react';
+import { Building2, ChevronDown, Target, ArrowRight, Sparkles, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -9,9 +9,19 @@ import { PerformanceSubNav } from '../../components/mss/PerformanceSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
-import { scopedTeam } from '../../lib/mss/scope';
+import { scopedTeam, scopedTeamIds } from '../../lib/mss/scope';
 import { memberOkr, OKR_STATUS_META } from '../../lib/mss/perf';
 import { employeeName } from '../../data/mock';
+import { isBackendConfigured, useTeamObjectives, type TeamObjectiveRow } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
+
+/** final_score : ≤ 1 => fraction (×100), sinon déjà un pourcentage. */
+function scorePct(v: number | null): number {
+  if (v == null) return 0;
+  const n = Number(v);
+  return Math.round(n <= 1 ? n * 100 : n);
+}
 
 const MY_OKR = [
   { title: 'Augmenter le CA département de 15%', progress: 67 },
@@ -31,14 +41,51 @@ export function TeamOKRPage() {
   const employees = useDirectory((s) => s.employees);
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
+  const teamIds = useMemo(() => scopedTeamIds(depth, employees), [depth, employees]);
+
+  const { data: ctx } = useSessionContext();
+  const { data: liveObjectives } = useTeamObjectives(ctx?.tenantId ?? undefined);
+  const liveObj = useMemo<TeamObjectiveRow[] | null>(() => {
+    if (!isBackendConfigured || !liveObjectives || liveObjectives.length === 0) return null;
+    const scoped = liveObjectives.filter((r) => r.owner_id == null || teamIds.has(mockEmpId(r.owner_id)));
+    return scoped.length > 0 ? scoped : null;
+  }, [liveObjectives, teamIds]);
 
   return (
     <div className="animate-fade-up space-y-5">
       <PerformanceSubNav />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-ink">Objectifs — cascade d'alignement</h1>
-        <Button size="sm"><Target size={14} /> Cascader un objectif</Button>
+        <div className="flex items-center gap-2">
+          {liveObj && <StatusPill tone="ok" dot={false}><span className="inline-flex items-center gap-1"><Wifi size={12} /> Live DB</span></StatusPill>}
+          <Button size="sm"><Target size={14} /> Cascader un objectif</Button>
+        </div>
       </div>
+
+      {liveObj && (
+        <Card>
+          <CardHeader title="Objectifs d'équipe (live)" subtitle={`${liveObj.length} objectif(s) · périmètre managérial`} action={<span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Supabase</span>} />
+          <div className="space-y-3">
+            {liveObj.map((o) => {
+              const pct = scorePct(o.final_score);
+              const owner = `${o.employee_first_name ?? ''} ${o.employee_last_name ?? ''}`.trim();
+              return (
+                <div key={o.id}>
+                  <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-[13px] font-semibold">
+                    <span className="min-w-0 truncate text-ink">{o.title}</span>
+                    <span className="mono text-ink-500">{o.final_score != null ? `${pct}%` : '—'}</span>
+                  </div>
+                  <Bar pct={pct} tone={pct >= 75 ? 'ok' : pct >= 45 ? 'info' : 'warn'} />
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-medium text-ink-400">
+                    {owner ? <span>{owner}</span> : o.team_label ? <span>{o.team_label}</span> : <span>Objectif d'équipe</span>}
+                    <StatusPill tone="info" dot={false}>{o.status}</StatusPill>
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Niveaux supérieurs (lecture seule) */}
       <Card className="bg-surface2/60">

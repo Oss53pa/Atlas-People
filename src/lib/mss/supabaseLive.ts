@@ -225,6 +225,78 @@ export function useTeamServiceRequests(tenantId = DEMO) {
   });
 }
 
+// ── Performance équipe — évaluations (m8) & objectifs (m7) ─────────────
+
+export interface TeamEvaluationRow {
+  id: string;
+  employee_id: string;
+  ref: string | null;
+  status: string;
+  note_finale: number | null;
+  classe: string | null;
+  score_dim1_okr: number | null;
+  score_dim2_competences: number | null;
+  score_dim3_comportements: number | null;
+  score_dim4_evolution: number | null;
+  score_dim5_developpement: number | null;
+  employee_first_name?: string;
+  employee_last_name?: string;
+  employee_department?: string;
+}
+
+export function useTeamEvaluations(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-evaluations', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('m8_evaluations')
+        .select('id,employee_id,ref,status,note_finale,classe,score_dim1_okr,score_dim2_competences,score_dim3_comportements,score_dim4_evolution,score_dim5_developpement,employees!employee_id(first_name,last_name,department)')
+        .eq('tenant_id', tenantId);
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const emp = r['employees'] as Record<string, string> | null;
+        return { ...r, employees: undefined, employee_first_name: emp?.first_name, employee_last_name: emp?.last_name, employee_department: emp?.department } as unknown as TeamEvaluationRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 60_000,
+  });
+}
+
+export interface TeamObjectiveRow {
+  id: string;
+  owner_id: string | null;
+  title: string;
+  status: string;
+  final_score: number | null;
+  team_label: string | null;
+  employee_first_name?: string;
+  employee_last_name?: string;
+}
+
+export function useTeamObjectives(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-objectives', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('m7_objectives')
+        .select('id,owner_id,title,status,final_score,team_label,level,employees!owner_id(first_name,last_name)')
+        .eq('tenant_id', tenantId)
+        .in('level', ['individuel', 'equipe'])
+        .order('level', { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const emp = r['employees'] as Record<string, string> | null;
+        return { ...r, employees: undefined, employee_first_name: emp?.first_name, employee_last_name: emp?.last_name } as unknown as TeamObjectiveRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 60_000,
+  });
+}
+
 export function useMssTeamStats(tenantId = DEMO) {
   return useQuery({
     queryKey: ['mss-team-stats', tenantId],
