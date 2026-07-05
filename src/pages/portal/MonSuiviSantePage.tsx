@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Stethoscope, CalendarClock, ShieldCheck, Syringe, FileWarning, Lock, Plane, Download, CalendarCheck } from 'lucide-react';
+import { Stethoscope, CalendarClock, ShieldCheck, Syringe, FileWarning, Lock, Plane, Download, CalendarCheck, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -9,9 +9,22 @@ import { useToast } from '../../components/ui/Toast';
 import { useSurface } from '../../store/useSurface';
 import { employeeById, employeeMedicalFollowup, employeeVaccinations } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useMyMedical, isBackendConfigured } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
+const frDay = (d: string) => new Date(d + 'T00:00').toLocaleDateString('fr-FR');
+
+const VISIT_TYPE_LABEL: Record<string, string> = { hiring: 'Visite d\'embauche', periodic: 'Visite périodique', return: 'Visite de reprise', on_request: 'Visite à la demande', pre_return: 'Visite de pré-reprise', enhanced_followup: 'Suivi renforcé', other: 'Autre visite' };
+const VISIT_STATUS_LABEL: Record<string, string> = { scheduled: 'Planifiée', completed: 'Réalisée', postponed: 'Reportée', missed: 'Manquée', cancelled: 'Annulée' };
+const VISIT_STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'amber' | 'neutral'> = { scheduled: 'amber', completed: 'ok', postponed: 'warn', missed: 'danger', cancelled: 'neutral' };
+const CONCLUSION_LABEL: Record<string, string> = { fit: 'Apte', fit_with_restrictions: 'Apte avec restrictions', temporarily_unfit: 'Inapte temporaire', permanently_unfit: 'Inapte définitif', to_review: 'À revoir' };
+const VACC_STATUS_LABEL: Record<string, string> = { up_to_date: 'À jour', recall_due_soon: 'À renouveler', expired: 'Périmé', in_progress: 'En cours' };
+const VACC_STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info'> = { up_to_date: 'ok', recall_due_soon: 'warn', expired: 'danger', in_progress: 'info' };
+const liveIndicator = (
+  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500"><Wifi size={13} className="text-emerald-500" /> Live DB</span>
+);
 const TABS = [
   { key: 'overview', label: 'Vue d\'ensemble' },
   { key: 'rdv', label: 'Mes RDV' },
@@ -27,9 +40,15 @@ export function MonSuiviSantePage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
   const { toast } = useToast();
   const [tab, setTab] = useState('overview');
+  const { data: ctx } = useSessionContext();
+  const { data: liveMedical } = useMyMedical(ctx?.tenantId, ctx?.employeeId);
+  const hasLive = isBackendConfigured && !!liveMedical;
   const employee = employeeById(SELF_ID)!;
   const medical = employeeMedicalFollowup(employee);
   const vaccinations = employeeVaccinations(employee);
+
+  const liveUpcomingVisit = hasLive ? liveMedical!.visits.filter((v) => v.status === 'scheduled').slice(-1)[0] : undefined;
+  const livePastVisits = hasLive ? liveMedical!.visits.filter((v) => v.status !== 'scheduled') : [];
 
   const sickLeaves = [
     { start: '2026-03-15', end: '2026-03-22', days: 8, type: 'Maladie ordinaire', justified: true },
@@ -47,15 +66,35 @@ export function MonSuiviSantePage() {
       {tab === 'overview' && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card>
-            <CardHeader title="Mon médecin référent" action={<Stethoscope size={16} className="text-ink-400" />} />
-            <p className="text-sm font-bold text-ink">{medical.doctor}</p>
-            <p className="text-[12px] font-medium text-ink-400">{medical.service}</p>
+            <CardHeader title="Mon service référent" action={hasLive ? liveIndicator : <Stethoscope size={16} className="text-ink-400" />} />
+            {hasLive ? (
+              <>
+                <p className="text-sm font-bold text-ink">{liveMedical!.service ?? 'Service médical du travail'}</p>
+                <p className="text-[12px] font-medium text-ink-400">{liveMedical!.assignedAt ? `Rattaché depuis le ${frDay(liveMedical!.assignedAt.slice(0, 10))}` : 'Suivi médical du travail'}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-ink">{medical.doctor}</p>
+                <p className="text-[12px] font-medium text-ink-400">{medical.service}</p>
+              </>
+            )}
             <Button variant="outline" size="sm" className="mt-3" onClick={() => toast({ variant: 'success', title: 'Demande de RDV envoyée', description: 'Le service médical vous proposera un créneau.' })}>Prendre RDV</Button>
           </Card>
           <Card>
-            <CardHeader title="Mon prochain RDV" action={<CalendarClock size={16} className="text-ink-400" />} />
-            <p className="text-sm font-bold text-ink">Visite médicale périodique</p>
-            <p className="text-[12px] font-medium text-ink-400">{frDate(medical.nextVisit)}</p>
+            <CardHeader title="Mon prochain RDV" action={hasLive ? liveIndicator : <CalendarClock size={16} className="text-ink-400" />} />
+            {hasLive ? (
+              liveUpcomingVisit ? (
+                <>
+                  <p className="text-sm font-bold text-ink">{VISIT_TYPE_LABEL[liveUpcomingVisit.visit_type] ?? liveUpcomingVisit.visit_type}</p>
+                  <p className="text-[12px] font-medium text-ink-400">{frDay(liveUpcomingVisit.scheduled_date)}</p>
+                </>
+              ) : <p className="text-sm font-medium text-ink-400">Aucun rendez-vous planifié.</p>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-ink">Visite médicale périodique</p>
+                <p className="text-[12px] font-medium text-ink-400">{frDate(medical.nextVisit)}</p>
+              </>
+            )}
             <div className="mt-3 flex gap-2"><Link to="/espace/courrier"><Button variant="ghost" size="sm">Voir convocation</Button></Link><Button variant="outline" size="sm" onClick={() => toast({ variant: 'success', title: 'Présence confirmée' })}><CalendarCheck size={14} /> Confirmer</Button></div>
           </Card>
           <Card className={medical.aptitude === 'fit' ? '' : 'border-warn/30'}>
@@ -76,11 +115,26 @@ export function MonSuiviSantePage() {
 
       {tab === 'rdv' && (
         <Card>
-          <CardHeader title="Mes rendez-vous médicaux" action={<Button variant="outline" size="sm" onClick={() => toast({ variant: 'success', title: 'Demande de RDV envoyée' })}>+ Demander un RDV</Button>} />
-          <div className="space-y-1.5">
-            <RdvRow date={medical.nextVisit} title="Visite médicale périodique" sub={medical.doctor} upcoming />
-            <RdvRow date={medical.lastVisit} title={medical.lastVisitType} sub="Aptitude délivrée : apte avec restrictions" />
-          </div>
+          <CardHeader title="Mes rendez-vous médicaux" subtitle={hasLive ? 'Live DB' : undefined} action={hasLive ? liveIndicator : <Button variant="outline" size="sm" onClick={() => toast({ variant: 'success', title: 'Demande de RDV envoyée' })}>+ Demander un RDV</Button>} />
+          {hasLive ? (
+            liveMedical!.visits.length > 0 ? (
+              <div className="space-y-1.5">
+                {liveUpcomingVisit && <RdvRow date={liveUpcomingVisit.scheduled_date} title={VISIT_TYPE_LABEL[liveUpcomingVisit.visit_type] ?? liveUpcomingVisit.visit_type} sub={VISIT_STATUS_LABEL[liveUpcomingVisit.status] ?? liveUpcomingVisit.status} upcoming />}
+                {livePastVisits.map((v) => (
+                  <div key={v.id} className="flex items-center gap-3 rounded-xl bg-surface2 px-3 py-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber/12 text-amber-deep"><CalendarClock size={15} /></span>
+                    <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}</p><p className="text-[11px] font-medium text-ink-400">{frDay((v.effective_date ?? v.scheduled_date))}{v.doctor_conclusion ? ` · ${CONCLUSION_LABEL[v.doctor_conclusion] ?? v.doctor_conclusion}` : ''}</p></div>
+                    <StatusPill tone={VISIT_STATUS_TONE[v.status] ?? 'neutral'} dot={false}>{VISIT_STATUS_LABEL[v.status] ?? v.status}</StatusPill>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm font-medium text-ink-400">Aucun rendez-vous médical enregistré.</p>
+          ) : (
+            <div className="space-y-1.5">
+              <RdvRow date={medical.nextVisit} title="Visite médicale périodique" sub={medical.doctor} upcoming />
+              <RdvRow date={medical.lastVisit} title={medical.lastVisitType} sub="Aptitude délivrée : apte avec restrictions" />
+            </div>
+          )}
         </Card>
       )}
 
@@ -102,7 +156,20 @@ export function MonSuiviSantePage() {
 
       {tab === 'vaccins' && (
         <Card>
-          <CardHeader title="Mes vaccinations professionnelles" action={<Syringe size={16} className="text-ink-400" />} />
+          <CardHeader title="Mes vaccinations professionnelles" action={hasLive ? liveIndicator : <Syringe size={16} className="text-ink-400" />} />
+          {hasLive ? (
+            liveMedical!.vaccinations.length > 0 ? (
+              <div className="space-y-1.5">
+                {liveMedical!.vaccinations.map((v) => (
+                  <div key={v.id} className={cn('flex items-center gap-3 rounded-xl px-3 py-2.5', v.status === 'expired' ? 'bg-danger/[0.05]' : v.status === 'recall_due_soon' ? 'bg-warn/[0.05]' : 'bg-surface2')}>
+                    <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', v.status === 'expired' ? 'bg-danger/12 text-danger' : v.status === 'recall_due_soon' ? 'bg-warn/12 text-warn' : 'bg-ok/12 text-ok')}><Syringe size={15} /></span>
+                    <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{v.label ?? v.vaccination_id}{v.obligatory_for_position && <span className="ml-1.5 text-[10px] font-bold text-amber-deep">obligatoire</span>}</p><p className="text-[11px] font-medium text-ink-400">{v.next_recall_date ? `Rappel ${frDay(v.next_recall_date)}` : 'Sans rappel'}</p></div>
+                    <StatusPill tone={VACC_STATUS_TONE[v.status] ?? 'neutral'} dot={false}>{VACC_STATUS_LABEL[v.status] ?? v.status}</StatusPill>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm font-medium text-ink-400">Aucune vaccination enregistrée.</p>
+          ) : (
           <div className="space-y-1.5">
             {vaccinations.map((v) => (
               <div key={v.label} className={cn('flex items-center gap-3 rounded-xl px-3 py-2.5', v.status === 'expired' ? 'bg-danger/[0.05]' : v.status === 'recall_due_soon' ? 'bg-warn/[0.05]' : 'bg-surface2')}>
@@ -112,6 +179,7 @@ export function MonSuiviSantePage() {
               </div>
             ))}
           </div>
+          )}
         </Card>
       )}
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Target, ClipboardCheck, MessagesSquare, CalendarClock, Sparkles, TrendingUp, Star, ChevronRight } from 'lucide-react';
+import { Target, ClipboardCheck, MessagesSquare, CalendarClock, Sparkles, TrendingUp, Star, ChevronRight, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -8,6 +8,8 @@ import { ProgressBar } from '../../components/charts/ProgressBar';
 import { useToast } from '../../components/ui/Toast';
 import { useSurface } from '../../store/useSurface';
 import { cn } from '../../lib/cn';
+import { useMyObjectives, isBackendConfigured } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 
@@ -51,8 +53,15 @@ export function MaPerformancePage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
   const { toast } = useToast();
   const [tab, setTab] = useState('objectives');
+  const { data: ctx } = useSessionContext();
+  const { data: liveObjectives } = useMyObjectives(ctx?.tenantId, ctx?.employeeId);
+  const hasLiveObjectives = isBackendConfigured && !!liveObjectives && liveObjectives.length > 0;
 
   const globalProgress = Math.round(OBJECTIVES.reduce((s, o) => s + (o.progress * o.weight) / 100, 0));
+  // Progression globale live : moyenne simple des objectifs (progress 0..1).
+  const liveGlobalProgress = hasLiveObjectives
+    ? Math.round((liveObjectives!.reduce((s, o) => s + o.progress, 0) / liveObjectives!.length) * 100)
+    : 0;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -68,32 +77,55 @@ export function MaPerformancePage() {
           <Card className="glass-amber">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-ink-400">Progression globale (pondérée)</p>
-                <p className="mono mt-1 text-3xl font-semibold text-amber-deep">{globalProgress}%</p>
+                <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-400">
+                  Progression globale{hasLiveObjectives ? ' (moyenne)' : ' (pondérée)'}
+                  {hasLiveObjectives && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600"><Wifi size={9} className="text-emerald-500" /> Live DB</span>}
+                </p>
+                <p className="mono mt-1 text-3xl font-semibold text-amber-deep">{hasLiveObjectives ? liveGlobalProgress : globalProgress}%</p>
               </div>
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber/15 text-amber-deep"><Target size={22} /></span>
             </div>
-            <ProgressBar value={globalProgress} className="mt-3" />
+            <ProgressBar value={hasLiveObjectives ? liveGlobalProgress : globalProgress} className="mt-3" />
           </Card>
 
-          <div className="space-y-2">
-            {OBJECTIVES.map((o) => (
-              <Card key={o.id}>
-                <div className="flex flex-wrap items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-bold text-ink">{o.title}</p>
-                      <StatusPill tone={OBJ_TONE[o.status]} dot={false}>{OBJ_LABEL[o.status]}</StatusPill>
-                      <span className="rounded-md bg-ink/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-ink-400">poids {o.weight}%</span>
+          {hasLiveObjectives ? (
+            <div className="space-y-2">
+              {liveObjectives!.map((o) => {
+                const pct = Math.round(o.progress * 100);
+                return (
+                  <Card key={o.id}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-ink">{o.title}</p>
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={10} className="text-emerald-500" /> Live DB</span>
+                      </div>
+                      {o.due_date && <p className="mt-0.5 text-[12px] font-medium text-ink-400">échéance {frDate(o.due_date)}</p>}
+                      <div className="mt-2 flex items-center gap-3"><ProgressBar value={pct} tone={pct >= 100 ? 'info' : pct < 50 ? 'warn' : 'ok'} className="flex-1" /><span className="mono text-sm font-bold text-ink">{pct}%</span></div>
                     </div>
-                    <p className="mt-0.5 text-[12px] font-medium text-ink-400">{o.keyResult} · échéance {frDate(o.due)}</p>
-                    <div className="mt-2 flex items-center gap-3"><ProgressBar value={o.progress} tone={o.status === 'at_risk' ? 'warn' : o.status === 'done' ? 'info' : 'ok'} className="flex-1" /><span className="mono text-sm font-bold text-ink">{o.progress}%</span></div>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {OBJECTIVES.map((o) => (
+                <Card key={o.id}>
+                  <div className="flex flex-wrap items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-ink">{o.title}</p>
+                        <StatusPill tone={OBJ_TONE[o.status]} dot={false}>{OBJ_LABEL[o.status]}</StatusPill>
+                        <span className="rounded-md bg-ink/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-ink-400">poids {o.weight}%</span>
+                      </div>
+                      <p className="mt-0.5 text-[12px] font-medium text-ink-400">{o.keyResult} · échéance {frDate(o.due)}</p>
+                      <div className="mt-2 flex items-center gap-3"><ProgressBar value={o.progress} tone={o.status === 'at_risk' ? 'warn' : o.status === 'done' ? 'info' : 'ok'} className="flex-1" /><span className="mono text-sm font-bold text-ink">{o.progress}%</span></div>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => toast({ variant: 'success', title: 'Avancement mis à jour', description: `« ${o.title} » — partagé avec votre manager.` })}>Mettre à jour</Button>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => toast({ variant: 'success', title: 'Avancement mis à jour', description: `« ${o.title} » — partagé avec votre manager.` })}>Mettre à jour</Button>
-                </div>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

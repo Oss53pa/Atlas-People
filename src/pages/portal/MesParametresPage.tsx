@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, ShieldCheck, MoonStar, Eye, Languages, Lock, Database, Check, Download, Smartphone, Monitor } from 'lucide-react';
+import { Bell, ShieldCheck, MoonStar, Eye, Languages, Lock, Database, Check, Download, Smartphone, Monitor, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -9,6 +9,8 @@ import { Switch } from '../../components/ui/controls';
 import { useToast } from '../../components/ui/Toast';
 import { useSurface } from '../../store/useSurface';
 import { cn } from '../../lib/cn';
+import { isBackendConfigured, useMyConsents, useToggleConsent, useMyNotificationPrefs } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const TABS = [
   { key: 'notifications', label: 'Notifications' },
@@ -61,6 +63,28 @@ export function MesParametresPage() {
   const [disco, setDisco] = useState(true);
   const [twoFa, setTwoFa] = useState(true);
 
+  // Couche live — consentements + préférences de notification (repli local ci-dessus).
+  const { data: ctx } = useSessionContext();
+  const { data: liveConsents } = useMyConsents(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveNotifPrefs } = useMyNotificationPrefs(ctx?.tenantId, ctx?.employeeId);
+  const toggleConsent = useToggleConsent();
+  const consentsLive = isBackendConfigured && !!liveConsents && liveConsents.length > 0;
+  const notifLive = isBackendConfigured && !!liveNotifPrefs && liveNotifPrefs.length > 0;
+
+  // Matrice live type × canal pour la vue Notifications (réflexion lecture seule).
+  const notifChannels = ['push', 'email', 'sms', 'whatsapp', 'in_app'] as const;
+  const notifMatrix = (() => {
+    if (!notifLive) return null;
+    const byType = new Map<string, { channels: Record<string, boolean>; mandatory: boolean }>();
+    for (const p of liveNotifPrefs!) {
+      const entry = byType.get(p.notification_type) ?? { channels: {}, mandatory: false };
+      entry.channels[p.channel] = p.enabled;
+      if (p.is_mandatory) entry.mandatory = true;
+      byType.set(p.notification_type, entry);
+    }
+    return Array.from(byType.entries()).map(([type, v]) => ({ type, ...v }));
+  })();
+
   return (
     <div className="animate-fade-up space-y-5">
       <h1 className="text-2xl font-semibold text-ink">Mes paramètres</h1>
@@ -68,40 +92,80 @@ export function MesParametresPage() {
 
       {tab === 'notifications' && (
         <Card>
-          <CardHeader title="Préférences de notification" subtitle="Par type d'événement × canal" action={<Bell size={16} className="text-ink-400" />} />
+          <CardHeader title="Préférences de notification" subtitle={notifLive ? 'Par type × canal · Live DB' : "Par type d'événement × canal"} action={notifLive ? <Wifi size={13} className="text-emerald-500" /> : <Bell size={16} className="text-ink-400" />} />
           <div className="mb-3 flex flex-wrap gap-2">
             {[['normal', 'Normal'], ['focused', 'Concentré'], ['vacation', 'Vacances'], ['silent', 'Silencieux']].map(([k, l]) => (
               <button key={k} onClick={() => setMode(k)} className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold', mode === k ? 'border-amber/40 bg-amber/12 text-amber-deep' : 'border-line text-ink-500')}>{l}</button>
             ))}
           </div>
-          <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="w-full min-w-[480px] text-sm">
-              <thead><tr className="border-b border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400"><th className="px-4 py-2.5 text-left">Événement</th><th className="px-2 py-2.5 text-center">Push</th><th className="px-2 py-2.5 text-center">Email</th><th className="px-2 py-2.5 text-center">SMS</th></tr></thead>
-              <tbody className="divide-y divide-line">
-                {NOTIF_EVENTS.map((e) => (
-                  <tr key={e.label}>
-                    <td className="px-4 py-2.5 text-[13px] font-semibold text-ink-700">{e.label}{e.locked && <span className="ml-1.5 text-[10px] font-bold text-ink-400">(obligatoire)</span>}</td>
-                    {(['push', 'email', 'sms'] as const).map((ch) => <td key={ch} className="px-2 py-2.5 text-center">{e[ch] ? <Check size={15} className={cn('mx-auto', e.locked ? 'text-ink-400' : 'text-ok')} /> : <span className="text-ink-300">—</span>}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {notifMatrix ? (
+            <div className="overflow-x-auto rounded-xl border border-line">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead><tr className="border-b border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400"><th className="px-4 py-2.5 text-left">Type</th>{notifChannels.map((ch) => <th key={ch} className="px-2 py-2.5 text-center">{ch}</th>)}</tr></thead>
+                <tbody className="divide-y divide-line">
+                  {notifMatrix.map((e) => (
+                    <tr key={e.type}>
+                      <td className="px-4 py-2.5 text-[13px] font-semibold text-ink-700">{e.type}{e.mandatory && <span className="ml-1.5 text-[10px] font-bold text-ink-400">(obligatoire)</span>}</td>
+                      {notifChannels.map((ch) => <td key={ch} className="px-2 py-2.5 text-center">{e.channels[ch] ? <Check size={15} className={cn('mx-auto', e.mandatory ? 'text-ink-400' : 'text-ok')} /> : <span className="text-ink-300">—</span>}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-line">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead><tr className="border-b border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400"><th className="px-4 py-2.5 text-left">Événement</th><th className="px-2 py-2.5 text-center">Push</th><th className="px-2 py-2.5 text-center">Email</th><th className="px-2 py-2.5 text-center">SMS</th></tr></thead>
+                <tbody className="divide-y divide-line">
+                  {NOTIF_EVENTS.map((e) => (
+                    <tr key={e.label}>
+                      <td className="px-4 py-2.5 text-[13px] font-semibold text-ink-700">{e.label}{e.locked && <span className="ml-1.5 text-[10px] font-bold text-ink-400">(obligatoire)</span>}</td>
+                      {(['push', 'email', 'sms'] as const).map((ch) => <td key={ch} className="px-2 py-2.5 text-center">{e[ch] ? <Check size={15} className={cn('mx-auto', e.locked ? 'text-ink-400' : 'text-ok')} /> : <span className="text-ink-300">—</span>}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <p className="mt-2 text-[11px] font-medium text-ink-400">Les notifications obligatoires (disciplinaire, sécurité) ne sont pas désactivables.</p>
         </Card>
       )}
 
       {tab === 'consentements' && (
         <Card>
-          <CardHeader title="Mes consentements (RGPD / CDP)" subtitle="Révocables à tout moment · chaque changement horodaté" action={<Button variant="ghost" size="sm" onClick={() => toast({ variant: 'success', title: 'Export généré', description: 'Preuve de mes consentements.pdf' })}><Download size={13} /> Exporter</Button>} />
-          <div className="space-y-1.5">
-            {CONSENTS.map((c) => (
-              <div key={c.code} className="flex items-start justify-between gap-3 rounded-xl bg-surface2 px-3 py-2.5">
-                <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink"><span className="mono text-[11px] text-ink-400">{c.code}</span> · {c.label}</p><p className="text-[11px] font-medium text-ink-400">{c.desc}</p></div>
-                <Switch checked={consents[c.code]} onChange={(v) => { setConsents((s) => ({ ...s, [c.code]: v })); toast({ variant: v ? 'success' : 'info', title: v ? 'Consentement accordé' : 'Consentement retiré', description: `${c.label} — horodaté.` }); }} />
-              </div>
-            ))}
-          </div>
+          <CardHeader title="Mes consentements (RGPD / CDP)" subtitle={consentsLive ? 'Révocables à tout moment · horodaté · Live DB' : 'Révocables à tout moment · chaque changement horodaté'} action={<div className="flex items-center gap-2">{consentsLive && <Wifi size={13} className="text-emerald-500" />}<Button variant="ghost" size="sm" onClick={() => toast({ variant: 'success', title: 'Export généré', description: 'Preuve de mes consentements.pdf' })}><Download size={13} /> Exporter</Button></div>} />
+          {consentsLive ? (
+            <div className="space-y-1.5">
+              {liveConsents!.map((c) => {
+                const meta = CONSENTS.find((m) => m.code === c.consent_code);
+                return (
+                  <div key={c.consent_code} className="flex items-start justify-between gap-3 rounded-xl bg-surface2 px-3 py-2.5">
+                    <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink"><span className="mono text-[11px] text-ink-400">{c.consent_code}</span> · {meta?.label ?? c.consent_code}</p>{meta?.desc && <p className="text-[11px] font-medium text-ink-400">{meta.desc}</p>}</div>
+                    <Switch
+                      checked={c.granted}
+                      disabled={toggleConsent.isPending}
+                      onChange={(v) => toggleConsent.mutate(
+                        { code: c.consent_code, granted: v },
+                        {
+                          onSuccess: () => toast({ variant: v ? 'success' : 'info', title: v ? 'Consentement accordé' : 'Consentement retiré', description: `${meta?.label ?? c.consent_code} — horodaté.` }),
+                          onError: (err) => toast({ variant: 'error', title: 'Échec de la mise à jour', description: err instanceof Error ? err.message : 'Consentement non modifié.' }),
+                        },
+                      )}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {CONSENTS.map((c) => (
+                <div key={c.code} className="flex items-start justify-between gap-3 rounded-xl bg-surface2 px-3 py-2.5">
+                  <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink"><span className="mono text-[11px] text-ink-400">{c.code}</span> · {c.label}</p><p className="text-[11px] font-medium text-ink-400">{c.desc}</p></div>
+                  <Switch checked={consents[c.code]} onChange={(v) => { setConsents((s) => ({ ...s, [c.code]: v })); toast({ variant: v ? 'success' : 'info', title: v ? 'Consentement accordé' : 'Consentement retiré', description: `${c.label} — horodaté.` }); }} />
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 

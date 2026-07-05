@@ -68,11 +68,20 @@ export function MesDemandesPage() {
   const [urgency, setUrgency] = useState<'normal' | 'important' | 'urgent'>('normal');
   const typesInCat = TYPES.filter((t) => t.category === category);
 
+  const hasLive = isBackendConfigured && !!liveRequests && liveRequests.length > 0;
+
   const shown = useMemo(() => requests.filter((r) =>
     tab === 'open' ? ['submitted', 'in_progress', 'info_requested'].includes(r.status)
       : tab === 'action' ? r.status === 'info_requested'
       : tab === 'resolved' ? ['resolved', 'closed', 'refused'].includes(r.status) : true,
   ).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)), [requests, tab]);
+
+  // Live : filtrage par onglet sur les demandes Supabase.
+  const liveShown = useMemo(() => (liveRequests ?? []).filter((r) =>
+    tab === 'open' ? ['submitted', 'assigned', 'in_progress', 'info_requested'].includes(r.status)
+      : tab === 'action' ? r.status === 'info_requested'
+      : tab === 'resolved' ? ['resolved', 'closed', 'refused'].includes(r.status) : true,
+  ).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)), [liveRequests, tab]);
 
   const detail = requests.find((r) => r.id === detailId) ?? null;
 
@@ -130,7 +139,31 @@ export function MesDemandesPage() {
       </div>
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
 
-      {shown.length > 0 ? (
+      {hasLive ? (
+        liveShown.length > 0 ? (
+          <div className="space-y-3">
+            {liveShown.map((r) => {
+              const label = TYPES.find((t) => t.code === r.request_type_code)?.label ?? r.request_type_code;
+              return (
+                <Card key={r.id}>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="mono rounded-md bg-ink/[0.05] px-1.5 py-0.5 text-[11px] font-bold text-ink-500">{r.reference}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-bold text-ink">{label}</p>
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={10} className="text-emerald-500" /> Live DB</span>
+                      </div>
+                      <p className="truncate text-[11px] font-medium text-ink-400">{r.subject} · {new Date(r.created_at).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                    {r.status === 'info_requested' && <StatusPill tone="info" dot={false}><MessageCircle size={11} /> Action requise</StatusPill>}
+                    <StatusPill tone={STATUS_TONE[r.status] ?? 'neutral'} dot={false}>{STATUS_LABEL[r.status] ?? r.status}</StatusPill>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        ) : <Card><EmptyState icon={Inbox} title="Aucune demande" description="Vos demandes RH apparaîtront ici." /></Card>
+      ) : shown.length > 0 ? (
         <div className="space-y-3">
           {shown.map((r) => (
             <button key={r.id} onClick={() => setDetailId(r.id)} className="w-full text-left">

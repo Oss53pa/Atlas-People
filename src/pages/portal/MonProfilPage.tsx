@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   User, Users, MapPin, CreditCard, ShieldPlus, Landmark, Wallet, Award, GraduationCap,
-  Plane, History, FileStack, Lock, Mail, Phone, Globe, Languages, HeartHandshake, Building2, Pencil,
+  Plane, History, FileStack, Lock, Mail, Phone, Globe, Languages, HeartHandshake, Building2, Pencil, Wifi,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -20,8 +20,16 @@ import {
   employeeDiplomas, employeeEducationLevel, employeeCareer, employeeDocuments,
 } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useMyProfile, isBackendConfigured } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
+
+const MEMBER_TYPE_LABEL: Record<string, string> = { spouse: 'Conjoint(e)', child: 'Enfant', ascendant: 'Ascendant', other_dependent: 'Autre ayant droit' };
+const ADDRESS_TYPE_LABEL: Record<string, string> = { residence_primary: 'Résidence principale', residence_secondary: 'Résidence secondaire', family_home: 'Domicile familial', fiscal: 'Fiscale', billing: 'Facturation', temporary: 'Temporaire' };
+const liveIndicator = (
+  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500"><Wifi size={13} className="text-emerald-500" /> Live DB</span>
+);
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 
 const TABS = [
@@ -45,6 +53,9 @@ export function MonProfilPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const [tab, setTab] = useState('identite');
+  const { data: ctx } = useSessionContext();
+  const { data: liveProfile } = useMyProfile(ctx?.tenantId, ctx?.employeeId);
+  const hasLive = isBackendConfigured && !!liveProfile;
   const employee = employeeById(SELF_ID)!;
   const country = countryByCode(employee.countryCode);
   const regime = getRegime(employee.countryCode);
@@ -109,8 +120,14 @@ export function MonProfilPage() {
       {tab === 'famille' && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card>
-            <CardHeader title="Composition familiale" subtitle={`${family.length} ayant(s) droit`} action={<Users size={16} className="text-ink-400" />} />
-            <div className="space-y-1.5">{family.map((m) => <div key={m.id} className="flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2"><Avatar name={m.name} size="xs" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{m.name}</p><p className="truncate text-[11px] font-medium text-ink-400">{m.relation}</p></div>{m.fiscalDependent && <StatusPill tone="amber" dot={false}>À charge</StatusPill>}</div>)}</div>
+            <CardHeader title="Composition familiale" subtitle={hasLive ? `${liveProfile!.family.length} ayant(s) droit` : `${family.length} ayant(s) droit`} action={hasLive ? liveIndicator : <Users size={16} className="text-ink-400" />} />
+            {hasLive ? (
+              liveProfile!.family.length > 0 ? (
+                <div className="space-y-1.5">{liveProfile!.family.map((m) => { const name = `${m.first_names} ${m.last_name}`.trim(); return <div key={m.id} className="flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2"><Avatar name={name} size="xs" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{name}</p><p className="truncate text-[11px] font-medium text-ink-400">{MEMBER_TYPE_LABEL[m.member_type] ?? m.member_type}{m.health_insurance_beneficiary ? ' · assuré' : ''}</p></div>{m.fiscal_dependent && <StatusPill tone="amber" dot={false}>À charge</StatusPill>}</div>; })}</div>
+              ) : <p className="text-sm font-medium text-ink-400">Aucun ayant droit déclaré.</p>
+            ) : (
+              <div className="space-y-1.5">{family.map((m) => <div key={m.id} className="flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2"><Avatar name={m.name} size="xs" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{m.name}</p><p className="truncate text-[11px] font-medium text-ink-400">{m.relation}</p></div>{m.fiscalDependent && <StatusPill tone="amber" dot={false}>À charge</StatusPill>}</div>)}</div>
+            )}
             <div className="mt-2 flex flex-wrap gap-2">
               <Link to="/espace/demandes"><Button variant="outline" size="sm">+ Déclarer une naissance</Button></Link>
               <Link to="/espace/demandes"><Button variant="outline" size="sm">+ Déclarer un mariage</Button></Link>
@@ -125,6 +142,30 @@ export function MonProfilPage() {
 
       {/* COORDONNÉES */}
       {tab === 'coordonnees' && (
+        hasLive ? (
+          <div className="space-y-5">
+            <Card>
+              <CardHeader title="Adresses" subtitle="Coordonnées postales" action={liveIndicator} />
+              {liveProfile!.addresses.length > 0 ? (
+                <div className="space-y-1.5">{liveProfile!.addresses.map((a) => <div key={a.id} className="flex items-start gap-3 rounded-xl bg-surface2 px-3 py-2.5"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink/[0.05] text-ink-500"><MapPin size={15} /></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{a.line_1}</p><p className="text-[11px] font-medium text-ink-400">{[a.neighborhood, a.city, countryByCode(a.country_code)?.name].filter(Boolean).join(' · ')}{a.local_references ? ` — ${a.local_references}` : ''}</p></div><span className="flex items-center gap-1.5">{a.is_primary && <StatusPill tone="amber" dot={false}>Principale</StatusPill>}<span className="text-[10px] font-semibold text-ink-400">{ADDRESS_TYPE_LABEL[a.address_type] ?? a.address_type}</span></span></div>)}</div>
+              ) : <p className="text-sm font-medium text-ink-400">Aucune adresse enregistrée.</p>}
+            </Card>
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <Card>
+                <CardHeader title="Téléphones" action={<Phone size={16} className="text-ink-400" />} />
+                {liveProfile!.phones.length > 0 ? (
+                  <div className="space-y-1.5">{liveProfile!.phones.map((p) => <div key={p.id} className="flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink/[0.05] text-ink-500"><Phone size={15} /></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{p.number}</p><p className="text-[11px] font-medium text-ink-400">{[p.operator, p.has_whatsapp ? 'WhatsApp' : null].filter(Boolean).join(' · ') || p.phone_type}</p></div>{p.is_primary && <StatusPill tone="amber" dot={false}>Principal</StatusPill>}</div>)}</div>
+                ) : <p className="text-sm font-medium text-ink-400">Aucun téléphone enregistré.</p>}
+              </Card>
+              <Card>
+                <CardHeader title="Emails" action={<Mail size={16} className="text-ink-400" />} />
+                {liveProfile!.emails.length > 0 ? (
+                  <div className="space-y-1.5">{liveProfile!.emails.map((e) => <div key={e.id} className="flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink/[0.05] text-ink-500"><Mail size={15} /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{e.address}</p><p className="text-[11px] font-medium text-ink-400">{e.email_type}</p></div>{e.is_primary && <StatusPill tone="amber" dot={false}>Principal</StatusPill>}</div>)}</div>
+                ) : <p className="text-sm font-medium text-ink-400">Aucun email enregistré.</p>}
+              </Card>
+            </div>
+          </div>
+        ) : (
         <Card>
           <CardHeader title="Mes coordonnées" subtitle="Modifiables directement (OTP pour les sensibles)" action={<Button variant="ghost" size="sm"><Pencil size={13} /> Modifier</Button>} />
           <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
@@ -134,6 +175,7 @@ export function MonProfilPage() {
             <Info icon={Wallet} label="Mobile Money" value={employee.mobileMoneyNumber ?? mobileMoney(employee)} />
           </div>
         </Card>
+        )
       )}
 
       {/* PIÈCES */}
@@ -172,8 +214,26 @@ export function MonProfilPage() {
       {/* VERSEMENT */}
       {tab === 'versement' && (
         <Card className="border-amber/25">
-          <CardHeader title="Mes comptes de versement" subtitle="Donnée sensible — ré-authentification requise" action={<StatusPill tone="amber" dot={false}><Lock size={11} /> Sensible</StatusPill>} />
-          <div className="space-y-2"><Row label="Mode" value="Versement unique" /><Row label="Mobile Money" value={mobileMoney(employee)} /></div>
+          <CardHeader title="Mes comptes de versement" subtitle="Donnée sensible — ré-authentification requise" action={hasLive ? liveIndicator : <StatusPill tone="amber" dot={false}><Lock size={11} /> Sensible</StatusPill>} />
+          {hasLive ? (
+            <div className="space-y-3">
+              <Row label="Mode" value={liveProfile!.paymentMethod ? (liveProfile!.paymentMethod.primary_mode + (liveProfile!.paymentMethod.has_split ? ' · versement fractionné' : '')) : '—'} />
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-400">Comptes bancaires</p>
+                {liveProfile!.bankAccounts.length > 0 ? (
+                  <div className="space-y-1.5">{liveProfile!.bankAccounts.map((b) => <div key={b.id} className="flex items-center gap-3 rounded-xl bg-surface2 px-3 py-2.5"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber/12 text-amber-deep"><Landmark size={15} /></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{b.bank_name}</p><p className="mono truncate text-[11px] font-medium text-ink-400">{b.iban} · {b.account_holder_name} · {b.currency}</p></div><span className="flex items-center gap-1.5">{b.is_primary && <StatusPill tone="amber" dot={false}>Principal</StatusPill>}<span className="text-[10px] font-semibold text-ink-400">{b.status}</span></span></div>)}</div>
+                ) : <p className="text-sm font-medium text-ink-400">Aucun compte bancaire.</p>}
+              </div>
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-400">Mobile Money</p>
+                {liveProfile!.mobileMoney.length > 0 ? (
+                  <div className="space-y-1.5">{liveProfile!.mobileMoney.map((m) => <div key={m.id} className="flex items-center gap-3 rounded-xl bg-surface2 px-3 py-2.5"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber/12 text-amber-deep"><Wallet size={15} /></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{m.operator} · {m.phone_number}</p><p className="text-[11px] font-medium text-ink-400">{m.account_holder_name}</p></div><span className="flex items-center gap-1.5">{m.is_primary && <StatusPill tone="amber" dot={false}>Principal</StatusPill>}<span className="text-[10px] font-semibold text-ink-400">{m.status}</span></span></div>)}</div>
+                ) : <p className="text-sm font-medium text-ink-400">Aucun compte Mobile Money.</p>}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2"><Row label="Mode" value="Versement unique" /><Row label="Mobile Money" value={mobileMoney(employee)} /></div>
+          )}
           <p className="mt-2 text-[11px] font-medium text-ink-400">Toute modification nécessite une ré-authentification + OTP, est notifiée à vous et à la DRH, et s'applique à la paie suivante (jamais rétroactif).</p>
           <Button variant="outline" size="sm" className="mt-2"><Lock size={13} /> Modifier (ré-auth)</Button>
         </Card>

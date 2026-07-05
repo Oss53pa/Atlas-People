@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ReceiptText, ScanLine, Sparkles, Plus, Trash2, Send, Wallet, Clock, CheckCircle2, ShieldCheck, FileText } from 'lucide-react';
+import { ReceiptText, ScanLine, Sparkles, Plus, Trash2, Send, Wallet, Clock, CheckCircle2, ShieldCheck, FileText, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -14,6 +14,8 @@ import { EXPENSE_CATEGORIES, categoryByCode, checkPolicy } from '../../lib/expen
 import { Money } from '../../lib/money';
 import { employeeById, employeeCurrency } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useMyExpenseClaims, useSubmitExpenseClaim, isBackendConfigured } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
 const SELF_CUR = employeeCurrency(employeeById(SELF_ID)!);
@@ -28,6 +30,14 @@ const STATUS_LABEL: Record<ExpenseReportStatus, string> = {
 };
 const WORKFLOW: ExpenseReportStatus[] = ['submitted', 'manager_approved', 'finance_approved', 'reimbursed'];
 
+// Live claim statuses (Supabase expense_claims) → tone + libellé
+const CLAIM_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info' | 'neutral'> = {
+  submitted: 'warn', manager_approved: 'info', finance_approved: 'info', reimbursed: 'ok', refused: 'danger',
+};
+const CLAIM_LABEL: Record<string, string> = {
+  submitted: 'Soumise', manager_approved: 'Validée manager', finance_approved: 'Validée finance', reimbursed: 'Remboursée', refused: 'Refusée',
+};
+
 const TABS = [
   { key: 'new', label: 'Nouvelle note' },
   { key: 'open', label: 'En cours' },
@@ -39,6 +49,10 @@ export function MesFraisPage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('ess'); }, [setSurface]);
   const { toast } = useToast();
+  const { data: ctx } = useSessionContext();
+  const { data: liveClaims } = useMyExpenseClaims(ctx?.tenantId, ctx?.employeeId);
+  const submitClaim = useSubmitExpenseClaim();
+  const hasLive = isBackendConfigured && !!liveClaims && liveClaims.length > 0;
   const { byEmployee, create, submit } = useExpenses();
   const reports = byEmployee(SELF_ID);
   const [tab, setTab] = useState('new');
@@ -62,6 +76,10 @@ export function MesFraisPage() {
   const pendingTotal = open.filter((r) => r.status !== 'draft').reduce((s, r) => s + reportTotal(r), 0);
   const ytdTotal = reports.filter((r) => r.status === 'reimbursed').reduce((s, r) => s + reportTotal(r), 0);
 
+  // Live claims (Supabase) — répartis en cours / historique.
+  const liveOpen = (liveClaims ?? []).filter((c) => ['submitted', 'manager_approved', 'finance_approved'].includes(c.status));
+  const liveHistory = (liveClaims ?? []).filter((c) => ['reimbursed', 'refused'].includes(c.status));
+
   const runOcr = () => {
     setCategory('carburant'); setLabel('Total Énergies'); setAmount(18_500); setHasReceipt(true);
     setScanned('Total Énergies · 18 500 FCFA · 27/05/2026');
@@ -74,7 +92,7 @@ export function MesFraisPage() {
     setLabel(''); setAmount(0); setHasReceipt(false); setScanned(null);
   };
 
-  const saveReport = (andSubmit: boolean) => {
+  const saveReport = async (andSubmit: boolean) => {
     if (lines.length === 0 || !title) { toast({ variant: 'info', title: 'Note incomplète', description: 'Ajoutez un objet et au moins une ligne.' }); return; }
     const ref = `NDF-2026-${String(110 + reports.length).padStart(4, '0')}`;
     const report: ExpenseReport = {
@@ -82,9 +100,20 @@ export function MesFraisPage() {
       status: andSubmit ? 'submitted' : 'draft', createdAt: '2026-05-28', submittedAt: andSubmit ? '2026-05-28' : undefined,
       approver: 'Valentina Okou', lines,
     };
-    create(report);
+    // Live : persiste la note soumise côté Supabase (montant composé + catégorie principale).
+    if (andSubmit && isBackendConfigured && ctx) {
+      const primaryCategory = lines[0]?.category ?? category;
+      try {
+        await submitClaim.mutateAsync({ amount: draftTotal, category: primaryCategory });
+      } catch (e) {
+        toast({ variant: 'error', title: "Échec de la soumission", description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+        return;
+      }
+    } else {
+      create(report);
+    }
     toast({ variant: 'success', title: andSubmit ? 'Note soumise' : 'Brouillon enregistré', description: `${ref} · ${fmt(draftTotal)} FCFA` });
-    setTitle(''); setMission(''); setLines([]); setTab(andSubmit ? 'open' : 'open');
+    setTitle(''); setMission(''); setLines([]); setTab('open');
   };
 
   return (
@@ -92,7 +121,10 @@ export function MesFraisPage() {
       {detail && <ReportModal report={detail} onClose={() => setDetail(null)} onSubmit={() => { submit(detail.id); toast({ variant: 'success', title: 'Note soumise', description: detail.reference }); setDetail(null); }} />}
 
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Mes notes de frais</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">
+          Mes notes de frais
+          {hasLive && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={11} className="text-emerald-500" /> Live DB</span>}
+        </h1>
         <p className="text-sm font-medium text-ink-500">Remboursement sur Mobile Money · contrôle de politique automatique · justificatifs conservés 5 ans.</p>
       </div>
 
@@ -173,7 +205,14 @@ export function MesFraisPage() {
       {/* EN COURS */}
       {tab === 'open' && (
         <div className="space-y-2">
-          {open.length === 0 ? (
+          {hasLive && (
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600"><Wifi size={13} className="text-emerald-500" /> Live DB · {liveClaims!.length} note(s)</p>
+          )}
+          {hasLive ? (
+            liveOpen.length === 0
+              ? <Card><EmptyState icon={ReceiptText} title="Aucune note en cours" description="Vos notes soumises apparaîtront ici." /></Card>
+              : liveOpen.map((c) => <ClaimRow key={c.id} claim={c} />)
+          ) : open.length === 0 ? (
             <Card><EmptyState icon={ReceiptText} title="Aucune note en cours" description="Créez une note via l'onglet « Nouvelle note »." /></Card>
           ) : open.map((r) => <ReportRow key={r.id} report={r} onOpen={() => setDetail(r)} onSubmit={() => { submit(r.id); toast({ variant: 'success', title: 'Note soumise', description: r.reference }); }} />)}
         </div>
@@ -182,7 +221,11 @@ export function MesFraisPage() {
       {/* HISTORIQUE */}
       {tab === 'history' && (
         <div className="space-y-2">
-          {history.length === 0 ? (
+          {hasLive ? (
+            liveHistory.length === 0
+              ? <Card><EmptyState icon={FileText} title="Historique vide" description="Vos notes remboursées apparaîtront ici." /></Card>
+              : liveHistory.map((c) => <ClaimRow key={c.id} claim={c} />)
+          ) : history.length === 0 ? (
             <Card><EmptyState icon={FileText} title="Historique vide" description="Vos notes remboursées apparaîtront ici." /></Card>
           ) : history.map((r) => <ReportRow key={r.id} report={r} onOpen={() => setDetail(r)} />)}
         </div>
@@ -225,6 +268,25 @@ function ReportRow({ report, onOpen, onSubmit }: { report: ExpenseReport; onOpen
         <StatusPill tone={STATUS_TONE[report.status]} dot={false}>{STATUS_LABEL[report.status]}</StatusPill>
         {report.status === 'draft' && onSubmit && <Button variant="outline" size="sm" onClick={onSubmit}><Send size={14} /> Soumettre</Button>}
         <Button variant="ghost" size="sm" onClick={onOpen}>Détail</Button>
+      </div>
+    </Card>
+  );
+}
+
+function ClaimRow({ claim }: { claim: import('../../lib/portal/supabaseLive').ExpenseClaimRow }) {
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/12 text-emerald-600"><ReceiptText size={16} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-bold text-ink">{categoryByCode(claim.category).label}</p>
+            <span className="mono inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600"><Wifi size={10} /> Live DB</span>
+          </div>
+          <p className="text-[11px] font-medium text-ink-400">{frDate(claim.created_at.slice(0, 10))}</p>
+        </div>
+        <span className="mono text-sm font-bold text-ink">{fmt(claim.amount)} FCFA</span>
+        <StatusPill tone={CLAIM_TONE[claim.status] ?? 'neutral'} dot={false}>{CLAIM_LABEL[claim.status] ?? claim.status}</StatusPill>
       </div>
     </Card>
   );
