@@ -1,14 +1,24 @@
-import { useEffect, useState } from 'react';
-import { Plus, FileText, Zap, MessageSquare, Sparkles, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, FileText, Zap, MessageSquare, Sparkles, ShieldCheck, Briefcase, Users, CalendarClock, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Tabs } from '../../components/ui/Tabs';
 import { Modal } from '../../components/ui/overlays';
+import { EmptyState } from '../../components/ui/feedback';
 import { useToast } from '../../components/ui/Toast';
 import { RecruitmentSubNav } from '../../components/mss/RecruitmentSubNav';
 import { useSurface } from '../../store/useSurface';
+import { useDirectory } from '../../store/useDirectory';
+import { useManagerScope } from '../../store/useManagerScope';
+import { scopedTeamIds, MANAGER_ID } from '../../lib/mss/scope';
 import { recruitmentRequests, REQUEST_STATUS_META, REQUEST_TYPES, REQUEST_URGENCY, frDate, daysSince } from '../../lib/mss/recruit';
+import { isBackendConfigured, useTeamJobs } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
+
+const frDateT = (d: string) => new Date(d).toLocaleDateString('fr-FR');
+const JOB_STATUS_TONE: Record<string, 'ok' | 'amber' | 'info' | 'neutral'> = { open: 'info', sourcing: 'info', filled: 'ok', closed: 'neutral', on_hold: 'amber' };
 
 const TABS = [
   { key: 'all', label: 'Toutes' },
@@ -23,6 +33,25 @@ export function TeamRecruitmentRequestsPage() {
 
   const { toast } = useToast();
   const reqs = recruitmentRequests();
+
+  const employees = useDirectory((s) => s.employees);
+  const depth = useManagerScope((s) => s.depth);
+  const { data: ctx } = useSessionContext();
+  const { data: liveJobs } = useTeamJobs(ctx?.tenantId ?? undefined);
+  const hasLive = isBackendConfigured && !!liveJobs && liveJobs.length > 0;
+
+  const teamIds = useMemo(() => scopedTeamIds(depth, employees), [depth, employees]);
+  const scopedJobs = useMemo(() => {
+    if (!hasLive) return [];
+    const inScope = (hmId: string | null) => {
+      if (!hmId) return false;
+      const eid = mockEmpId(hmId);
+      return teamIds.has(eid) || eid === MANAGER_ID;
+    };
+    const mine = liveJobs!.filter((j) => inScope(j.hiring_manager_id));
+    return mine.length > 0 ? mine : liveJobs!;
+  }, [hasLive, liveJobs, teamIds]);
+
   const [tab, setTab] = useState('all');
   const [wizard, setWizard] = useState(false);
   const [type, setType] = useState(REQUEST_TYPES[0].key);
@@ -43,10 +72,36 @@ export function TeamRecruitmentRequestsPage() {
       <RecruitmentSubNav />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-ink">Mes demandes de recrutement</h1>
-        <Button size="sm" onClick={() => setWizard(true)}><Plus size={14} /> Nouvelle demande</Button>
+        <div className="flex items-center gap-2">
+          {hasLive && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>
+          )}
+          <Button size="sm" onClick={() => setWizard(true)}><Plus size={14} /> Nouvelle demande</Button>
+        </div>
       </div>
-      <Tabs tabs={TABS} value={tab} onChange={setTab} />
+      {!hasLive && <Tabs tabs={TABS} value={tab} onChange={setTab} />}
 
+      {hasLive ? (
+        <div className="space-y-3">
+          {scopedJobs.map((j) => (
+            <Card key={j.id}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 text-sm font-bold text-ink"><Briefcase size={15} className="text-ink-400" /> {j.ref} — {j.title}</p>
+                  {j.department && <p className="mt-1 text-[12px] font-medium text-ink-500">Département : {j.department}</p>}
+                  <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] font-medium text-ink-400">
+                    <span className="inline-flex items-center gap-1"><Users size={12} /> {j.applications_count ?? 0} candidature(s)</span>
+                    {j.opened_at && <span>Ouvert le {frDateT(j.opened_at)}</span>}
+                    {j.target_close_at && <span className="inline-flex items-center gap-1"><CalendarClock size={12} /> Clôture {frDate(j.target_close_at)}</span>}
+                  </div>
+                </div>
+                <StatusPill tone={JOB_STATUS_TONE[j.status] ?? 'neutral'} dot={false}>{j.status}</StatusPill>
+              </div>
+            </Card>
+          ))}
+          {scopedJobs.length === 0 && <Card><EmptyState icon={Briefcase} title="Aucun poste ouvert" description="Aucune demande de recrutement en cours." /></Card>}
+        </div>
+      ) : (
       <div className="space-y-3">
         {shown.map((r) => {
           const meta = REQUEST_STATUS_META[r.status];
@@ -73,6 +128,7 @@ export function TeamRecruitmentRequestsPage() {
           );
         })}
       </div>
+      )}
 
       <Modal open={wizard} onClose={() => setWizard(false)} title="Nouvelle demande de recrutement" size="lg"
         footer={<>

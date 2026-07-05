@@ -1,15 +1,23 @@
-import { useEffect, useState } from 'react';
-import { Users, Star, ShieldAlert, Zap, ClipboardCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Users, Star, ShieldAlert, Zap, ClipboardCheck, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Modal } from '../../components/ui/overlays';
+import { EmptyState } from '../../components/ui/feedback';
 import { useToast } from '../../components/ui/Toast';
 import { RecruitmentSubNav } from '../../components/mss/RecruitmentSubNav';
 import { useSurface } from '../../store/useSurface';
+import { useDirectory } from '../../store/useDirectory';
+import { useManagerScope } from '../../store/useManagerScope';
+import { scopedTeamIds, MANAGER_ID } from '../../lib/mss/scope';
 import { candidatePipeline, STAGE_META, CANDIDATE_DECISIONS, type Stage } from '../../lib/mss/recruit';
+import { isBackendConfigured, useTeamApplications } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
 
 const STAGES: Stage[] = ['preselected', 'tomeet', 'met', 'decision'];
+const frDateT = (d: string) => new Date(d).toLocaleDateString('fr-FR');
 
 export function TeamCandidatesPage() {
   const setSurface = useSurface((s) => s.setSurface);
@@ -17,6 +25,24 @@ export function TeamCandidatesPage() {
 
   const { toast } = useToast();
   const pipe = candidatePipeline();
+
+  const employees = useDirectory((s) => s.employees);
+  const depth = useManagerScope((s) => s.depth);
+  const { data: ctx } = useSessionContext();
+  const { data: liveApps } = useTeamApplications(ctx?.tenantId ?? undefined);
+  const hasLive = isBackendConfigured && !!liveApps && liveApps.length > 0;
+
+  const teamIds = useMemo(() => scopedTeamIds(depth, employees), [depth, employees]);
+  const scopedApps = useMemo(() => {
+    if (!hasLive) return [];
+    const inScope = (hmId: string | undefined) => {
+      if (!hmId) return false;
+      const eid = mockEmpId(hmId);
+      return teamIds.has(eid) || eid === MANAGER_ID;
+    };
+    const mine = liveApps!.filter((a) => inScope(a.job_hiring_manager_id));
+    return mine.length > 0 ? mine : liveApps!;
+  }, [hasLive, liveApps, teamIds]);
   const focus = pipe.candidates.find((c) => c.awaitingDecision);
   const [decideOpen, setDecideOpen] = useState(false);
   const [decision, setDecision] = useState(CANDIDATE_DECISIONS[0].key);
@@ -37,8 +63,54 @@ export function TeamCandidatesPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <RecruitmentSubNav />
-      <h1 className="text-2xl font-semibold text-ink">Mes candidats — {pipe.position}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-ink">{hasLive ? 'Mes candidats' : `Mes candidats — ${pipe.position}`}</h1>
+        {hasLive && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>
+        )}
+      </div>
 
+      {hasLive ? (
+        <Card>
+          <CardHeader title="Candidats en pipeline" action={<Users size={16} className="text-ink-400" />} />
+          {scopedApps.length === 0 ? (
+            <EmptyState icon={Users} title="Aucun candidat" description="Aucune candidature dans le pipeline." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+                    <th className="py-2 pr-3 font-bold">Candidat</th>
+                    <th className="py-2 pr-3 font-bold">Poste</th>
+                    <th className="py-2 pr-3 font-bold">Étape</th>
+                    <th className="py-2 pr-3 font-bold">Score</th>
+                    <th className="py-2 font-bold">Candidature</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scopedApps.map((a) => {
+                    const name = `${a.candidate_first_name ?? ''} ${a.candidate_last_name ?? ''}`.trim() || '—';
+                    return (
+                      <tr key={a.id} className="border-t border-line">
+                        <td className="py-2.5 pr-3">
+                          <p className="font-semibold text-ink">{name}</p>
+                          {a.candidate_role && <p className="text-[11px] font-medium text-ink-400">{a.candidate_role}</p>}
+                        </td>
+                        <td className="py-2.5 pr-3 text-[12px] font-medium text-ink-600">{a.job_title ?? '—'}</td>
+                        <td className="py-2.5 pr-3"><StatusPill tone="info" dot={false}>{a.stage}</StatusPill></td>
+                        <td className="py-2.5 pr-3">
+                          {a.score != null ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-amber-deep"><Star size={12} /> {a.score}</span> : <span className="text-[12px] text-ink-300">—</span>}
+                        </td>
+                        <td className="py-2.5 text-[12px] font-medium text-ink-500">{a.applied_at ? frDateT(a.applied_at) : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      ) : (<>
       <Card>
         <CardHeader title="Pipeline du recrutement" action={<Users size={16} className="text-ink-400" />} />
         <div className="grid gap-3 sm:grid-cols-4">
@@ -82,6 +154,7 @@ export function TeamCandidatesPage() {
       <Card className="glass-amber">
         <p className="flex items-start gap-2 text-[12px] font-medium text-ink-700"><ShieldAlert size={14} className="mt-0.5 shrink-0 text-amber-deep" /> Les données candidat restent sous responsabilité RH. Vous voyez uniquement ce que la RH a partagé. Aucun accès aux données salariales (négociation = RH). Pas de communication directe candidat. Toute consultation de profil est tracée (audit fort).</p>
       </Card>
+      </>)}
 
       <Modal open={decideOpen} onClose={() => setDecideOpen(false)} title={`Décision finale — ${focus?.alias ?? ''}`}
         footer={<>

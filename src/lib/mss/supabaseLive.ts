@@ -414,6 +414,80 @@ export function useTeamSkillMatrix(tenantId = DEMO) {
   });
 }
 
+// ── Recrutement équipe (m5) ────────────────────────────────────────────
+
+export interface TeamJobRow {
+  id: string;
+  ref: string;
+  title: string;
+  department: string | null;
+  status: string;
+  applications_count: number | null;
+  opened_at: string | null;
+  target_close_at: string | null;
+  hiring_manager_id: string | null;
+}
+
+export function useTeamJobs(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-jobs', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      // m5_jobs.hiring_manager_id n'a pas de FK employees → pas d'embed (le nom
+      // manager se résout côté page via mockEmpId + roster si besoin).
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('m5_jobs')
+        .select('id,ref,title,department,status,applications_count,opened_at,target_close_at,hiring_manager_id')
+        .eq('tenant_id', tenantId)
+        .order('opened_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as TeamJobRow[];
+    },
+    enabled: isBackendConfigured,
+    staleTime: 60_000,
+  });
+}
+
+export interface TeamApplicationRow {
+  id: string;
+  ref: string;
+  stage: string;
+  score: number | null;
+  applied_at: string | null;
+  candidate_first_name?: string;
+  candidate_last_name?: string;
+  candidate_role?: string;
+  job_title?: string;
+  job_hiring_manager_id?: string;
+}
+
+export function useTeamApplications(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-applications', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('m5_applications')
+        .select('id,ref,stage,score,applied_at,m5_candidates!candidate_id(first_name,last_name,current_role_label),m5_jobs!job_id(title,hiring_manager_id)')
+        .eq('tenant_id', tenantId)
+        .order('applied_at', { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const c = r['m5_candidates'] as Record<string, string> | null;
+        const j = r['m5_jobs'] as Record<string, string> | null;
+        return {
+          id: r['id'], ref: r['ref'], stage: r['stage'], score: r['score'], applied_at: r['applied_at'],
+          candidate_first_name: c?.first_name, candidate_last_name: c?.last_name, candidate_role: c?.current_role_label,
+          job_title: j?.title, job_hiring_manager_id: j?.hiring_manager_id,
+        } as TeamApplicationRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 60_000,
+  });
+}
+
 export function useMssTeamStats(tenantId = DEMO) {
   return useQuery({
     queryKey: ['mss-team-stats', tenantId],
