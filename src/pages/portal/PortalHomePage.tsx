@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Wallet, CalendarPlus, Inbox, Mail, AlertTriangle, ArrowRight, Fingerprint, ReceiptText, FileSignature,
-  CalendarClock, CalendarDays, Target, GraduationCap, Newspaper,
+  CalendarClock, CalendarDays, Target, GraduationCap, Newspaper, Wifi,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -17,6 +17,15 @@ import { useTimeOff } from '../../store/useTimeOff';
 import { useServiceRequests } from '../../store/useServiceRequests';
 import { useCorrespondence } from '../../store/useCorrespondence';
 import { employeeById, employeeName, employeeCurrency } from '../../data/mock';
+import { useSessionContext } from '../../lib/useSession';
+import {
+  isBackendConfigured,
+  useMyLeaveBalances,
+  useMyObjectives,
+  useMyCorrespondence,
+} from '../../lib/portal/supabaseLive';
+import { useMyBulletins } from '../../lib/ess/supabaseLive';
+import { useMyServiceRequests } from '../../lib/ess/serviceRequestsLive';
 
 const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
@@ -73,6 +82,41 @@ export function PortalHomePage() {
     { title: 'Ouverture du Cosmos Angré', date: '2026-05-18' },
   ];
 
+  // ── Couche live Supabase (repli mock ci-dessus si backend absent) ──────
+  const { data: ctx } = useSessionContext();
+  const { data: liveBulletins } = useMyBulletins(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveBalances } = useMyLeaveBalances(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveObjectives } = useMyObjectives(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveServiceReqs } = useMyServiceRequests(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveMail } = useMyCorrespondence(ctx?.tenantId, ctx?.employeeId);
+  const live = isBackendConfigured;
+
+  // Paie : bulletin le plus récent.
+  const liveBulletin = liveBulletins?.[0];
+  const liveNet = liveBulletin
+    ? Money.fromJSON({ units: String(Math.round(liveBulletin.net_a_payer)), currency: (liveBulletin.currency as never) ?? ('XOF' as never) })
+    : null;
+
+  // Congés : compteur CP.
+  const liveCp = liveBalances?.find((b) => b.counter_type === 'CP');
+
+  // Objectifs : moyenne des progress (0..1) → %.
+  const liveObjCount = liveObjectives?.length ?? 0;
+  const liveObjAvg = liveObjectives && liveObjCount > 0
+    ? Math.round((liveObjectives.reduce((s, o) => s + (o.progress ?? 0), 0) / liveObjCount) * 100)
+    : 0;
+
+  // Demandes ouvertes (non résolues/fermées).
+  const liveOpenReqs = (liveServiceReqs ?? []).filter(
+    (r) => r.status !== 'resolved' && r.status !== 'closed' && r.status !== 'refused',
+  );
+
+  // Courrier : non lus + à action requise.
+  const liveUnreadMail = (liveMail ?? []).filter((c) => c.status === 'unread');
+  const liveActionMail = (liveMail ?? []).filter(
+    (c) => c.status === 'action_required' || c.requires_signature || c.requires_acknowledgment,
+  );
+
   const greeting = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
   const alerts = [
     ...toSign.map((c) => ({ label: `Document à signer : ${c.subject}`, to: '/espace/courrier' })),
@@ -106,41 +150,88 @@ export function PortalHomePage() {
         <Card className="surface-night border-0" inset={false}>
           <div className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-deep">Prochain versement</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-deep">{live && liveNet ? 'Ma paie' : 'Prochain versement'}{live && liveNet && <span className="flex items-center gap-1 text-emerald-500"><Wifi size={13} className="text-emerald-500" /> Live DB</span>}</span>
               <Wallet size={18} className="text-amber-deep" />
             </div>
-            <p className="mono mt-2 text-3xl font-semibold text-ink">{net.formatWithCurrency()}</p>
-            <p className="mt-1 text-[12px] font-medium text-ink-500">Estimé · 25 juin 2026</p>
+            {live && liveNet ? (
+              <>
+                <p className="mono mt-2 text-3xl font-semibold text-ink">{liveNet.formatWithCurrency()}</p>
+                <p className="mt-1 text-[12px] font-medium text-ink-500">
+                  {liveBulletin?.cycle_label ?? liveBulletin?.numero}
+                  {liveBulletin?.cycle_pay_date ? ` · ${new Date(liveBulletin.cycle_pay_date.slice(0, 10) + 'T00:00').toLocaleDateString('fr-FR')}` : ''}
+                  {liveBulletin?.status ? ` · ${liveBulletin.status}` : ''}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mono mt-2 text-3xl font-semibold text-ink">{net.formatWithCurrency()}</p>
+                <p className="mt-1 text-[12px] font-medium text-ink-500">Estimé · 25 juin 2026</p>
+              </>
+            )}
             <Link to="/espace/paie"><Button variant="outline" size="sm" className="mt-3">Voir mes bulletins <ArrowRight size={14} /></Button></Link>
           </div>
         </Card>
 
         {/* Congés */}
         <Card>
-          <CardHeader title="Mes congés disponibles" action={<CalendarPlus size={16} className="text-ink-400" />} />
-          <p className="mono text-3xl font-semibold text-amber-deep">{balance.available} j</p>
-          <div className="mt-2"><ProgressBar value={balance.taken} max={balance.acquired} tone="amber" /></div>
+          <CardHeader title="Mes congés disponibles" subtitle={live && liveCp ? 'Live DB' : undefined} action={live && liveCp ? <Wifi size={13} className="text-emerald-500" /> : <CalendarPlus size={16} className="text-ink-400" />} />
+          {live && liveCp ? (
+            <>
+              <p className="mono text-3xl font-semibold text-amber-deep">{liveCp.available} j</p>
+              <div className="mt-2"><ProgressBar value={liveCp.taken} max={liveCp.acquired} tone="amber" /></div>
+            </>
+          ) : (
+            <>
+              <p className="mono text-3xl font-semibold text-amber-deep">{balance.available} j</p>
+              <div className="mt-2"><ProgressBar value={balance.taken} max={balance.acquired} tone="amber" /></div>
+            </>
+          )}
           <Link to="/me/time/leave/request/new"><Button size="sm" className="mt-3"><CalendarPlus size={14} /> Poser un congé</Button></Link>
         </Card>
 
         {/* Courrier */}
-        <Card className={toSign.length ? 'border-amber/30' : ''}>
-          <CardHeader title="Mon courrier" subtitle={`${unreadMail.length} non lu(s)`} action={<Mail size={16} className="text-ink-400" />} />
-          {toSign.length > 0 ? (
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-warn"><FileSignature size={15} /> {toSign.length} document(s) à signer</p>
-          ) : <p className="text-sm font-medium text-ink-400">Rien à signer.</p>}
+        <Card className={(live && liveMail ? liveActionMail.length : toSign.length) ? 'border-amber/30' : ''}>
+          {live && liveMail ? (
+            <>
+              <CardHeader title="Mon courrier" subtitle={`${liveUnreadMail.length} non lu(s) · Live DB`} action={<Wifi size={13} className="text-emerald-500" />} />
+              {liveActionMail.length > 0 ? (
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-warn"><FileSignature size={15} /> {liveActionMail.length} document(s) à traiter</p>
+              ) : <p className="text-sm font-medium text-ink-400">Rien à signer.</p>}
+            </>
+          ) : (
+            <>
+              <CardHeader title="Mon courrier" subtitle={`${unreadMail.length} non lu(s)`} action={<Mail size={16} className="text-ink-400" />} />
+              {toSign.length > 0 ? (
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-warn"><FileSignature size={15} /> {toSign.length} document(s) à signer</p>
+              ) : <p className="text-sm font-medium text-ink-400">Rien à signer.</p>}
+            </>
+          )}
           <Link to="/espace/courrier"><Button variant="outline" size="sm" className="mt-3">Ouvrir ma boîte <ArrowRight size={14} /></Button></Link>
         </Card>
 
         {/* Demandes */}
         <Card>
-          <CardHeader title="Mes demandes en cours" subtitle={`${openTickets.length} ouverte(s)`} action={<Inbox size={16} className="text-ink-400" />} />
-          {openTickets.slice(0, 2).map((t) => (
-            <div key={t.id} className="mb-1.5 flex items-center justify-between rounded-lg bg-surface2 px-3 py-2">
-              <span className="truncate text-sm font-semibold text-ink">{t.typeLabel}</span>
-              <StatusPill tone={t.status === 'info_requested' ? 'info' : 'warn'} dot={false}>{t.status === 'info_requested' ? 'Action requise' : 'En cours'}</StatusPill>
-            </div>
-          ))}
+          {live && liveServiceReqs ? (
+            <>
+              <CardHeader title="Mes demandes en cours" subtitle={`${liveOpenReqs.length} ouverte(s) · Live DB`} action={<Wifi size={13} className="text-emerald-500" />} />
+              {liveOpenReqs.slice(0, 2).map((t) => (
+                <div key={t.id} className="mb-1.5 flex items-center justify-between rounded-lg bg-surface2 px-3 py-2">
+                  <span className="truncate text-sm font-semibold text-ink">{t.subject || t.request_type_code}</span>
+                  <StatusPill tone={t.status === 'info_requested' ? 'info' : 'warn'} dot={false}>{t.status === 'info_requested' ? 'Action requise' : 'En cours'}</StatusPill>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <CardHeader title="Mes demandes en cours" subtitle={`${openTickets.length} ouverte(s)`} action={<Inbox size={16} className="text-ink-400" />} />
+              {openTickets.slice(0, 2).map((t) => (
+                <div key={t.id} className="mb-1.5 flex items-center justify-between rounded-lg bg-surface2 px-3 py-2">
+                  <span className="truncate text-sm font-semibold text-ink">{t.typeLabel}</span>
+                  <StatusPill tone={t.status === 'info_requested' ? 'info' : 'warn'} dot={false}>{t.status === 'info_requested' ? 'Action requise' : 'En cours'}</StatusPill>
+                </div>
+              ))}
+            </>
+          )}
           <Link to="/espace/demandes"><Button variant="ghost" size="sm" className="mt-1">Toutes mes demandes <ArrowRight size={14} /></Button></Link>
         </Card>
 
@@ -186,15 +277,34 @@ export function PortalHomePage() {
 
         {/* Objectifs */}
         <Card>
-          <CardHeader title="Mes objectifs (OKR)" subtitle="Mise à jour il y a 12 j" action={<Target size={16} className="text-ink-400" />} />
-          <div className="space-y-2.5">
-            {objectives.map((o) => (
-              <div key={o.title}>
-                <div className="mb-1 flex items-center justify-between text-[12px]"><span className="font-semibold text-ink-700">{o.title}</span><span className="mono font-semibold text-ink-500">{o.pct}%</span></div>
-                <ProgressBar value={o.pct} max={100} tone="amber" />
+          {live && liveObjectives && liveObjCount > 0 ? (
+            <>
+              <CardHeader title="Mes objectifs (OKR)" subtitle={`${liveObjCount} objectif(s) · ${liveObjAvg}% moyen · Live DB`} action={<Wifi size={13} className="text-emerald-500" />} />
+              <div className="space-y-2.5">
+                {liveObjectives.slice(0, 4).map((o) => {
+                  const pct = Math.round((o.progress ?? 0) * 100);
+                  return (
+                    <div key={o.id}>
+                      <div className="mb-1 flex items-center justify-between text-[12px]"><span className="truncate font-semibold text-ink-700">{o.title}</span><span className="mono font-semibold text-ink-500">{pct}%</span></div>
+                      <ProgressBar value={pct} max={100} tone="amber" />
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <>
+              <CardHeader title="Mes objectifs (OKR)" subtitle="Mise à jour il y a 12 j" action={<Target size={16} className="text-ink-400" />} />
+              <div className="space-y-2.5">
+                {objectives.map((o) => (
+                  <div key={o.title}>
+                    <div className="mb-1 flex items-center justify-between text-[12px]"><span className="font-semibold text-ink-700">{o.title}</span><span className="mono font-semibold text-ink-500">{o.pct}%</span></div>
+                    <ProgressBar value={o.pct} max={100} tone="amber" />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </Card>
 
         {/* Formations */}

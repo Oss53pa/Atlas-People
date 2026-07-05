@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Fingerprint, MapPin, WifiOff, CheckCircle2, AlertTriangle, FileWarning } from 'lucide-react';
+import { ArrowLeft, Fingerprint, MapPin, WifiOff, CheckCircle2, AlertTriangle, FileWarning, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -10,6 +10,8 @@ import { TimeSubNav } from '../../components/m2/TimeSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useClocking, type Clocking } from '../../store/useClocking';
 import { cn } from '../../lib/cn';
+import { isBackendConfigured, useMyClockings } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
 
@@ -36,6 +38,11 @@ export function MonPointagePage() {
   const { toast } = useToast();
   const clockings = useClocking((s) => s.clockings).filter((c) => c.employeeId === SELF_ID);
   const clock = useClocking((s) => s.clock);
+
+  const { data: ctx } = useSessionContext();
+  const { data: liveClockings } = useMyClockings(ctx?.tenantId, ctx?.employeeId);
+  const clockingsLive = isBackendConfigured && liveClockings && liveClockings.length > 0 ? liveClockings : undefined;
+  const CK_STATUS_TONE: Record<string, 'ok' | 'warn' | 'neutral'> = { verified: 'ok', to_verify: 'warn', pending: 'warn', rejected: 'neutral' };
 
   const [now, setNow] = useState(Date.now());
   const [offline, setOffline] = useState(false);
@@ -126,7 +133,27 @@ export function MonPointagePage() {
 
       {/* Historique */}
       <Card inset={false}>
-        <div className="p-5 pb-3"><CardHeader title="Mes pointages" subtitle="Jours précédents" className="mb-0" /></div>
+        <div className="p-5 pb-3"><CardHeader title="Mes pointages" subtitle={clockingsLive ? `${clockingsLive.length} pointage(s) · Live DB` : 'Jours précédents'} action={clockingsLive ? <Wifi size={13} className="text-emerald-500" /> : undefined} className="mb-0" /></div>
+        {clockingsLive ? (
+          <div className="divide-y divide-line">
+            {clockingsLive.map((c) => {
+              const isIn = c.clocking_type === 'in';
+              const isOut = c.clocking_type === 'out';
+              return (
+                <div key={c.id} className="flex items-center gap-3 px-5 py-3">
+                  <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', isIn ? 'bg-ok/12 text-ok' : 'bg-ink/[0.06] text-ink-500')}>
+                    <CheckCircle2 size={15} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-ink">{isIn ? 'Entrée' : isOut ? 'Sortie' : c.clocking_type} · {new Date(c.clocked_at).toLocaleString('fr-FR')}</p>
+                    <p className="text-[11px] font-medium text-ink-400">{c.method}{c.source ? ` · ${c.source}` : ''}</p>
+                  </div>
+                  <StatusPill tone={CK_STATUS_TONE[c.verification_status] ?? 'neutral'} dot={false}>{c.verification_status}</StatusPill>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
         <div className="divide-y divide-line">
           {byDay.map(([day, items]) => {
             const asc = items.slice().sort((a, b) => a.at.localeCompare(b.at));
@@ -146,6 +173,7 @@ export function MonPointagePage() {
             );
           })}
         </div>
+        )}
       </Card>
     </div>
   );

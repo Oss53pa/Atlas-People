@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CalendarPlus, Fingerprint, ArrowRight, Plane, AlertTriangle, Clock,
-  Wallet, CalendarDays, Sparkles, RefreshCw, FileWarning,
+  Wallet, CalendarDays, Sparkles, RefreshCw, FileWarning, Wifi,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -16,6 +16,10 @@ import { computeSelfLeaveBalance } from '../../lib/m2/selfBalance';
 import { holidaySet } from '../../lib/m2/holidays';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import {
+  isBackendConfigured, useMyLeaveBalances, useMyClockings, useMyPlanning, useMyOvertime,
+} from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
@@ -38,6 +42,24 @@ export function MonTempsPage() {
   const requests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
   const clockings = useClocking((s) => s.clockings).filter((c) => c.employeeId === SELF_ID);
   const balance = useMemo(() => computeSelfLeaveBalance(employee, requests), [employee, requests]);
+
+  // ── Couche live S4 (repli mock si absente) ──────────────────────────────
+  const { data: ctx } = useSessionContext();
+  const { data: liveBalances } = useMyLeaveBalances(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveClockings } = useMyClockings(ctx?.tenantId, ctx?.employeeId);
+  const { data: livePlanning } = useMyPlanning(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveOvertime } = useMyOvertime(ctx?.tenantId, ctx?.employeeId);
+
+  const cpLive = isBackendConfigured && liveBalances && liveBalances.length > 0
+    ? liveBalances.find((b) => b.counter_type === 'CP') : undefined;
+  const clockingsLive = isBackendConfigured && liveClockings && liveClockings.length > 0 ? liveClockings : undefined;
+  const planningLive = isBackendConfigured && livePlanning && livePlanning.length > 0 ? livePlanning : undefined;
+  const overtimeLive = isBackendConfigured && liveOvertime && liveOvertime.length > 0 ? liveOvertime : undefined;
+  const overtimeHoursLive = overtimeLive ? Math.round(overtimeLive.reduce((s, r) => s + Number(r.hours), 0) * 10) / 10 : 0;
+  const lastClockingLive = clockingsLive?.[0];
+  const nextPlanningLive = planningLive?.filter((p) => p.work_date >= TODAY).slice(0, 7) ?? [];
+  const PLANNING_TONE: Record<string, 'ok' | 'neutral' | 'amber' | 'info'> = { confirmed: 'ok', planned: 'info', swapped: 'amber', absent: 'neutral' };
+  const PLANNING_LABEL: Record<string, string> = { confirmed: 'Confirmé', planned: 'Planifié', swapped: 'Échangé', absent: 'Absent' };
 
   const inProgress = requests.filter((r) => r.status === 'pending' || r.status === 'info_requested');
   const onLeaveToday = requests.find((r) => r.status === 'approved' && r.start <= TODAY && r.end >= TODAY);
@@ -92,19 +114,19 @@ export function MonTempsPage() {
         <div className="space-y-5">
           {/* Soldes */}
           <Card>
-            <CardHeader title="Mes soldes de congés" subtitle="Congés payés" action={<Wallet size={16} className="text-ink-400" />} />
+            <CardHeader title="Mes soldes de congés" subtitle={cpLive ? 'Congés payés · Live DB' : 'Congés payés'} action={cpLive ? <Wifi size={13} className="text-emerald-500" /> : <Wallet size={16} className="text-ink-400" />} />
             <div className="flex items-end justify-between">
               <div>
-                <p className="mono text-3xl font-semibold text-amber-deep">{balance.available} j</p>
+                <p className="mono text-3xl font-semibold text-amber-deep">{cpLive ? cpLive.available : balance.available} j</p>
                 <p className="text-[11px] font-medium text-ink-400">disponibles</p>
               </div>
               <div className="text-right text-[11px] font-medium text-ink-400">
-                <p>Acquis <span className="mono font-semibold text-ink">{balance.acquired}</span></p>
-                <p>Pris <span className="mono font-semibold text-ink">{balance.taken}</span></p>
-                <p>En cours <span className="mono font-semibold text-ink">{balance.pending}</span></p>
+                <p>Acquis <span className="mono font-semibold text-ink">{cpLive ? cpLive.acquired : balance.acquired}</span></p>
+                <p>Pris <span className="mono font-semibold text-ink">{cpLive ? cpLive.taken : balance.taken}</span></p>
+                <p>En cours <span className="mono font-semibold text-ink">{cpLive ? cpLive.pending : balance.pending}</span></p>
               </div>
             </div>
-            <div className="mt-3"><ProgressBar value={balance.taken} max={balance.acquired} tone="amber" /></div>
+            <div className="mt-3"><ProgressBar value={cpLive ? cpLive.taken : balance.taken} max={cpLive ? cpLive.acquired : balance.acquired} tone="amber" /></div>
             {balance.majorations.length > 0 && <p className="mt-2 text-[11px] font-medium text-ink-400">{balance.majorations.join(' · ')}</p>}
             {peremptionSoon && <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-warn"><AlertTriangle size={12} /> {balance.available} j à poser avant péremption.</p>}
             <Link to="/me/time/leave"><Button variant="ghost" size="sm" className="mt-2">Voir le détail <ArrowRight size={14} /></Button></Link>
@@ -130,11 +152,16 @@ export function MonTempsPage() {
 
           {/* Pointage du jour */}
           <Card>
-            <CardHeader title="Mon pointage du jour" subtitle={lastClocking ? `Dernier : ${lastClocking.type === 'in' ? 'entrée' : 'sortie'} à ${fmtTime(lastClocking.at)}` : 'Aucun pointage'} action={<Fingerprint size={16} className="text-ink-400" />} />
+            <CardHeader
+              title="Mon pointage du jour"
+              subtitle={lastClockingLive ? `Dernier : ${lastClockingLive.clocking_type === 'in' ? 'entrée' : lastClockingLive.clocking_type === 'out' ? 'sortie' : lastClockingLive.clocking_type} à ${new Date(lastClockingLive.clocked_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : lastClocking ? `Dernier : ${lastClocking.type === 'in' ? 'entrée' : 'sortie'} à ${fmtTime(lastClocking.at)}` : 'Aucun pointage'}
+              action={lastClockingLive ? <Wifi size={13} className="text-emerald-500" /> : <Fingerprint size={16} className="text-ink-400" />}
+            />
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-ink-500">{todayClockings.length === 0 ? 'Pas encore pointé aujourd\'hui.' : `Entrée pointée à ${fmtTime(todayClockings[0].at)}`}</p>
+              <p className="text-sm font-medium text-ink-500">{lastClockingLive ? `${clockingsLive!.length} pointage(s) · Live DB` : todayClockings.length === 0 ? 'Pas encore pointé aujourd\'hui.' : `Entrée pointée à ${fmtTime(todayClockings[0].at)}`}</p>
               <Link to="/me/time/clocking"><Button size="sm">{nextAction === 'in' ? 'Pointer mon entrée' : 'Pointer ma sortie'}</Button></Link>
             </div>
+            {overtimeLive && <p className="mt-3 flex items-center gap-1.5 text-[12px] font-medium text-ink-500"><Clock size={13} className="text-amber-deep" /> Heures supplémentaires : <span className="mono font-semibold text-ink">{overtimeHoursLive} h</span> cumulées.</p>}
           </Card>
         </div>
 
@@ -142,9 +169,14 @@ export function MonTempsPage() {
         <div className="space-y-5">
           {/* Planning */}
           <Card>
-            <CardHeader title="Mon planning" subtitle="7 jours" action={<CalendarDays size={16} className="text-ink-400" />} />
+            <CardHeader title="Mon planning" subtitle={planningLive ? '7 prochains jours · Live DB' : '7 jours'} action={planningLive ? <Wifi size={13} className="text-emerald-500" /> : <CalendarDays size={16} className="text-ink-400" />} />
             <div className="space-y-1">
-              {week.map((d) => (
+              {planningLive ? nextPlanningLive.map((d) => (
+                <div key={d.id} className={cn('flex items-center justify-between rounded-lg px-2.5 py-1.5', d.work_date === TODAY && 'bg-amber/[0.06]')}>
+                  <span className={cn('text-sm font-semibold', d.work_date === TODAY ? 'text-ink' : 'text-ink-700')}>{frDate(d.work_date)}{d.work_date === TODAY && ' · auj.'}</span>
+                  <StatusPill tone={PLANNING_TONE[d.status] ?? 'neutral'} dot={false}>{PLANNING_LABEL[d.status] ?? d.status}</StatusPill>
+                </div>
+              )) : week.map((d) => (
                 <div key={d.iso} className={cn('flex items-center justify-between rounded-lg px-2.5 py-1.5', d.isToday && 'bg-amber/[0.06]')}>
                   <span className={cn('text-sm font-semibold', d.isToday ? 'text-ink' : 'text-ink-700')}>{frDate(d.iso)}{d.isToday && ' · auj.'}</span>
                   <StatusPill tone={d.tone} dot={false}>{d.label}</StatusPill>

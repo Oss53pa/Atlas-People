@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Clock, Repeat, CalendarOff } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Clock, Repeat, CalendarOff, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -12,6 +12,8 @@ import { useTimeOff } from '../../store/useTimeOff';
 import { holidaySet } from '../../lib/m2/holidays';
 import { employeeById } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { isBackendConfigured, useMyPlanning } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
@@ -46,6 +48,12 @@ export function MonPlanningPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selected, setSelected] = useState<Day | null>(null);
 
+  const { data: ctx } = useSessionContext();
+  const { data: livePlanning } = useMyPlanning(ctx?.tenantId, ctx?.employeeId);
+  const planningLive = isBackendConfigured && livePlanning && livePlanning.length > 0 ? livePlanning : undefined;
+  const PLAN_TONE: Record<string, 'ok' | 'neutral' | 'amber' | 'info'> = { confirmed: 'ok', planned: 'info', swapped: 'amber', absent: 'neutral' };
+  const PLAN_LABEL: Record<string, string> = { confirmed: 'Confirmé', planned: 'Planifié', swapped: 'Échangé', absent: 'Absent' };
+
   const buildDay = (iso: string, i: number): Day => {
     const d = new Date(`${iso}T00:00:00`);
     const we = d.getDay() === 0 || d.getDay() === 6;
@@ -77,7 +85,22 @@ export function MonPlanningPage() {
         </div>
       </div>
 
-      {view === 'week' && (
+      {planningLive && (
+        <Card inset={false}>
+          <div className="p-5 pb-3"><CardHeader title="Mon planning" subtitle={`${planningLive.length} jour(s) · Live DB`} action={<Wifi size={13} className="text-emerald-500" />} className="mb-0" /></div>
+          <div className="divide-y divide-line">
+            {planningLive.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-5 py-3">
+                <span className={cn('w-40 shrink-0 text-sm font-semibold', p.work_date === TODAY ? 'text-amber-deep' : 'text-ink')}>{frFull(p.work_date)}</span>
+                <span className="flex-1" />
+                <StatusPill tone={PLAN_TONE[p.status] ?? 'neutral'} dot={false}>{PLAN_LABEL[p.status] ?? p.status}</StatusPill>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {!planningLive && view === 'week' && (
         <Card inset={false}>
           <div className="flex items-center justify-between p-4">
             <button onClick={() => setWeekOffset((w) => w - 1)} className="rounded-lg p-2 text-ink-500 hover:bg-ink/5"><ChevronLeft size={18} /></button>
@@ -99,7 +122,7 @@ export function MonPlanningPage() {
         </Card>
       )}
 
-      {view === 'list' && (
+      {!planningLive && view === 'list' && (
         <Card inset={false}>
           <div className="p-5 pb-3"><CardHeader title="14 prochains jours" className="mb-0" /></div>
           <div className="divide-y divide-line">

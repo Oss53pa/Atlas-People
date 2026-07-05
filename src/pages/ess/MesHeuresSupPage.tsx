@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Plus, Wallet, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowLeft, Clock, Plus, Wallet, RefreshCw, Sparkles, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -10,6 +10,8 @@ import { TimeSubNav } from '../../components/m2/TimeSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useOvertime } from '../../store/useOvertime';
 import { cn } from '../../lib/cn';
+import { isBackendConfigured, useMyOvertime } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const SELF_ID = 'e2';
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -19,6 +21,9 @@ const STATUS_TONE: Record<string, 'ok' | 'warn' | 'neutral'> = { validated: 'ok'
 const STATUS_LABEL: Record<string, string> = { validated: 'Validée', pending: 'En attente', detected: 'Détectée' };
 const CAT_LABEL: Record<string, string> = { overtime: 'Heures sup', night: 'Nuit', sunday: 'Dimanche', holiday: 'Férié' };
 
+const LIVE_STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'neutral'> = { validated: 'ok', detected: 'neutral', refused: 'danger', converted_to_recovery: 'warn' };
+const LIVE_STATUS_LABEL: Record<string, string> = { validated: 'Validée', detected: 'Détectée', refused: 'Refusée', converted_to_recovery: 'Récupération' };
+
 export function MesHeuresSupPage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('ess'); }, [setSurface]);
@@ -27,6 +32,10 @@ export function MesHeuresSupPage() {
   const records = useOvertime((s) => s.records).filter((r) => r.employeeId === SELF_ID);
   const declare = useOvertime((s) => s.declare);
   const setPreference = useOvertime((s) => s.setPreference);
+
+  const { data: ctx } = useSessionContext();
+  const { data: liveOvertime } = useMyOvertime(ctx?.tenantId, ctx?.employeeId);
+  const overtimeLive = isBackendConfigured && liveOvertime && liveOvertime.length > 0 ? liveOvertime : undefined;
 
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState('2026-05-26');
@@ -95,7 +104,20 @@ export function MesHeuresSupPage() {
 
       {/* Liste détaillée */}
       <Card inset={false}>
-        <div className="p-5 pb-3"><CardHeader title="Détail" subtitle="Pointages réels vs prévu" className="mb-0" /></div>
+        <div className="p-5 pb-3"><CardHeader title="Détail" subtitle={overtimeLive ? `${overtimeLive.length} enregistrement(s) · Live DB` : 'Pointages réels vs prévu'} action={overtimeLive ? <Wifi size={13} className="text-emerald-500" /> : undefined} className="mb-0" /></div>
+        {overtimeLive ? (
+          <div className="divide-y divide-line">
+            {overtimeLive.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <span className="mono w-24 shrink-0 text-[12px] font-bold text-ink-500">{new Date(`${r.work_date}T00:00:00`).toLocaleDateString('fr-FR')}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-ink">{CAT_LABEL[r.category] ?? r.category} · <span className="mono text-amber-deep">{fmtH(Number(r.hours))}</span> (+{r.rate_pct}%)</p>
+                </div>
+                <StatusPill tone={LIVE_STATUS_TONE[r.status] ?? 'neutral'} dot={false}>{LIVE_STATUS_LABEL[r.status] ?? r.status}</StatusPill>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="divide-y divide-line">
           {records.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).map((r) => (
             <div key={r.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
@@ -114,6 +136,7 @@ export function MesHeuresSupPage() {
             </div>
           ))}
         </div>
+        )}
       </Card>
 
       <Card className="glass-amber">

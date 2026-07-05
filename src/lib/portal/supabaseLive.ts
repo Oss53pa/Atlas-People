@@ -430,3 +430,185 @@ export function useMyObjectives(tenantId?: string, employeeId?: string) {
     staleTime: 60_000,
   });
 }
+
+// ── S4 Mon temps ───────────────────────────────────────────────────────
+
+export interface LeaveBalanceRow {
+  counter_type: string;
+  reference_period: string;
+  acquired: number;
+  taken: number;
+  pending: number;
+  available: number;
+  carried_over: number;
+  expiry_date: string | null;
+}
+
+export function useMyLeaveBalances(tenantId?: string, employeeId?: string) {
+  return useQuery({
+    queryKey: ['portal-leave-balances', tenantId, employeeId],
+    queryFn: async () => {
+      if (!supabase || !employeeId) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('employee_leave_balances')
+        .select('counter_type,reference_period,acquired,taken,pending,available,carried_over,expiry_date')
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId);
+      if (error) throw error;
+      return (data ?? []) as LeaveBalanceRow[];
+    },
+    enabled: enabled(employeeId),
+    staleTime: 60_000,
+  });
+}
+
+export interface ClockingRow {
+  id: string;
+  clocking_type: string;
+  clocked_at: string;
+  method: string;
+  source: string;
+  verification_status: string;
+}
+
+export function useMyClockings(tenantId?: string, employeeId?: string) {
+  return useQuery({
+    queryKey: ['portal-clockings', tenantId, employeeId],
+    queryFn: async () => {
+      if (!supabase || !employeeId) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('time_clockings')
+        .select('id,clocking_type,clocked_at,method,source,verification_status')
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId)
+        .order('clocked_at', { ascending: false })
+        .limit(40);
+      if (error) throw error;
+      return (data ?? []) as ClockingRow[];
+    },
+    enabled: enabled(employeeId),
+    staleTime: 20_000,
+  });
+}
+
+export interface OvertimeRow {
+  id: string;
+  work_date: string;
+  hours: number;
+  rate_pct: number;
+  category: string;
+  status: string;
+}
+
+export function useMyOvertime(tenantId?: string, employeeId?: string) {
+  return useQuery({
+    queryKey: ['portal-overtime', tenantId, employeeId],
+    queryFn: async () => {
+      if (!supabase || !employeeId) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('overtime_records')
+        .select('id,work_date,hours,rate_pct,category,status')
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId)
+        .order('work_date', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as OvertimeRow[];
+    },
+    enabled: enabled(employeeId),
+    staleTime: 30_000,
+  });
+}
+
+export interface PlanningRow {
+  id: string;
+  work_date: string;
+  status: string;
+}
+
+export function useMyPlanning(tenantId?: string, employeeId?: string) {
+  return useQuery({
+    queryKey: ['portal-planning', tenantId, employeeId],
+    queryFn: async () => {
+      if (!supabase || !employeeId) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('schedule_assignments')
+        .select('id,work_date,status')
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId)
+        .order('work_date', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as PlanningRow[];
+    },
+    enabled: enabled(employeeId),
+    staleTime: 30_000,
+  });
+}
+
+// ── S6 Mon développement ───────────────────────────────────────────────
+
+export interface SkillRow {
+  id: string;
+  skill_id: string;
+  level: number;
+  evidence: string | null;
+  name?: string;
+  domain?: string;
+}
+
+export function useMySkills(tenantId?: string, employeeId?: string) {
+  return useQuery({
+    queryKey: ['portal-skills', tenantId, employeeId],
+    queryFn: async () => {
+      if (!supabase || !employeeId) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('employee_skills')
+        .select('id,skill_id,level,evidence,skills!skill_id(name,domain)')
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId);
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const sk = r['skills'] as { name?: string; domain?: string } | null;
+        return {
+          id: r['id'] as string,
+          skill_id: r['skill_id'] as string,
+          level: r['level'] as number,
+          evidence: (r['evidence'] as string | null) ?? null,
+          name: sk?.name,
+          domain: sk?.domain,
+        } as SkillRow;
+      });
+    },
+    enabled: enabled(employeeId),
+    staleTime: 60_000,
+  });
+}
+
+export interface ExternalTrainingRow {
+  id: string;
+  training_title: string;
+  training_organization: string;
+  training_type: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  domain: string | null;
+  obtained_certification: boolean | null;
+}
+
+export function useMyExternalTrainings(tenantId?: string, employeeId?: string) {
+  return useQuery({
+    queryKey: ['portal-ext-trainings', tenantId, employeeId],
+    queryFn: async () => {
+      if (!supabase || !employeeId) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('employee_external_trainings')
+        .select('id,training_title,training_organization,training_type,start_date,end_date,domain,obtained_certification')
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId)
+        .order('start_date', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ExternalTrainingRow[];
+    },
+    enabled: enabled(employeeId),
+    staleTime: 60_000,
+  });
+}
