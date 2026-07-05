@@ -746,3 +746,85 @@ export function useMyExternalTrainings(tenantId?: string, employeeId?: string) {
     staleTime: 60_000,
   });
 }
+
+// ── S11 Mon onboarding ─────────────────────────────────────────────────
+
+export interface OnboardingTaskRow {
+  id: string;
+  jalon_kind: string | null;
+  owner: string;
+  title: string;
+  status: string;
+  due_date: string | null;
+  required: boolean;
+}
+export interface OnboardingJalonRow {
+  id: string;
+  kind: string;
+  due_date: string;
+  status: string;
+  validated_at: string | null;
+}
+export interface OnboardingData {
+  arrivant: {
+    id: string;
+    start_date: string;
+    parcours_status: string;
+    overall_completion_pct: number;
+    fin_essai_at: string | null;
+  } | null;
+  tasks: OnboardingTaskRow[];
+  jalons: OnboardingJalonRow[];
+}
+
+export function useMyOnboarding(tenantId?: string, employeeId?: string) {
+  return useQuery({
+    queryKey: ['portal-onboarding', tenantId, employeeId],
+    queryFn: async (): Promise<OnboardingData> => {
+      const empty: OnboardingData = { arrivant: null, tasks: [], jalons: [] };
+      if (!supabase || !employeeId) return empty;
+      const sb = supabase.schema('atlas_people');
+      const { data: arr, error } = await sb
+        .from('m6_arrivants')
+        .select('id,start_date,parcours_status,overall_completion_pct,fin_essai_at')
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!arr) return empty;
+      const arrId = (arr as { id: string }).id;
+      const [tasks, jalons] = await Promise.all([
+        sb.from('m6_tasks').select('id,jalon_kind,owner,title,status,due_date,required').eq('tenant_id', tenantId).eq('arrivant_id', arrId).order('due_date', { ascending: true }),
+        sb.from('m6_jalons').select('id,kind,due_date,status,validated_at').eq('tenant_id', tenantId).eq('arrivant_id', arrId).order('due_date', { ascending: true }),
+      ]);
+      return {
+        arrivant: arr as OnboardingData['arrivant'],
+        tasks: (tasks.data ?? []) as OnboardingTaskRow[],
+        jalons: (jalons.data ?? []) as OnboardingJalonRow[],
+      };
+    },
+    enabled: enabled(employeeId),
+    staleTime: 30_000,
+  });
+}
+
+/** L'employé marque une de ses tâches d'intégration comme faite. */
+export function useCompleteOnboardingTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const ctx = await resolveSessionContext();
+      const nowIso = new Date().toISOString();
+      const { data, error } = await ap()
+        .from('m6_tasks')
+        .update({ status: 'done', completed_at: nowIso, completed_by: ctx.employeeId })
+        .eq('tenant_id', ctx.tenantId).eq('id', taskId)
+        .select('id');
+      if (error) throw mapSupabaseError(error);
+      if (!data || data.length === 0) throw new NoRowsAffectedError('onboarding_task.complete');
+      await appendAuditEntry({ tenantId: ctx.tenantId, actorId: ctx.userId, action: 'onboarding.task_completed', entity: 'm6_tasks', entityId: taskId, payload: {}, surface: 'ess' });
+      return taskId;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-onboarding'] }),
+  });
+}
