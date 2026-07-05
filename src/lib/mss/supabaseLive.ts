@@ -488,6 +488,102 @@ export function useTeamApplications(tenantId = DEMO) {
   });
 }
 
+// ── Temps équipe — heures supplémentaires (validation) & présence ──────
+
+export interface TeamOvertimeRow {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  hours: number;
+  rate_pct: number;
+  category: string;
+  status: string;
+  employee_first_name?: string;
+  employee_last_name?: string;
+}
+
+/** Heures supplémentaires de l'équipe en attente de validation (status detected). */
+export function useTeamOvertime(tenantId = DEMO, status = 'detected') {
+  return useQuery({
+    queryKey: ['mss-overtime', tenantId, status],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('overtime_records')
+        .select('id,employee_id,work_date,hours,rate_pct,category,status,employees!employee_id(first_name,last_name)')
+        .eq('tenant_id', tenantId)
+        .eq('status', status)
+        .order('work_date', { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const emp = r['employees'] as Record<string, string> | null;
+        return { ...r, employees: undefined, employee_first_name: emp?.first_name, employee_last_name: emp?.last_name } as unknown as TeamOvertimeRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 30_000,
+  });
+}
+
+/** Décision manager sur des heures supplémentaires (validate/refuse) + audit 'mss'.
+ *  Statuts conformes au CHECK overtime_records_status. */
+export function useDecideOvertime() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ overtimeId, decision, tenantId }: { overtimeId: string; decision: 'validated' | 'refused'; tenantId: string }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const { data, error } = await sb.schema('atlas_people').from('overtime_records')
+        .update({ status: decision, validated_by: ctx.employeeId, validated_at: new Date().toISOString() })
+        .eq('id', overtimeId).eq('tenant_id', tenantId).select('id');
+      if (error) throw mapSupabaseError(error);
+      if (!data || data.length === 0) throw new NoRowsAffectedError('decideOvertime');
+      await appendAuditEntry({
+        tenantId, actorId: ctx.userId, action: `overtime.${decision}`,
+        entity: 'overtime_records', entityId: overtimeId, payload: { decision }, surface: 'mss',
+      });
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['mss-overtime', vars.tenantId] });
+      qc.invalidateQueries({ queryKey: ['portal-overtime'] });
+    },
+  });
+}
+
+export interface TeamClockingRow {
+  id: string;
+  employee_id: string;
+  clocking_type: string;
+  clocked_at: string;
+  method: string;
+  verification_status: string;
+  employee_first_name?: string;
+  employee_last_name?: string;
+}
+
+/** Présence : derniers pointages de l'équipe (lecture). */
+export function useTeamClockings(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-clockings', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('time_clockings')
+        .select('id,employee_id,clocking_type,clocked_at,method,verification_status,employees!employee_id(first_name,last_name)')
+        .eq('tenant_id', tenantId)
+        .order('clocked_at', { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const emp = r['employees'] as Record<string, string> | null;
+        return { ...r, employees: undefined, employee_first_name: emp?.first_name, employee_last_name: emp?.last_name } as unknown as TeamClockingRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 20_000,
+  });
+}
+
 export function useMssTeamStats(tenantId = DEMO) {
   return useQuery({
     queryKey: ['mss-team-stats', tenantId],

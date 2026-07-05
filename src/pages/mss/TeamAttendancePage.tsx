@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Fingerprint, AlertTriangle } from 'lucide-react';
+import { Fingerprint, AlertTriangle, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
@@ -10,8 +10,17 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { employeeName } from '../../data/mock';
+import { isBackendConfigured, useTeamClockings } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
 
 const TODAY = '2026-05-28';
+
+const clockingLabel = (t: string): string => {
+  const k = t.toLowerCase();
+  return k === 'in' || k === 'entry' ? 'Entrée' : k === 'out' || k === 'exit' ? 'Sortie' : t;
+};
+const VERIF_TONE: Record<string, 'ok' | 'warn' | 'danger'> = { verified: 'ok', pending: 'warn', flagged: 'danger', unverified: 'warn' };
 
 /** Présence d'équipe (semaine). Données déterministes dérivées du périmètre.
  *  Pas de données sensibles. La correction effective des pointages = back-office. */
@@ -34,10 +43,56 @@ export function TeamAttendancePage() {
   });
   const anomalies = rows.filter((r) => r.anomaly);
 
+  // ── LIVE : derniers pointages Supabase scopés à l'équipe. ──
+  const teamIds = useMemo(() => new Set(team.map((e) => e.id)), [team]);
+  const { data: ctx } = useSessionContext();
+  const { data: liveClockings } = useTeamClockings(ctx?.tenantId);
+  const liveScoped = useMemo(
+    () => (liveClockings ?? []).filter((c) => teamIds.has(mockEmpId(c.employee_id))),
+    [liveClockings, teamIds],
+  );
+  const hasLive = isBackendConfigured && liveScoped.length > 0;
+
   return (
     <div className="animate-fade-up space-y-5">
       <TeamTimeSubNav />
-      <h1 className="text-2xl font-semibold text-ink">Temps de mon équipe</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold text-ink">Temps de mon équipe</h1>
+        {hasLive && <StatusPill tone="ok" dot={false}><Wifi size={12} className="inline" /> Live DB</StatusPill>}
+      </div>
+
+      {hasLive && (
+        <Card inset={false}>
+          <div className="p-5 pb-3"><CardHeader title="Derniers pointages — équipe" subtitle="Flux temps réel (Supabase)" className="mb-0" action={<Fingerprint size={16} className="text-ink-400" />} /></div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="border-y border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                  <th className="px-4 py-2.5 text-left">Membre</th>
+                  <th className="px-3 py-2.5 text-left">Type</th>
+                  <th className="px-3 py-2.5 text-left">Horodatage</th>
+                  <th className="px-3 py-2.5 text-left">Méthode</th>
+                  <th className="px-3 py-2.5 text-center">Vérification</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {liveScoped.map((c) => {
+                  const who = `${c.employee_first_name ?? ''} ${c.employee_last_name ?? ''}`.trim() || '—';
+                  return (
+                    <tr key={c.id}>
+                      <td className="px-4 py-2.5"><div className="flex items-center gap-2.5"><Avatar name={who} size="xs" /><span className="text-[13px] font-semibold text-ink">{who}</span></div></td>
+                      <td className="px-3 py-2.5 text-[13px] font-semibold text-ink-700">{clockingLabel(c.clocking_type)}</td>
+                      <td className="mono px-3 py-2.5 text-[12px] text-ink-500">{new Date(c.clocked_at).toLocaleString('fr-FR')}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-ink-400">{c.method}</td>
+                      <td className="px-3 py-2.5 text-center"><StatusPill tone={VERIF_TONE[c.verification_status] ?? 'warn'} dot={false}>{c.verification_status}</StatusPill></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <Card inset={false}>
         <div className="p-5 pb-3"><CardHeader title="Présence — semaine en cours" subtitle="Prévu vs pointé" className="mb-0" action={<Fingerprint size={16} className="text-ink-400" />} /></div>
