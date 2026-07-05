@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, X, MessageCircle, CheckCheck, Paperclip, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Check, X, MessageCircle, CheckCheck, Paperclip, AlertTriangle, ShieldCheck, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -15,6 +15,11 @@ import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeamIds } from '../../lib/mss/scope';
 import { checkPolicy, categoryByCode } from '../../lib/expenses/policy';
 import { employeeName, employeeById } from '../../data/mock';
+import { isBackendConfigured, useTeamExpenseClaims, useDecideExpenseClaim, type TeamExpenseClaimRow } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
+
+const frDateTime = (iso: string) => new Date(iso).toLocaleDateString('fr-FR');
 
 const fcfa = (n: number) => `${n.toLocaleString('fr-FR')} FCFA`;
 
@@ -29,6 +34,16 @@ export function TeamExpenseValidationsPage() {
   const depth = useManagerScope((s) => s.depth);
   const teamIds = useMemo(() => scopedTeamIds(depth, employees), [depth, employees]);
 
+  // ── Couche LIVE : NDF de l'équipe lues en base, décision persistée + audit 'mss'. ──
+  const { data: ctx } = useSessionContext();
+  const { data: liveClaims } = useTeamExpenseClaims(ctx?.tenantId);
+  const decideClaim = useDecideExpenseClaim();
+  const liveTeamClaims = useMemo(
+    () => (liveClaims ?? []).filter((c) => teamIds.has(mockEmpId(c.employee_id))),
+    [liveClaims, teamIds],
+  );
+  const useLive = isBackendConfigured && liveTeamClaims.length > 0;
+
   const pending = reports.filter((r) => teamIds.has(r.employeeId) && r.status === 'submitted');
   const total = pending.reduce((s, r) => s + reportTotal(r), 0);
 
@@ -36,6 +51,36 @@ export function TeamExpenseValidationsPage() {
   const [batchOpen, setBatchOpen] = useState(false);
   const [refuseId, setRefuseId] = useState<string | null>(null);
   const [refuseMotif, setRefuseMotif] = useState('');
+
+  const claimName = (c: TeamExpenseClaimRow) => {
+    const n = `${c.employee_first_name ?? ''} ${c.employee_last_name ?? ''}`.trim();
+    if (n) return n;
+    const emp = employeeById(mockEmpId(c.employee_id));
+    return emp ? employeeName(emp) : '—';
+  };
+
+  const approveLive = async (c: TeamExpenseClaimRow) => {
+    if (!ctx?.tenantId) return;
+    try {
+      await decideClaim.mutateAsync({ claimId: c.id, decision: 'manager_approved', tenantId: ctx.tenantId });
+      toast({ variant: 'success', title: 'NDF validée', description: `${claimName(c)} — transmise à la finance pour remboursement.` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Échec de la validation', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
+
+  const confirmRefuseLive = async () => {
+    if (!refuseId || refuseMotif.trim().length < 20 || !ctx?.tenantId) return;
+    const c = liveTeamClaims.find((x) => x.id === refuseId);
+    try {
+      await decideClaim.mutateAsync({ claimId: refuseId, decision: 'refused', tenantId: ctx.tenantId, motif: refuseMotif.trim() });
+      toast({ variant: 'warning', title: 'NDF refusée', description: `${c ? claimName(c) : ''} — motif communiqué au collaborateur.` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Échec du refus', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+    setRefuseId(null);
+    setRefuseMotif('');
+  };
 
   const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allSelected = pending.length > 0 && pending.every((r) => selected.has(r.id));
@@ -64,6 +109,59 @@ export function TeamExpenseValidationsPage() {
     setRefuseMotif('');
     toast({ variant: 'warning', title: 'NDF refusée', description: `${emp ? employeeName(emp) : ''} — motif communiqué au collaborateur.` });
   };
+
+  // ── Rendu LIVE (base Supabase) : NDF plates (montant unique), décision persistée. ──
+  if (useLive) {
+    const liveTotal = liveTeamClaims.reduce((s, c) => s + c.amount, 0);
+    return (
+      <div className="animate-fade-up space-y-5">
+        <DailySubNav />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-ink">Notes de frais à valider</h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600"><Wifi size={12} className="text-emerald-500" /> Live DB</span>
+          </div>
+          <StatusPill tone={liveTeamClaims.length > 0 ? 'amber' : 'ok'} dot={false}>{liveTeamClaims.length} en attente · {fcfa(liveTotal)}</StatusPill>
+        </div>
+
+        <div className="space-y-3">
+          {liveTeamClaims.map((c) => (
+            <Card key={c.id}>
+              <div className="flex flex-wrap items-start gap-3">
+                <Avatar name={claimName(c)} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold text-ink">{claimName(c)}</p>
+                    <StatusPill tone="amber" dot={false}>{fcfa(c.amount)}</StatusPill>
+                  </div>
+                  <p className="mt-0.5 text-[12px] font-medium text-ink-500">{categoryByCode(c.category).label} · {frDateTime(c.created_at)}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] font-medium">
+                    <span className={`inline-flex items-center gap-1 ${c.receipt_url ? 'text-ink-400' : 'text-warn'}`}><Paperclip size={11} /> {c.receipt_url ? 'Justificatif joint' : 'Justificatif manquant'}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => approveLive(c)} className="rounded-lg bg-ok/12 p-2 text-ok hover:bg-ok/20" title="Valider"><Check size={16} /></button>
+                  <button onClick={() => { setRefuseId(c.id); setRefuseMotif(''); }} className="rounded-lg bg-danger/10 p-2 text-danger hover:bg-danger/20" title="Refuser"><X size={16} /></button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <Modal open={refuseId !== null} onClose={() => setRefuseId(null)} title="Refuser la note de frais"
+          footer={<>
+            <Button variant="ghost" size="sm" onClick={() => setRefuseId(null)}>Annuler</Button>
+            <Button variant="danger" size="sm" onClick={confirmRefuseLive} disabled={refuseMotif.trim().length < 20}>Confirmer le refus</Button>
+          </>}>
+          <label className="block">
+            <span className="text-[12px] font-semibold text-ink-500">Motif du refus (obligatoire, transmis au collaborateur)</span>
+            <textarea value={refuseMotif} onChange={(e) => setRefuseMotif(e.target.value)} rows={3} className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-danger/30" placeholder="Expliquez le motif (justificatif manquant, dépassement non justifié…)." />
+            <span className={`mt-1 block text-[11px] font-medium ${refuseMotif.trim().length < 20 ? 'text-danger' : 'text-ok'}`}>{refuseMotif.trim().length}/20 caractères minimum</span>
+          </label>
+        </Modal>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-up space-y-5">

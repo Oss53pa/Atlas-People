@@ -114,6 +114,117 @@ export function useDecideLeave() {
   });
 }
 
+// ── Vie quotidienne — Notes de frais équipe (validation manager) ───────
+
+export interface TeamExpenseClaimRow {
+  id: string;
+  employee_id: string;
+  amount: number;
+  currency: string;
+  category: string;
+  status: string;
+  receipt_url: string | null;
+  created_at: string;
+  employee_first_name?: string;
+  employee_last_name?: string;
+  employee_department?: string;
+}
+
+/** Notes de frais de l'équipe en attente de validation manager. */
+export function useTeamExpenseClaims(tenantId = DEMO, status = 'submitted') {
+  return useQuery({
+    queryKey: ['mss-expense-claims', tenantId, status],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('expense_claims')
+        .select('id,employee_id,amount,currency,category,status,receipt_url,created_at,employees!employee_id(first_name,last_name,department)')
+        .eq('tenant_id', tenantId)
+        .eq('status', status)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const emp = r['employees'] as Record<string, string> | null;
+        return {
+          id: r['id'], employee_id: r['employee_id'], amount: r['amount'], currency: r['currency'],
+          category: r['category'], status: r['status'], receipt_url: r['receipt_url'], created_at: r['created_at'],
+          employee_first_name: emp?.first_name, employee_last_name: emp?.last_name, employee_department: emp?.department,
+        } as TeamExpenseClaimRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 30_000,
+  });
+}
+
+/** Décision manager sur une NDF (approve/refuse) — écriture vérifiée + audit 'mss'.
+ *  Chaque décision est tracée individuellement (R15). */
+export function useDecideExpenseClaim() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ claimId, decision, tenantId, motif }: { claimId: string; decision: 'manager_approved' | 'refused'; tenantId: string; motif?: string }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const { data, error } = await sb.schema('atlas_people').from('expense_claims')
+        .update({ status: decision })
+        .eq('id', claimId).eq('tenant_id', tenantId)
+        .select('id');
+      if (error) throw mapSupabaseError(error);
+      if (!data || data.length === 0) throw new NoRowsAffectedError('decideExpenseClaim');
+      await appendAuditEntry({
+        tenantId, actorId: ctx.userId, action: `expense.${decision === 'refused' ? 'refused' : 'manager_approved'}`,
+        entity: 'expense_claims', entityId: claimId, payload: { decision, motif: motif ?? null }, surface: 'mss',
+      });
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['mss-expense-claims', vars.tenantId] });
+      qc.invalidateQueries({ queryKey: ['portal-expenses'] });
+    },
+  });
+}
+
+// ── Vie quotidienne — Demandes RH de l'équipe (lecture) ────────────────
+
+export interface TeamServiceRequestRow {
+  id: string;
+  reference: string;
+  requester_employee_id: string;
+  request_type_code: string;
+  subject: string;
+  urgency: string;
+  status: string;
+  created_at: string;
+  employee_first_name?: string;
+  employee_last_name?: string;
+}
+
+export function useTeamServiceRequests(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-service-requests', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('service_requests')
+        .select('id,reference,requester_employee_id,request_type_code,subject,urgency,status,created_at,employees!requester_employee_id(first_name,last_name)')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => {
+        const emp = r['employees'] as Record<string, string> | null;
+        return {
+          id: r['id'], reference: r['reference'], requester_employee_id: r['requester_employee_id'],
+          request_type_code: r['request_type_code'], subject: r['subject'], urgency: r['urgency'],
+          status: r['status'], created_at: r['created_at'],
+          employee_first_name: emp?.first_name, employee_last_name: emp?.last_name,
+        } as TeamServiceRequestRow;
+      });
+    },
+    enabled: isBackendConfigured,
+    staleTime: 30_000,
+  });
+}
+
 export function useMssTeamStats(tenantId = DEMO) {
   return useQuery({
     queryKey: ['mss-team-stats', tenantId],
