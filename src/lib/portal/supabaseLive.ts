@@ -335,6 +335,140 @@ export function useMyProfile(tenantId?: string, employeeId?: string) {
   });
 }
 
+// ── S2 Profil — écritures directes (coordonnées) ───────────────────────
+// La charte portail autorise l'édition DIRECTE des coordonnées (adresses,
+// téléphones) ; les champs sensibles (versement, identité) passent par
+// « demande ». Chaque écriture : identité de session, audit chaîné 'ess',
+// garde NoRowsAffectedError sur update/delete.
+
+export interface AddressInput {
+  id?: string;
+  address_type: string;
+  line_1: string;
+  city: string;
+  country_code: string;
+  neighborhood?: string | null;
+  local_references?: string | null;
+  is_primary?: boolean;
+}
+
+export function useUpsertAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: AddressInput) => {
+      const ctx = await resolveSessionContext();
+      const cols = {
+        address_type: v.address_type,
+        line_1: v.line_1,
+        city: v.city,
+        country_code: v.country_code,
+        neighborhood: v.neighborhood ?? null,
+        local_references: v.local_references ?? null,
+        is_primary: v.is_primary ?? false,
+      };
+      let entityId: string;
+      if (v.id) {
+        const { data, error } = await ap().from('employee_addresses')
+          .update({ ...cols, updated_at: new Date().toISOString() })
+          .eq('tenant_id', ctx.tenantId).eq('employee_id', ctx.employeeId).eq('id', v.id)
+          .select('id');
+        if (error) throw mapSupabaseError(error);
+        if (!data || data.length === 0) throw new NoRowsAffectedError('address.update');
+        entityId = v.id;
+      } else {
+        const { data, error } = await ap().from('employee_addresses')
+          .insert({ tenant_id: ctx.tenantId, employee_id: ctx.employeeId, ...cols, effective_from: new Date().toISOString().slice(0, 10) })
+          .select('id').single();
+        if (error) throw mapSupabaseError(error);
+        entityId = data.id as string;
+      }
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId,
+        action: v.id ? 'profile.address_updated' : 'profile.address_added',
+        entity: 'employee_addresses', entityId, payload: { city: v.city, type: v.address_type }, surface: 'ess',
+      });
+      return entityId;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-profile'] }),
+  });
+}
+
+export function useDeleteAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const ctx = await resolveSessionContext();
+      const { data, error } = await ap().from('employee_addresses')
+        .delete().eq('tenant_id', ctx.tenantId).eq('employee_id', ctx.employeeId).eq('id', id).select('id');
+      if (error) throw mapSupabaseError(error);
+      if (!data || data.length === 0) throw new NoRowsAffectedError('address.delete');
+      await appendAuditEntry({ tenantId: ctx.tenantId, actorId: ctx.userId, action: 'profile.address_deleted', entity: 'employee_addresses', entityId: id, payload: {}, surface: 'ess' });
+      return id;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-profile'] }),
+  });
+}
+
+export interface PhoneInput {
+  id?: string;
+  phone_type: string;
+  number: string;
+  operator?: string | null;
+  has_whatsapp?: boolean;
+  is_primary?: boolean;
+  visibility?: string;
+}
+
+export function useUpsertPhone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: PhoneInput) => {
+      const ctx = await resolveSessionContext();
+      const cols = {
+        phone_type: v.phone_type,
+        number: v.number,
+        operator: v.operator ?? null,
+        has_whatsapp: v.has_whatsapp ?? false,
+        is_primary: v.is_primary ?? false,
+        visibility: v.visibility ?? 'manager_plus',
+      };
+      let entityId: string;
+      if (v.id) {
+        const { data, error } = await ap().from('employee_phones')
+          .update(cols).eq('tenant_id', ctx.tenantId).eq('employee_id', ctx.employeeId).eq('id', v.id).select('id');
+        if (error) throw mapSupabaseError(error);
+        if (!data || data.length === 0) throw new NoRowsAffectedError('phone.update');
+        entityId = v.id;
+      } else {
+        const { data, error } = await ap().from('employee_phones')
+          .insert({ tenant_id: ctx.tenantId, employee_id: ctx.employeeId, ...cols })
+          .select('id').single();
+        if (error) throw mapSupabaseError(error);
+        entityId = data.id as string;
+      }
+      await appendAuditEntry({ tenantId: ctx.tenantId, actorId: ctx.userId, action: v.id ? 'profile.phone_updated' : 'profile.phone_added', entity: 'employee_phones', entityId, payload: { type: v.phone_type }, surface: 'ess' });
+      return entityId;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-profile'] }),
+  });
+}
+
+export function useDeletePhone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const ctx = await resolveSessionContext();
+      const { data, error } = await ap().from('employee_phones')
+        .delete().eq('tenant_id', ctx.tenantId).eq('employee_id', ctx.employeeId).eq('id', id).select('id');
+      if (error) throw mapSupabaseError(error);
+      if (!data || data.length === 0) throw new NoRowsAffectedError('phone.delete');
+      await appendAuditEntry({ tenantId: ctx.tenantId, actorId: ctx.userId, action: 'profile.phone_deleted', entity: 'employee_phones', entityId: id, payload: {}, surface: 'ess' });
+      return id;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['portal-profile'] }),
+  });
+}
+
 // ── S7 Mes frais ───────────────────────────────────────────────────────
 
 export interface ExpenseClaimRow {
