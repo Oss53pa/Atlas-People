@@ -4,7 +4,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isBackendConfigured } from '../supabase';
-import { getSupabaseOrThrow, resolveSessionContext, mapSupabaseError, NoRowsAffectedError } from '../session';
+import { getSupabaseOrThrow, resolveSessionContext, mapSupabaseError, NoRowsAffectedError, SupabaseWriteError } from '../session';
 import { appendAuditEntry } from '../auditLog';
 import type { EmployeeRecord } from '../../data/mock';
 export { isBackendConfigured };
@@ -29,6 +29,7 @@ export interface EmployeeRow {
   non_taxable_allowances: number;
   fiscal_parts: number;
   manager_id: string | null;
+  gender: string | null;
   created_at: string;
 }
 
@@ -39,7 +40,7 @@ export function useEmployees(tenantId = DEMO) {
       if (!supabase) return [];
       const { data, error } = await supabase.schema('atlas_people')
         .from('employees')
-        .select('id,tenant_id,first_name,last_name,email,role_title,department,country_code,contract,hire_date,status,lifecycle_status,base_salary,taxable_allowances,non_taxable_allowances,fiscal_parts,manager_id,created_at')
+        .select('id,tenant_id,first_name,last_name,email,role_title,department,country_code,contract,hire_date,status,lifecycle_status,base_salary,taxable_allowances,non_taxable_allowances,fiscal_parts,manager_id,gender,created_at')
         .eq('tenant_id', tenantId)
         .order('last_name');
       if (error) throw error;
@@ -129,6 +130,7 @@ function toEmployeeColumns(r: Partial<EmployeeRecord>): Record<string, unknown> 
   set('fiscal_parts', r.fiscalParts);
   set('phone_primary', r.phone);
   set('address', r.address);
+  set('mobile_money_number', r.mobileMoneyNumber);
   return c;
 }
 
@@ -163,11 +165,11 @@ export function useCreateEmployee() {
 export function useUpdateEmployee() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, patch, action = 'employee.update' }: { id: string; patch: Partial<EmployeeRecord>; action?: string }) => {
+    mutationFn: async ({ id, patch, action = 'employee.update', rawCols }: { id: string; patch: Partial<EmployeeRecord>; action?: string; rawCols?: Record<string, unknown> }) => {
       const sb = getSupabaseOrThrow();
       const ctx = await resolveSessionContext();
       const uuid = mockIdToUuid(id);
-      const cols = toEmployeeColumns(patch);
+      const cols = { ...toEmployeeColumns(patch), ...(rawCols ?? {}) };
       cols.updated_at = new Date().toISOString();
       const { data, error } = await sb.schema('atlas_people').from('employees')
         .update(cols).eq('id', uuid).eq('tenant_id', ctx.tenantId).select('id');
@@ -215,7 +217,49 @@ export function useOffboardEmployee() {
   });
 }
 
-/** Import de masse (insert atomique + audit). Retourne le nombre créé. */
+export interface BulkImportResult {
+  created: string[];
+  errors: { index: number; message: string }[];
+  total: number;
+}
+
+/** Colonnes attendues par l'Edge Function bulk-import-employees. */
+export interface BulkImportRow {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  country_code: string;
+  contract: string;   // enum contract_type : CDI/CDD/Stage/Consultant
+  status: string;     // enum employee_status : active/onboarding/leave/notice/offboarded
+  role_title?: string;
+  department?: string;
+  hire_date?: string;
+  base_salary: number;
+  taxable_allowances?: number;
+  non_taxable_allowances?: number;
+  fiscal_parts?: number;
+}
+
+/**
+ * Import de masse via l'Edge Function `bulk-import-employees` (service_role,
+ * re-vérif rôle RH + idempotence côté serveur — CDC règle 5). Le client n'écrit
+ * pas en direct : il délègue le lot privilégié à la fonction.
+ */
+export async function bulkImportEmployees(rows: BulkImportRow[]): Promise<BulkImportResult> {
+  const sb = getSupabaseOrThrow();
+  const idempotencyKey = crypto.randomUUID();
+  const { data, error } = await sb.functions.invoke('bulk-import-employees', {
+    body: { rows, idempotencyKey },
+  });
+  if (error) throw new SupabaseWriteError(error.message ?? 'Import en masse échoué');
+  return data as BulkImportResult;
+}
+
+/**
+ * Import de masse par insert direct client (RLS). Conservé pour compat/usage
+ * interne ; le chemin privilégié recommandé reste `bulkImportEmployees`
+ * (Edge Function, règle 5). Retourne le nombre créé.
+ */
 export async function bulkCreateEmployees(records: Partial<EmployeeRecord>[]): Promise<number> {
   const sb = getSupabaseOrThrow();
   const ctx = await resolveSessionContext();

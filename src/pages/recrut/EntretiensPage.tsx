@@ -10,6 +10,7 @@ import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
 import { scorecardsByApp } from '../../lib/m5/mock';
 import { useM5Data } from '../../lib/m5/dataLive';
+import { useRecordInterviewOutcome, isBackendConfigured } from '../../lib/m5/supabaseLive';
 import { INTERVIEW_TYPES, RECOMMENDATION_META, SCORECARD_TEMPLATES } from '../../lib/m5/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
@@ -17,7 +18,21 @@ import { cn } from '../../lib/cn';
 export function EntretiensPage() {
   const m5 = useM5Data();
   const { toast } = useToast();
+  const recordOutcome = useRecordInterviewOutcome();
   const [filter, setFilter] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
+
+  const handleOutcome = async (interviewId: string, outcome: 'completed' | 'no_show') => {
+    if (!isBackendConfigured) {
+      toast({ variant: 'success', title: outcome === 'completed' ? 'Entretien terminé' : 'No-show enregistré', description: 'Mode démo — aucune persistance.' });
+      return;
+    }
+    try {
+      await recordOutcome.mutateAsync({ interviewId, outcome });
+      toast({ variant: 'success', title: outcome === 'completed' ? 'Entretien terminé' : 'No-show enregistré', description: 'Statut mis à jour · audit SHA-256' });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
 
   const list = useMemo(() => {
     const now = new Date('2026-05-30').getTime();
@@ -101,7 +116,8 @@ export function EntretiensPage() {
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <Link to={`/recrutement/candidats/${cand.id}`}><Button variant="outline" size="sm">Profil candidat <ArrowUpRight size={12} /></Button></Link>
                 {i.status === 'planned' && <Button variant="ghost" size="sm" onClick={() => toast({ variant: 'success', title: 'Scorecard', description: `Grille ${SCORECARD_TEMPLATES.find(t => t.code === 'TECH')?.label} ouverte` })}><Star size={12} /> Saisir scorecard</Button>}
-                {i.status === 'planned' && <Button variant="ghost" size="sm">Reprogrammer</Button>}
+                {i.status === 'planned' && <Button variant="ghost" size="sm" disabled={recordOutcome.isPending} onClick={() => handleOutcome(i.id, 'completed')}><CheckCircle2 size={12} /> Terminer</Button>}
+                {i.status === 'planned' && <Button variant="ghost" size="sm" disabled={recordOutcome.isPending} onClick={() => handleOutcome(i.id, 'no_show')}><XCircle size={12} /> No-show</Button>}
               </div>
             </Card>
           );

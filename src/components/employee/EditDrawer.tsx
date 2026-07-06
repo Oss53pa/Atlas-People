@@ -8,6 +8,7 @@ import { useToast } from '../ui/Toast';
 import { useDirectory } from '../../store/useDirectory';
 import { useEvents } from '../../store/useEvents';
 import { mobileMoney, type EmployeeRecord } from '../../data/mock';
+import { useUpdateEmployee, isBackendConfigured } from '../../lib/m1/supabaseLive';
 
 export type EditSection = 'identity' | 'contact' | 'payment';
 
@@ -28,8 +29,24 @@ export function EditDrawer({
   onClose: () => void;
 }) {
   const updateEmployee = useDirectory((s) => s.updateEmployee);
+  const updateLive = useUpdateEmployee();
   const append = useEvents((s) => s.append);
   const { toast } = useToast();
+
+  /** Persiste un patch : Supabase (live, audité) sinon store Zustand (démo). Renvoie true si OK. */
+  const applyPatch = async (patch: Partial<EmployeeRecord>, action: string): Promise<boolean> => {
+    if (isBackendConfigured) {
+      try {
+        await updateLive.mutateAsync({ id: employee.id, patch, action });
+        return true;
+      } catch (e) {
+        toast({ variant: 'error', title: 'Échec de la mise à jour', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+        return false;
+      }
+    }
+    updateEmployee(employee.id, patch);
+    return true;
+  };
 
   const [firstName, setFirstName] = useState(employee.firstName);
   const [lastName, setLastName] = useState(employee.lastName);
@@ -44,21 +61,21 @@ export function EditDrawer({
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const saveIdentity = () => {
-    updateEmployee(employee.id, { firstName, lastName, email });
+  const saveIdentity = async () => {
+    if (!(await applyPatch({ firstName, lastName, email }, 'employee.identity'))) return;
     append({ employeeId: employee.id, type: 'amendment', date: today, label: 'Mise à jour de l’état civil' });
     toast({ variant: 'success', title: 'État civil mis à jour', description: 'Modification tracée dans l’audit.' });
     onClose();
   };
 
-  const saveContact = () => {
-    updateEmployee(employee.id, { phone, address, email });
+  const saveContact = async () => {
+    if (!(await applyPatch({ phone, address, email }, 'employee.contact'))) return;
     toast({ variant: 'success', title: 'Coordonnées mises à jour' });
     onClose();
   };
 
-  const savePayment = () => {
-    updateEmployee(employee.id, { mobileMoneyNumber: mm });
+  const savePayment = async () => {
+    if (!(await applyPatch({ mobileMoneyNumber: mm }, 'employee.payment'))) return;
     append({ employeeId: employee.id, type: 'amendment', date: today, label: 'Modification du mode de versement (sensible)' });
     toast({ variant: 'warning', title: 'Versement modifié', description: 'Audit fort enregistré · l’employé est notifié.' });
     setConfirmOpen(false);

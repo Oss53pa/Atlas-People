@@ -14,7 +14,9 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toast';
 import { FormationSubNav } from '../../components/formation/FormationSubNav';
+import { useCreatePIF, isBackendConfigured } from '../../lib/m11/supabaseLive';
 import { employeeName } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
@@ -108,6 +110,33 @@ export function ParcoursFormationPage() {
 export function PifPage() {
   const roster = useRoster();
   const me = roster[3];
+  const { toast } = useToast();
+  const createPif = useCreatePIF();
+  const [showForm, setShowForm] = useState(false);
+  const [formEmpId, setFormEmpId] = useState('');
+  const [formMgrId, setFormMgrId] = useState('');
+  const [formBudget, setFormBudget] = useState('');
+
+  const handleCreatePif = async () => {
+    if (!isBackendConfigured) {
+      setShowForm(false);
+      toast({ variant: 'success', title: 'PIF créé', description: 'Mode démo — aucune persistance.' });
+      return;
+    }
+    if (!formEmpId || !formMgrId) {
+      toast({ variant: 'error', title: 'Champs requis', description: 'Employé et manager obligatoires.' });
+      return;
+    }
+    try {
+      const cycleYear = new Date().getFullYear();
+      await createPif.mutateAsync({ employeeId: formEmpId, cycleYear, managerId: formMgrId, budgetIndividual: formBudget ? Number(formBudget) : undefined });
+      setShowForm(false); setFormEmpId(''); setFormMgrId(''); setFormBudget('');
+      toast({ variant: 'success', title: 'PIF créé', description: `Cycle ${cycleYear} · statut draft · audit SHA-256` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
+
   const pif = {
     employee: me,
     year: 2026,
@@ -138,8 +167,26 @@ export function PifPage() {
           <h1 className="text-2xl font-semibold text-ink">Plan Individuel Formation (PIF)</h1>
           <p className="text-sm font-medium text-ink-500">Co-construit collab + manager · validé DRH · signé ADVIST · budget individuel suivi</p>
         </div>
-        <Button size="sm"><FileSignature size={14} /> Nouveau PIF</Button>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)}><FileSignature size={14} /> {showForm ? 'Annuler' : 'Nouveau PIF'}</Button>
       </div>
+
+      {showForm && (
+        <Card className="border-amber/40">
+          <CardHeader title="Créer un Plan Individuel Formation" subtitle="Co-construit collab + manager · audit SHA-256" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Employé (UUID)</label>
+              <input value={formEmpId} onChange={(e) => setFormEmpId(e.target.value)} placeholder="UUID employé…" className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-sm font-mono text-ink focus:border-amber/40 focus:outline-none" /></div>
+            <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Manager (UUID)</label>
+              <input value={formMgrId} onChange={(e) => setFormMgrId(e.target.value)} placeholder="UUID manager…" className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-sm font-mono text-ink focus:border-amber/40 focus:outline-none" /></div>
+            <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Budget individuel (FCFA, optionnel)</label>
+              <input type="number" value={formBudget} onChange={(e) => setFormBudget(e.target.value)} placeholder="ex. 850000" className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" /></div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" disabled={createPif.isPending} onClick={handleCreatePif}>{createPif.isPending ? 'Création…' : 'Créer le PIF'}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+          </div>
+        </Card>
+      )}
 
       <Card className="border-amber-deep/30 bg-gradient-to-br from-amber-50/30 to-surface">
         <div className="flex items-center gap-4">

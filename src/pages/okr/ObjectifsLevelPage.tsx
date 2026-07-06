@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
-import { Building2, Users, User, Target } from 'lucide-react';
-import { Card } from '../../components/ui/Card';
+import { useMemo, useState } from 'react';
+import { Building2, Users, User, Target, Wifi } from 'lucide-react';
+import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
@@ -8,6 +8,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
 import { useM7Data } from '../../lib/m7/dataLive';
+import { useCreateObjective, isBackendConfigured } from '../../lib/m7/supabaseLive';
 import { LEVEL_META, CONFIDENCE_META, KR_TYPE_META } from '../../lib/m7/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import type { OkrLevel, KeyResult } from '../../lib/m7/types';
@@ -23,6 +24,11 @@ function fmtKr(k: KeyResult) {
 export function ObjectifsLevelPage({ level }: { level: OkrLevel }) {
   const m7 = useM7Data();
   const { toast } = useToast();
+  const createObjective = useCreateObjective();
+  const [showForm, setShowForm] = useState(false);
+  const [objTitle, setObjTitle] = useState('');
+  const [objDesc, setObjDesc] = useState('');
+
   const items = useMemo(() => m7.objectives.filter((o) => o.level === level && o.cycleId === m7.activeCycle.id), [level, m7]);
   const meta = LEVEL_META[level];
   const Icon = level === 'company' ? Building2 : level === 'individual' ? User : Users;
@@ -36,8 +42,69 @@ export function ObjectifsLevelPage({ level }: { level: OkrLevel }) {
           <h1 className="text-2xl font-semibold text-ink">Objectifs · {meta.label}</h1>
           <p className="text-sm font-medium text-ink-500">{items.length} OKRs sur cycle <b className="text-amber-deep">{m7.activeCycle.label}</b></p>
         </div>
-        <Button size="sm" onClick={() => toast({ variant: 'info', title: 'Objectif', description: `Nouveau OKR ${meta.label}` })}>+ Nouveau</Button>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)}>{showForm ? 'Annuler' : '+ Nouveau'}</Button>
       </div>
+
+      {showForm && (
+        <Card className="border-amber/40">
+          <CardHeader
+            title={`Nouvel objectif ${meta.label}`}
+            subtitle={`Cycle actif : ${m7.activeCycle.label} · owner = utilisateur connecté · audit SHA-256`}
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined}
+          />
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Titre de l'objectif</label>
+              <input
+                value={objTitle}
+                onChange={(e) => setObjTitle(e.target.value)}
+                placeholder={`Ex. ${meta.label === 'Entreprise' ? 'Atteindre 10 M FCFA de CA' : 'Réduire le délai de recrutement à 30 jours'}`}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Description (facultatif)</label>
+              <textarea
+                value={objDesc}
+                onChange={(e) => setObjDesc(e.target.value)}
+                rows={2}
+                placeholder="Contexte ou critères de succès…"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none resize-none"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              disabled={createObjective.isPending || (isBackendConfigured ? !objTitle.trim() : false)}
+              onClick={async () => {
+                if (!isBackendConfigured) {
+                  setShowForm(false);
+                  toast({ variant: 'success', title: 'Objectif créé', description: `${objTitle || 'Nouvel OKR'} — brouillon (mode démo)` });
+                  return;
+                }
+                try {
+                  await createObjective.mutateAsync({
+                    cycleId: m7.activeCycle.id,
+                    level,
+                    title: objTitle.trim(),
+                    description: objDesc.trim() || undefined,
+                  });
+                  setShowForm(false);
+                  setObjTitle('');
+                  setObjDesc('');
+                  toast({ variant: 'success', title: 'Objectif créé', description: `OKR ${meta.label} en brouillon — cycle ${m7.activeCycle.label}` });
+                } catch (e) {
+                  toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                }
+              }}
+            >
+              {createObjective.isPending ? 'Création…' : 'Créer l\'objectif'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label={`OKRs ${meta.label}`} value={String(items.length)} unit="actifs" icon={Icon} />

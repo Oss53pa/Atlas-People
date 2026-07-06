@@ -14,7 +14,9 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toast';
 import { CarrieresSubNav } from '../../components/carrieres/CarrieresSubNav';
+import { useSubmitPromotionProposal, isBackendConfigured } from '../../lib/m10/supabaseLive';
 import { employeeName } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
@@ -255,6 +257,34 @@ export function TalentPoolsPage() {
 /* ═══════════════ 4. PROMOTIONS ═══════════════ */
 export function PromotionsPage() {
   const roster = useRoster();
+  const { toast } = useToast();
+  const proposePromo = useSubmitPromotionProposal();
+  const [showForm, setShowForm] = useState(false);
+  const [formEmpId, setFormEmpId] = useState('');
+  const [formFrom, setFormFrom] = useState('');
+  const [formTo, setFormTo] = useState('');
+  const [formDate, setFormDate] = useState('');
+  const [formRationale, setFormRationale] = useState('');
+
+  const handlePropose = async () => {
+    if (!isBackendConfigured) {
+      setShowForm(false);
+      toast({ variant: 'success', title: 'Promotion proposée', description: 'Mode démo — aucune persistance.' });
+      return;
+    }
+    if (!formEmpId || !formFrom || !formTo || !formDate || !formRationale) {
+      toast({ variant: 'error', title: 'Champs requis', description: 'Tous les champs sont obligatoires.' });
+      return;
+    }
+    try {
+      await proposePromo.mutateAsync({ employeeId: formEmpId, fromGrade: formFrom, toGrade: formTo, effectiveDate: formDate, rationale: formRationale });
+      setShowForm(false); setFormEmpId(''); setFormFrom(''); setFormTo(''); setFormDate(''); setFormRationale('');
+      toast({ variant: 'success', title: 'Promotion proposée', description: 'Statut proposed · audit SHA-256' });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
+
   const promos = [
     { ref: 'PRO-2026-0008', emp: roster[1], from: 'Lead Developer (P5b)', to: 'Staff Engineer (P6a)', amount: 320000, status: 'comite_pending' as const, manager: roster[0] },
     { ref: 'PRO-2026-0007', emp: roster[3], from: 'Commercial Senior (P4c)', to: 'Sales Lead (P5a)', amount: 280000, status: 'validated' as const, manager: roster[12] },
@@ -277,8 +307,30 @@ export function PromotionsPage() {
           <h1 className="text-2xl font-semibold text-ink">Promotions — process Comité Carrières</h1>
           <p className="text-sm font-medium text-ink-500">Workflow structuré · proposition manager → Comité Carrières → validation Comex → communication → contestation possible</p>
         </div>
-        <Button size="sm"><TrendingUp size={14} /> Nouvelle promotion</Button>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)}><TrendingUp size={14} /> {showForm ? 'Annuler' : 'Nouvelle promotion'}</Button>
       </div>
+
+      {showForm && (
+        <Card className="border-amber/40">
+          <CardHeader title="Proposer une promotion" subtitle="Workflow Comité Carrières · statut proposed · audit SHA-256" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Employé (UUID)</label>
+              <input value={formEmpId} onChange={(e) => setFormEmpId(e.target.value)} placeholder="UUID employé…" className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-sm font-mono text-ink focus:border-amber/40 focus:outline-none" /></div>
+            <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Grade actuel</label>
+              <input value={formFrom} onChange={(e) => setFormFrom(e.target.value)} placeholder="ex. P4b" className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none" /></div>
+            <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Grade cible</label>
+              <input value={formTo} onChange={(e) => setFormTo(e.target.value)} placeholder="ex. P5a" className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none" /></div>
+            <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date effective</label>
+              <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" /></div>
+            <div className="sm:col-span-2"><label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Justification</label>
+              <input value={formRationale} onChange={(e) => setFormRationale(e.target.value)} placeholder="3 ans perf · compétences · ambition…" className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" /></div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" disabled={proposePromo.isPending} onClick={handlePropose}>{proposePromo.isPending ? 'Envoi…' : 'Soumettre la proposition'}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Promotions cycle N" value={String(promos.length)} unit="≈ 8 % effectif" icon={TrendingUp} />

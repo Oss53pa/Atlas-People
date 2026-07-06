@@ -57,15 +57,19 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // 4. Mettre à jour le calcul bonus (upsert)
-      const { error: calcErr } = await svc.from('bonus_calculs')
-        .update({ final: alloc.finalAmount, devise: alloc.currency, statut: 'validé', validateur_id: caller.userId, validated_at: now })
+      // 4. Mettre à jour le calcul bonus — compte exact pour détecter 0 rows
+      const { error: calcErr, count: calcCount } = await svc.from('bonus_calculs')
+        .update({ final: alloc.finalAmount, devise: alloc.currency, statut: 'valide', validateur_id: caller.userId, validated_at: now }, { count: 'exact' })
         .eq('enveloppe_id', alloc.enveloppeId)
         .eq('employe_id', alloc.employeeId)
         .eq('tenant_id', caller.tenantId)
         .eq('campagne_id', campaignId);
       if (calcErr) {
         errors.push({ employeeId: alloc.employeeId, message: calcErr.message });
+        continue;
+      }
+      if ((calcCount ?? 0) === 0) {
+        errors.push({ employeeId: alloc.employeeId, message: 'Aucun calcul bonus trouvé pour cet employé dans cette enveloppe (NoRowsAffected)' });
         continue;
       }
 
@@ -75,7 +79,7 @@ Deno.serve(async (req) => {
     // 5. Clôture de l'enveloppe de campagne si toutes les allocations sont validées
     if (committed.length > 0 && errors.length === 0) {
       await svc.from('bonus_enveloppes')
-        .update({ statut: 'validé', valide_par: caller.userId, valide_at: now })
+        .update({ statut: 'cloturee', valide_par: caller.userId, valide_at: now })
         .eq('campagne_id', campaignId)
         .eq('tenant_id', caller.tenantId);
     }

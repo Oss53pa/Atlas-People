@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Hourglass, AlertTriangle, CheckCircle2, ArrowUpRight, MapPin } from 'lucide-react';
+import { Hourglass, AlertTriangle, CheckCircle2, ArrowUpRight, MapPin, Plus, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -10,16 +10,27 @@ import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
 import { ALERTS } from '../../lib/m4/mock';
 import { useM4AdminData } from '../../lib/m4/dataLive';
-import { useEvaluateProbation, isBackendConfigured } from '../../lib/m4/supabaseLive';
+import { useEvaluateProbation, useCreateProbationPeriod, isBackendConfigured } from '../../lib/m4/supabaseLive';
+import { useEmployees } from '../../lib/m1/supabaseLive';
+import { useAuth } from '../../lib/auth';
 import { PROBATION_LEGAL, PROBATION_ALERT_THRESHOLDS } from '../../lib/m4/referentiels';
+import { CONTRACT_TYPES } from '../../lib/m4/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 
 export function PeriodeEssaiPage() {
   const { toast } = useToast();
+  const { tenantId } = useAuth();
   const roster = useRoster();
   const { probations: PROBATIONS } = useM4AdminData();
   const evaluateProbation = useEvaluateProbation();
+  const createProbation = useCreateProbationPeriod();
+  const { data: liveEmps } = useEmployees(tenantId ?? undefined);
+  const [showForm, setShowForm] = useState(false);
+  const [probEmpId, setProbEmpId] = useState('');
+  const [probType, setProbType] = useState('CDI');
+  const [probDuration, setProbDuration] = useState(3);
+  const [probStart, setProbStart] = useState(new Date().toISOString().slice(0, 10));
   const [activeDecide, setActiveDecide] = useState<string | null>(null);
   const [decisionVal, setDecisionVal] = useState<'confirmed' | 'extended' | 'terminated'>('confirmed');
   const [rationaleVal, setRationaleVal] = useState('');
@@ -52,7 +63,71 @@ export function PeriodeEssaiPage() {
           <h1 className="text-2xl font-semibold text-ink">Période d'essai</h1>
           <p className="text-sm font-medium text-ink-500">Durées légales par pays · alertes J-{PROBATION_ALERT_THRESHOLDS.join('/')} · décision avant échéance</p>
         </div>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)}><Plus size={14} /> {showForm ? 'Fermer' : 'Saisir une PE'}</Button>
       </div>
+
+      {showForm && (
+        <Card className="border-amber/40">
+          <CardHeader
+            title="Saisir une période d'essai"
+            subtitle="Durée calculée automatiquement selon la date de début"
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined}
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Collaborateur</label>
+              {isBackendConfigured && liveEmps && liveEmps.length > 0 ? (
+                <select value={probEmpId} onChange={(e) => setProbEmpId(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
+                  <option value="">— choisir —</option>
+                  {liveEmps.map((e) => <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}
+                </select>
+              ) : (
+                <p className="text-[12px] font-medium text-ink-500">Authentification requise.</p>
+              )}
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Type de contrat</label>
+              <select value={probType} onChange={(e) => setProbType(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
+                {CONTRACT_TYPES.map((t) => <option key={t.code} value={t.code}>{t.short}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Durée (mois)</label>
+              <input type="number" value={probDuration} onChange={(e) => setProbDuration(Number(e.target.value))} min={1} max={12}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none" />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date de début</label>
+              <input type="date" value={probStart} onChange={(e) => setProbStart(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none" />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              disabled={createProbation.isPending || (isBackendConfigured ? !probEmpId : false)}
+              onClick={async () => {
+                if (!isBackendConfigured) {
+                  setShowForm(false);
+                  toast({ variant: 'info', title: 'PE', description: 'Période d\'essai créée (mode démo)' });
+                  return;
+                }
+                try {
+                  const { endDate } = await createProbation.mutateAsync({ employeeId: probEmpId, contractType: probType, durationMonths: probDuration, startDate: probStart });
+                  setShowForm(false);
+                  setProbEmpId('');
+                  toast({ variant: 'success', title: 'Période d\'essai créée', description: `${probDuration} mois · fin le ${endDate} · alertes activées` });
+                } catch (e) {
+                  toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                }
+              }}
+            >{createProbation.isPending ? 'Création…' : 'Créer la période d\'essai'}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="En cours" value={String(inProgress.length)} unit="à surveiller" icon={Hourglass} tone={inProgress.length ? 'amber' : 'default'} />

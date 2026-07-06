@@ -281,15 +281,32 @@ export function UnifiedCockpitDRHPage() {
     ...(notice > 0                  ? [{ label: `${notice} sortie(s) en préavis`,                                  domain: 'departure'    as const, severity: 'medium'   as const }] : []),
   ];
 
+  const [mainTab, setMainTab] = useState<'synthese' | 'modules' | 'talents'>('synthese');
+  const compositeScore = Math.round((k12.conformityScoreGlobal + k7.avgProgress + Math.round(k11.tauxAcces * 100) + k10.benchStrengthPct + Math.min(100, k8.topTalents != null ? 70 + k8.topTalents : 70)) / 5);
+
+  const MAIN_TABS = [
+    { key: 'synthese' as const, label: 'Synthèse', badge: consolidatedAlerts.length > 0 ? String(consolidatedAlerts.length) : undefined },
+    { key: 'modules' as const, label: 'Modules', badge: String(sections.length) },
+    { key: 'talents' as const, label: 'Talents', badge: String(HIGH_POTS.length) },
+  ];
+
   return (
-    <div className="animate-fade-up space-y-5">
+    <div className="animate-fade-up space-y-4">
       <div className="print-header" data-print-date={new Date().toISOString().slice(0, 10)}>Cockpit DRH 360°</div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl text-ink">Cockpit DRH 360°</h1>
-          <p className="mt-1 text-sm font-medium text-ink-500">
-            Cross-modules · {sections.length} onglets · DG &amp; Comex · données déterministes
-          </p>
+
+      {/* En-tête + score inline */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="font-display text-3xl text-ink">Cockpit DRH 360°</h1>
+            <p className="mt-0.5 text-sm font-medium text-ink-500">
+              Cross-modules · {sections.length} onglets · DG &amp; Comex · données déterministes
+            </p>
+          </div>
+          <div className="hidden items-center gap-1.5 rounded-2xl border border-amber-deep/30 bg-amber/[0.06] px-4 py-2 sm:flex">
+            <span className="mono text-[28px] font-bold leading-none text-ink">{compositeScore}</span>
+            <span className="text-[14px] text-ink-400">/100</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/"><Button variant="outline" size="sm">Vue classique</Button></Link>
@@ -298,109 +315,139 @@ export function UnifiedCockpitDRHPage() {
         </div>
       </div>
 
-      {/* SCORE GLOBAL DRH (composite) */}
-      <Card className="border-amber-deep/30 bg-gradient-to-br from-amber-50/40 to-surface">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr]">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-deep">Index DRH composite</p>
-            <p className="mono mt-1 text-[40px] font-bold leading-none text-ink">
-              {Math.round((k12.conformityScoreGlobal + k7.avgProgress + Math.round(k11.tauxAcces * 100) + k10.benchStrengthPct + Math.min(100, k8.topTalents != null ? 70 + k8.topTalents : 70)) / 5)}
-              <span className="text-[18px] text-ink-500"> /100</span>
-            </p>
-            <p className="mt-1 text-[11px] font-medium text-ink-500">Conformité · OKR · Formation · Bench · Talents</p>
-          </div>
-          <KpiTileView tile={{ label: 'Conformité', value: `${k12.conformityScoreGlobal}/100`, tone: k12.conformityScoreGlobal >= 85 ? 'success' : 'warn' }} icon={ShieldCheck} />
-          <KpiTileView tile={{ label: 'OKR progression', value: `${k7.avgProgress} %` }} icon={Target} />
-          <KpiTileView tile={{ label: 'Formation accès', value: `${Math.round(k11.tauxAcces * 100)} %`, tone: k11.tauxAcces >= 0.7 ? 'success' : 'warn' }} icon={GraduationCap} />
-          <KpiTileView tile={{ label: 'Bench strength', value: `${k10.benchStrengthPct} %`, tone: k10.benchStrengthPct < 60 ? 'warn' : 'success' }} icon={Network} />
-        </div>
-      </Card>
+      {/* Navigation onglets principaux */}
+      <nav role="tablist" aria-label="Cockpit sections" className="flex gap-1 rounded-2xl border border-line bg-surface p-1.5">
+        {MAIN_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={mainTab === t.key}
+            onClick={() => setMainTab(t.key)}
+            className={cn(
+              'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold transition-colors',
+              mainTab === t.key
+                ? 'bg-amber/12 text-amber-deep ring-1 ring-amber/30'
+                : 'text-ink-500 hover:bg-ink/[0.04] hover:text-ink',
+            )}
+          >
+            {t.label}
+            {t.badge && (
+              <span className={cn(
+                'rounded-full px-1.5 py-0.5 text-[10px] font-bold',
+                mainTab === t.key ? 'bg-amber/20 text-amber-deep' : 'bg-surface2 text-ink-500',
+              )}>{t.badge}</span>
+            )}
+          </button>
+        ))}
+      </nav>
 
-      {/* ALERTES CONSOLIDÉES */}
-      {consolidatedAlerts.length > 0 && (
-        <Card className="border-warn/25">
-          <CardHeader title="Alertes consolidées" subtitle={`${consolidatedAlerts.length} actions à arbitrer`} action={<AlertTriangle size={16} className="text-warn" />} />
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-            {consolidatedAlerts.map((a, i) => {
-              const Icon = a.icon;
-              return (
-                <Link key={i} to={a.link} className={cn('flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors',
-                  a.tone === 'danger' ? 'border-rose-200 bg-rose-50/40 hover:bg-rose-50' :
-                  'border-amber-200 bg-amber-50/40 hover:bg-amber-50')}>
-                  <Icon size={14} className={a.tone === 'danger' ? 'text-rose-600' : 'text-amber-700'} />
-                  <span className="flex-1 text-[12px] font-semibold text-ink">{a.label}</span>
-                  <ArrowUpRight size={12} className="text-ink-400" />
-                </Link>
-              );
-            })}
-          </div>
-        </Card>
-      )}
+      {/* ── Onglet Synthèse ── */}
+      {mainTab === 'synthese' && (
+        <div className="space-y-4">
+          <Card className="border-amber-deep/30 bg-gradient-to-br from-amber-50/40 to-surface">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr]">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-deep">Index DRH composite</p>
+                <p className="mono mt-1 text-[40px] font-bold leading-none text-ink">
+                  {compositeScore}<span className="text-[18px] text-ink-500"> /100</span>
+                </p>
+                <p className="mt-1 text-[11px] font-medium text-ink-500">Conformité · OKR · Formation · Bench · Talents</p>
+              </div>
+              <KpiTileView tile={{ label: 'Conformité', value: `${k12.conformityScoreGlobal}/100`, tone: k12.conformityScoreGlobal >= 85 ? 'success' : 'warn' }} icon={ShieldCheck} />
+              <KpiTileView tile={{ label: 'OKR progression', value: `${k7.avgProgress} %` }} icon={Target} />
+              <KpiTileView tile={{ label: 'Formation accès', value: `${Math.round(k11.tauxAcces * 100)} %`, tone: k11.tauxAcces >= 0.7 ? 'success' : 'warn' }} icon={GraduationCap} />
+              <KpiTileView tile={{ label: 'Bench strength', value: `${k10.benchStrengthPct} %`, tone: k10.benchStrengthPct < 60 ? 'warn' : 'success' }} icon={Network} />
+            </div>
+          </Card>
 
-      {/* PROPH3T narrative */}
-      <ProphtetPanel context={{
-        kind: 'cockpit-alerts',
-        data: {
-          alerts: prophtetAlerts,
-          conformityScore: k12.conformityScoreGlobal,
-          rpsBurnoutPct: k12.rpsBurnoutRiskPct,
-        },
-      }} />
-
-      {/* 8 SECTIONS MODULES — sous forme d'onglets */}
-      <SectionTabs sections={sections} />
-
-
-      {/* TOP HAUTS POTENTIELS — focus rétention */}
-      <Card>
-        <CardHeader title="Top hauts potentiels — focus rétention" subtitle={`${HIGH_POTS.length} collaborateurs dans les programmes Atlas`} action={<Sparkles size={16} className="text-amber-deep" />} />
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {HIGH_POTS.slice(0, 6).map((h) => {
-            const emp = employeeById(h.employeeId);
-            if (!emp) return null;
-            return (
-              <Link key={h.employeeId} to="/carrieres/hauts-potentiels" className="flex items-center gap-3 rounded-xl bg-surface2/40 px-3 py-2 transition-colors hover:bg-amber/[0.06]">
-                <Avatar name={employeeName(emp)} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] font-semibold text-ink">{employeeName(emp)}</p>
-                  <p className="truncate text-[10px] font-medium text-ink-500">{emp.role} · {emp.department}</p>
-                </div>
-                <StatusPill tone="success" dot={false}>{h.program.replace('_', ' ')}</StatusPill>
-              </Link>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* POSTES À RISQUE — focus succession */}
-      {benchWeakRoles.length > 0 && (
-        <Card className="border-warn/25">
-          <CardHeader title="Postes clés à risque de succession" subtitle={`${benchWeakRoles.length} postes critiques sans bench solide`} action={<Crown size={16} className="text-warn" />} />
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-y border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
-                <th className="px-4 py-2 text-left">Poste</th>
-                <th className="px-3 py-2 text-left">Titulaire</th>
-                <th className="px-3 py-2 text-center">Bench</th>
-                <th className="px-3 py-2 text-right" />
-              </tr></thead>
-              <tbody className="divide-y divide-line">
-                {benchWeakRoles.map((r) => {
-                  const holder = employeeById(r.currentHolderEmployeeId);
-                  const bench = BENCH_STRENGTH_META[r.benchStrength];
+          {consolidatedAlerts.length > 0 && (
+            <Card className="border-warn/25">
+              <CardHeader title="Alertes consolidées" subtitle={`${consolidatedAlerts.length} actions à arbitrer`} action={<AlertTriangle size={16} className="text-warn" />} />
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                {consolidatedAlerts.map((a, i) => {
+                  const Icon = a.icon;
                   return (
-                    <tr key={r.id} className="hover:bg-amber/[0.03]">
-                      <td className="px-4 py-2"><p className="text-[12px] font-semibold text-ink">{r.title}</p><p className="text-[10px] font-medium text-ink-500">{r.department} · criticité {r.criticality}</p></td>
-                      <td className="px-3 py-2"><div className="flex items-center gap-2"><Avatar name={holder ? employeeName(holder) : '?'} size="xs" /><span className="text-[12px] font-medium text-ink-700">{holder ? employeeName(holder) : '—'}</span></div></td>
-                      <td className="px-3 py-2 text-center"><StatusPill tone={bench.tone} dot={false}>{bench.label}</StatusPill></td>
-                      <td className="px-3 py-2 text-right"><Link to="/carrieres/succession"><Button variant="ghost" size="sm">Plan <ArrowUpRight size={12} /></Button></Link></td>
-                    </tr>
+                    <Link key={i} to={a.link} className={cn('flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors',
+                      a.tone === 'danger' ? 'border-rose-200 bg-rose-50/40 hover:bg-rose-50' :
+                      'border-amber-200 bg-amber-50/40 hover:bg-amber-50')}>
+                      <Icon size={14} className={a.tone === 'danger' ? 'text-rose-600' : 'text-amber-700'} />
+                      <span className="flex-1 text-[12px] font-semibold text-ink">{a.label}</span>
+                      <ArrowUpRight size={12} className="text-ink-400" />
+                    </Link>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+              </div>
+            </Card>
+          )}
+
+          <ProphtetPanel context={{
+            kind: 'cockpit-alerts',
+            data: {
+              alerts: prophtetAlerts,
+              conformityScore: k12.conformityScoreGlobal,
+              rpsBurnoutPct: k12.rpsBurnoutRiskPct,
+            },
+          }} />
+        </div>
+      )}
+
+      {/* ── Onglet Modules ── */}
+      {mainTab === 'modules' && <SectionTabs sections={sections} />}
+
+      {/* ── Onglet Talents ── */}
+      {mainTab === 'talents' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader title="Top hauts potentiels — focus rétention" subtitle={`${HIGH_POTS.length} collaborateurs dans les programmes Atlas`} action={<Sparkles size={16} className="text-amber-deep" />} />
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+              {HIGH_POTS.slice(0, 6).map((h) => {
+                const emp = employeeById(h.employeeId);
+                if (!emp) return null;
+                return (
+                  <Link key={h.employeeId} to="/carrieres/hauts-potentiels" className="flex items-center gap-3 rounded-xl bg-surface2/40 px-3 py-2 transition-colors hover:bg-amber/[0.06]">
+                    <Avatar name={employeeName(emp)} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12px] font-semibold text-ink">{employeeName(emp)}</p>
+                      <p className="truncate text-[10px] font-medium text-ink-500">{emp.role} · {emp.department}</p>
+                    </div>
+                    <StatusPill tone="success" dot={false}>{h.program.replace('_', ' ')}</StatusPill>
+                  </Link>
+                );
+              })}
+            </div>
+          </Card>
+
+          {benchWeakRoles.length > 0 && (
+            <Card className="border-warn/25">
+              <CardHeader title="Postes clés à risque de succession" subtitle={`${benchWeakRoles.length} postes critiques sans bench solide`} action={<Crown size={16} className="text-warn" />} />
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-y border-line bg-surface2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                    <th className="px-4 py-2 text-left">Poste</th>
+                    <th className="px-3 py-2 text-left">Titulaire</th>
+                    <th className="px-3 py-2 text-center">Bench</th>
+                    <th className="px-3 py-2 text-right" />
+                  </tr></thead>
+                  <tbody className="divide-y divide-line">
+                    {benchWeakRoles.map((r) => {
+                      const holder = employeeById(r.currentHolderEmployeeId);
+                      const bench = BENCH_STRENGTH_META[r.benchStrength];
+                      return (
+                        <tr key={r.id} className="hover:bg-amber/[0.03]">
+                          <td className="px-4 py-2"><p className="text-[12px] font-semibold text-ink">{r.title}</p><p className="text-[10px] font-medium text-ink-500">{r.department} · criticité {r.criticality}</p></td>
+                          <td className="px-3 py-2"><div className="flex items-center gap-2"><Avatar name={holder ? employeeName(holder) : '?'} size="xs" /><span className="text-[12px] font-medium text-ink-700">{holder ? employeeName(holder) : '—'}</span></div></td>
+                          <td className="px-3 py-2 text-center"><StatusPill tone={bench.tone} dot={false}>{bench.label}</StatusPill></td>
+                          <td className="px-3 py-2 text-right"><Link to="/carrieres/succession"><Button variant="ghost" size="sm">Plan <ArrowUpRight size={12} /></Button></Link></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );

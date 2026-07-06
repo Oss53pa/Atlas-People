@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageSquareHeart, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { MessageSquareHeart, ArrowUpRight, TrendingUp, Plus, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
@@ -8,6 +8,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
 import { useM6Data } from '../../lib/m6/dataLive';
+import { useSubmitPulseFeedback, isBackendConfigured } from '../../lib/m6/supabaseLive';
 import { PULSE_QUESTIONS } from '../../lib/m6/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
@@ -15,7 +16,34 @@ import { cn } from '../../lib/cn';
 export function PulsePage() {
   const { toast } = useToast();
   const m6 = useM6Data();
+  const submitPulse = useSubmitPulseFeedback();
   const [milestone, setMilestone] = useState<'J7' | 'J30' | 'J60' | 'J90'>('J90');
+  const [showForm, setShowForm] = useState(false);
+  const [formArrivantId, setFormArrivantId] = useState('');
+  const [formScore, setFormScore] = useState<'happy' | 'neutral' | 'unhappy'>('happy');
+  const [formComment, setFormComment] = useState('');
+
+  const handleSubmitPulse = async () => {
+    if (!isBackendConfigured) {
+      setShowForm(false);
+      toast({ variant: 'success', title: 'Pulse enregistré', description: 'Mode démo — aucune persistance.' });
+      return;
+    }
+    if (!formArrivantId) {
+      toast({ variant: 'error', title: 'Champ requis', description: 'Sélectionnez un arrivant.' });
+      return;
+    }
+    try {
+      await submitPulse.mutateAsync({ arrivantId: formArrivantId, jalonKind: milestone, score: formScore, comment: formComment.trim() || undefined });
+      setShowForm(false);
+      setFormArrivantId('');
+      setFormComment('');
+      setFormScore('happy');
+      toast({ variant: 'success', title: 'Pulse soumis', description: `${milestone} · ${formScore} · audit SHA-256` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
 
   const filtered = useMemo(() => m6.pulses.filter((p) => p.milestone === milestone), [milestone, m6]);
   const avgOverall = filtered.length ? filtered.reduce((s, p) => s + p.overallScore, 0) / filtered.length : 0;
@@ -31,8 +59,53 @@ export function PulsePage() {
           <h1 className="text-2xl font-semibold text-ink">Pulse feedback</h1>
           <p className="text-sm font-medium text-ink-500">Surveys J+7 / J+30 / J+60 / J+90 · NPS final · suivi continu</p>
         </div>
-        <Button size="sm" onClick={() => toast({ variant: 'success', title: 'Pulse', description: 'Surveys envoyés aux arrivants éligibles' })}>Envoyer pulse en masse</Button>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)}><Plus size={14} /> {showForm ? 'Annuler' : 'Enregistrer un pulse'}</Button>
       </div>
+
+      {showForm && (
+        <Card className="border-amber/40">
+          <CardHeader
+            title="Enregistrer un pulse"
+            subtitle={`Jalon ${milestone} · score happy / neutral / unhappy · audit SHA-256`}
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined}
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Arrivant (ID)</label>
+              <input
+                value={formArrivantId}
+                onChange={(e) => setFormArrivantId(e.target.value)}
+                placeholder="UUID arrivant…"
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-mono text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Score</label>
+              <select value={formScore} onChange={(e) => setFormScore(e.target.value as typeof formScore)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
+                <option value="happy">😊 Happy</option>
+                <option value="neutral">😐 Neutral</option>
+                <option value="unhappy">😟 Unhappy</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Commentaire (optionnel)</label>
+              <input
+                value={formComment}
+                onChange={(e) => setFormComment(e.target.value)}
+                placeholder="Feedback libre…"
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" disabled={submitPulse.isPending || (isBackendConfigured ? !formArrivantId : false)} onClick={handleSubmitPulse}>
+              {submitPulse.isPending ? 'Envoi…' : 'Soumettre le pulse'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Pulses collectés" value={String(m6.pulses.length)} unit="cumul" icon={MessageSquareHeart} />

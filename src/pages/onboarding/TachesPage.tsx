@@ -5,8 +5,10 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
+import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
 import { useM6Data } from '../../lib/m6/dataLive';
+import { useCompleteOnboardingTask, isBackendConfigured } from '../../lib/m6/supabaseLive';
 import { TASK_CATEGORY_META, MILESTONE_META, OWNER_LABEL } from '../../lib/m6/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import type { TaskCategory, MilestoneCode, TaskStatus } from '../../lib/m6/types';
@@ -14,10 +16,25 @@ import { cn } from '../../lib/cn';
 
 export function TachesPage() {
   const m6 = useM6Data();
+  const { toast } = useToast();
+  const completeTask = useCompleteOnboardingTask();
   const [q, setQ] = useState('');
   const [catF, setCatF] = useState<'all' | TaskCategory>('all');
   const [statF, setStatF] = useState<'all' | TaskStatus>('all');
   const [msF, setMsF] = useState<'all' | MilestoneCode>('all');
+
+  const handleComplete = async (taskId: string) => {
+    if (!isBackendConfigured) {
+      toast({ variant: 'success', title: 'Tâche complétée', description: 'Mode démo — aucune persistance.' });
+      return;
+    }
+    try {
+      await completeTask.mutateAsync({ taskId });
+      toast({ variant: 'success', title: 'Tâche complétée', description: 'Statut mis à jour · audit SHA-256' });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
 
   const list = useMemo(() => m6.tasks.filter((t) => {
     if (catF !== 'all' && t.category !== catF) return false;
@@ -108,7 +125,14 @@ export function TachesPage() {
                     <td className="px-3 py-2 text-[11px] font-medium text-ink-500">{OWNER_LABEL[t.ownerRole]}</td>
                     <td className="px-3 py-2 mono text-[11px] font-medium text-ink-700">{t.dueDate}</td>
                     <td className="px-3 py-2 text-center"><StatusPill tone={t.status === 'completed' ? 'ok' : t.status === 'in_progress' ? 'amber' : t.status === 'blocked' ? 'danger' : 'neutral'} dot={false}>{t.status}</StatusPill></td>
-                    <td className="px-3 py-2 text-right">{emp && <Link to={`/onboarding/arrivants/${emp.id}`}><Button variant="ghost" size="sm">Parcours <ArrowUpRight size={12} /></Button></Link>}</td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {t.status !== 'completed' && t.status !== 'skipped' && (
+                          <Button variant="ghost" size="sm" disabled={completeTask.isPending} onClick={() => handleComplete(t.id)}>Compléter</Button>
+                        )}
+                        {emp && <Link to={`/onboarding/arrivants/${emp.id}`}><Button variant="ghost" size="sm">Parcours <ArrowUpRight size={12} /></Button></Link>}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}

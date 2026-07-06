@@ -2,6 +2,7 @@
  * renderPages — visualiseur A4 simulé écran avec pagination.
  * Découpe les blocs en pages selon les `pageBreak` et un seuil de hauteur.
  */
+import { cloneElement, isValidElement } from 'react';
 import type { Block, ReportConfig, ReportData, Palette } from '../../engine/reportBlocks';
 import { BlockPreview } from './BlockPreviews';
 import { DraggableBlock, InsertHere } from './BlockComponents';
@@ -134,5 +135,13 @@ export function renderPages({ config, data, palette, orgName, orgSub, ops }: Ren
     };
   }
 
-  return pages.map((p) => p.content);
+  // Patch du total : les pages de contenu (PageA4) ont été créées avec
+  // totalPages=0 (inconnu à ce stade) → on injecte le vrai total maintenant.
+  const total = pageNumber;
+  return pages.map((p) => {
+    if (isValidElement(p.content) && p.content.type === PageA4) {
+      return cloneElement(p.content as React.ReactElement<{ totalPages: number }>, { totalPages: total });
+    }
+    return p.content;
+  });
 }

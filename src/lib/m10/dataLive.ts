@@ -37,6 +37,16 @@ interface M10Raw {
   successors: { id: string; critical_role_id: string; successor_id: string; readiness: string; ranking: number | null; notes: string | null }[];
   memberships: { id: string; employee_id: string; joined_at: string | null; pool_code: string }[];
   pairs: { id: string; mentor_id: string; mentee_id: string; focus: string | null; started_at: string | null; status: string }[];
+  promotions: { id: string; employee_id: string; salary_increase_monthly: number | null; status: string; created_at: string }[];
+}
+
+/** Promotion exposée aux consommateurs (reporting, cockpit). */
+export interface M10Promotion {
+  id: string;
+  employeeId: string;
+  salaryIncreaseMonthly: number;
+  status: string;
+  createdAt: string;
 }
 
 function useM10Raw(tenantId?: string) {
@@ -46,13 +56,14 @@ function useM10Raw(tenantId?: string) {
     queryFn: async (): Promise<M10Raw | null> => {
       if (!supabase) return null;
       const ap = supabase.schema('atlas_people');
-      const [rolesRes, succRes, memRes, pairRes] = await Promise.all([
+      const [rolesRes, succRes, memRes, pairRes, promoRes] = await Promise.all([
         ap.from('m10_critical_roles').select('id, role_label, current_holder_id, criticality').eq('tenant_id', tid),
         ap.from('m10_succession_successors').select('id, critical_role_id, successor_id, readiness, ranking, notes').eq('tenant_id', tid).order('ranking'),
         ap.from('m10_talent_pool_memberships').select('id, employee_id, joined_at, m10_talent_pools!pool_id(code)').eq('tenant_id', tid),
         ap.from('m10_mentorat_pairs').select('id, mentor_id, mentee_id, focus, started_at, status').eq('tenant_id', tid),
+        ap.from('m10_promotions').select('id, employee_id, salary_increase_monthly, status, created_at').eq('tenant_id', tid),
       ]);
-      for (const r of [rolesRes, succRes, memRes, pairRes]) if (r.error) throw r.error;
+      for (const r of [rolesRes, succRes, memRes, pairRes, promoRes]) if (r.error) throw r.error;
       return {
         roles: (rolesRes.data ?? []) as M10Raw['roles'],
         successors: (succRes.data ?? []) as M10Raw['successors'],
@@ -63,6 +74,7 @@ function useM10Raw(tenantId?: string) {
           pool_code: ((m['m10_talent_pools'] as Record<string, string> | null)?.code) ?? '',
         })),
         pairs: (pairRes.data ?? []) as M10Raw['pairs'],
+        promotions: (promoRes.data ?? []) as M10Raw['promotions'],
       };
     },
     enabled: isBackendConfigured,
@@ -76,6 +88,7 @@ export interface M10Data {
   successors: SuccessorMapping[];
   highPots: HighPotEmployee[];
   mentorships: MentorshipPair[];
+  promotions: M10Promotion[];
   successorsOf: (criticalRoleId: string) => SuccessorMapping[];
   kpis: () => CareerKPI;
 }
@@ -147,6 +160,16 @@ export function useM10Data(): M10Data {
     }));
   }
 
+  const promotions: M10Promotion[] = (live && raw)
+    ? raw.promotions.map((p) => ({
+        id: p.id,
+        employeeId: mockEmpId(p.employee_id),
+        salaryIncreaseMonthly: Number(p.salary_increase_monthly ?? 0),
+        status: p.status,
+        createdAt: day(p.created_at) ?? '',
+      }))
+    : [];
+
   const successorsOf = (criticalRoleId: string) => successors.filter((s) => s.criticalRoleId === criticalRoleId);
   const kpis = (): CareerKPI => {
     if (!live) return mockKpis();
@@ -166,5 +189,5 @@ export function useM10Data(): M10Data {
     };
   };
 
-  return { live, criticalRoles, successors, highPots, mentorships, successorsOf, kpis };
+  return { live, criticalRoles, successors, highPots, mentorships, promotions, successorsOf, kpis };
 }

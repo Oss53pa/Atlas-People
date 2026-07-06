@@ -7,6 +7,8 @@ import {
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
+import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toast';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import {
@@ -14,6 +16,12 @@ import {
   computeAllEmployes, computeArbitrages, computeDepartements, computeEmploye, computeGlobal,
   type EmployeCalc, type ObjectifCalc,
 } from '../../lib/perf/mock';
+import { usePersistPerfSnapshot, useValidatePerfSnapshot } from '../../lib/perf/supabaseLive';
+import { isBackendConfigured } from '../../lib/supabase';
+
+const PERF_YEAR = 2026;
+const PERF_PERIODE_REF = 'S1';
+const PERF_PERIODE_TYPE = 'semestre';
 
 type Audience = 'employe' | 'manager' | 'rh' | 'direction';
 
@@ -101,6 +109,38 @@ export function CockpitPerformancePage() {
   const team = all.filter((e) => e.managerId === managerId);
   const managers = [...new Set(PERF_EMPLOYES.map((e) => e.managerId).filter(Boolean))] as string[];
 
+  const { toast } = useToast();
+  const persistPerf = usePersistPerfSnapshot();
+  const validatePerf = useValidatePerfSnapshot();
+  const [snapshotCampaign, setSnapshotCampaign] = useState<string | null>(null);
+
+  /** Consolide : persiste les scores calculés par le moteur dans perf_scores. */
+  const handleConsolidate = async () => {
+    if (!isBackendConfigured) { toast({ variant: 'info', title: 'Mode démo', description: 'Consolidation réelle disponible après connexion RH.' }); return; }
+    try {
+      const res = await persistPerf.mutateAsync({
+        annee: PERF_YEAR, periodeType: PERF_PERIODE_TYPE, periodeRef: PERF_PERIODE_REF,
+        scores: all.map((e) => ({ employeeId: e.employeId, scoreAuto: e.scoreAuto, scoreValide: e.scoreValide })),
+      });
+      setSnapshotCampaign(res.campaignId);
+      toast({ variant: 'success', title: 'Scores consolidés', description: `${res.count} scores figés dans la campagne.` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Échec de la consolidation', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
+
+  /** Valide/fige le snapshot (couche validée officielle, R4). */
+  const handleValidate = async () => {
+    if (!isBackendConfigured) { toast({ variant: 'info', title: 'Mode démo', description: 'Validation simulée (non persistée).' }); return; }
+    if (!snapshotCampaign) { toast({ variant: 'warning', title: 'Consolidez d’abord', description: 'Figez les scores avant de les valider.' }); return; }
+    try {
+      const n = await validatePerf.mutateAsync({ campaignId: snapshotCampaign, periodeRef: PERF_PERIODE_REF, periodeType: PERF_PERIODE_TYPE });
+      toast({ variant: 'success', title: 'Scores validés', description: `${n} scores figés définitivement (couche officielle R4).` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Échec de la validation', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
+
   return (
     <div className="animate-fade-up space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -124,6 +164,17 @@ export function CockpitPerformancePage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Actions direction/RH : consolidation + validation des scores (§7.1) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" onClick={handleConsolidate} disabled={persistPerf.isPending}>
+          {persistPerf.isPending ? 'Consolidation…' : 'Consolider les scores'}
+        </Button>
+        <Button size="sm" onClick={handleValidate} disabled={validatePerf.isPending || (isBackendConfigured && !snapshotCampaign)}>
+          {validatePerf.isPending ? 'Validation…' : 'Valider (R4 · couche officielle)'}
+        </Button>
+        {snapshotCampaign && <StatusPill tone="ok" dot={false}>Snapshot figé</StatusPill>}
       </div>
 
       <div className="rounded-xl border border-amber/25 bg-amber/[0.04] px-4 py-2.5 text-[11px] font-medium text-ink-600">

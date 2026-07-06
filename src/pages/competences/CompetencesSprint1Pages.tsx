@@ -6,14 +6,16 @@ import { useMemo, useState } from 'react';
 import {
   Shield, ClipboardCheck, ClipboardList, TrendingUp, ArrowRightLeft,
   Lock, ShieldAlert, AlertCircle, AlertTriangle, CheckCircle2, Sparkles,
-  FileSignature, Target, Eye, Award, ArrowRight,
+  FileSignature, Target, Eye, Award, ArrowRight, Wifi,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toast';
 import { CompetencesSubNav } from '../../components/competences/CompetencesSubNav';
+import { useSignPDC, isBackendConfigured } from '../../lib/m9/supabaseLive';
 import { employeeName, SKILLS } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
@@ -332,6 +334,26 @@ export function ManagerEvalCompetencesPage() {
 export function PdcPage() {
   const roster = useRoster();
   const me = roster[3];
+  const { toast } = useToast();
+  const signPdc = useSignPDC();
+  const [showSignForm, setShowSignForm] = useState(false);
+  const [pdcId, setPdcId] = useState('');
+
+  const handleSignPdc = async () => {
+    if (!isBackendConfigured) {
+      setShowSignForm(false);
+      toast({ variant: 'success', title: 'PDC signé', description: 'Mode démo — aucune persistance.' });
+      return;
+    }
+    if (!pdcId) { toast({ variant: 'error', title: 'Champ requis', description: 'Entrez l\'ID UUID du PDC.' }); return; }
+    try {
+      await signPdc.mutateAsync({ pdcId });
+      setShowSignForm(false); setPdcId('');
+      toast({ variant: 'success', title: 'PDC signé ADVIST', description: 'Statut signed · audit SHA-256' });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
   const actions = [
     { kind: 'formation' as const, title: 'Data Analytics avec Python (FRM-2026-0026)', target: 'Analyse de données : 1 → 3', deadline: '2026-09-30', status: 'in_progress' as const, completion: 35 },
     { kind: 'mentorat' as const,  title: 'Mentorat Modeste Yapo (Data Analyst senior)', target: 'Analyse de données : pratique terrain', deadline: '2026-12-31', status: 'in_progress' as const, completion: 50 },
@@ -359,9 +381,23 @@ export function PdcPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">+ Action</Button>
-          <Button size="sm"><FileSignature size={14} /> Signer ADVIST</Button>
+          <Button size="sm" onClick={() => setShowSignForm((v) => !v)}><FileSignature size={14} /> {showSignForm ? 'Annuler' : 'Signer ADVIST'}</Button>
         </div>
       </div>
+
+      {showSignForm && (
+        <Card className="border-amber/40">
+          <CardHeader title="Signer le PDC (ADVIST)" subtitle="Signature irréversible · audit SHA-256"
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined} />
+          <div className="flex items-center gap-2">
+            <input value={pdcId} onChange={(e) => setPdcId(e.target.value)} placeholder="UUID du PDC…"
+              className="h-9 flex-1 rounded-xl border border-line bg-surface px-3 text-sm font-mono text-ink focus:border-amber/40 focus:outline-none" />
+            <Button size="sm" disabled={signPdc.isPending || (isBackendConfigured && !pdcId)} onClick={handleSignPdc}>
+              {signPdc.isPending ? 'Signature…' : 'Confirmer signature'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Actions actives" value={String(actions.length)} unit="sur 12 mois" icon={ClipboardCheck} />

@@ -66,5 +66,7 @@ export async function resolveCaller(req: Request): Promise<Caller | null> {
   };
 }
 
+// Rôle canonique app + RLS DB = 'hr' / 'super_admin' (cf. AppRole, is_hr_or_admin).
+// On accepte aussi les libellés FR historiques ('rh','drh','paie') par tolérance.
 export const isHrOrAdmin = (c: Caller) =>
-  ['rh', 'admin', 'drh', 'paie'].includes(c.role);
+  ['hr', 'super_admin', 'rh', 'admin', 'drh', 'paie'].includes(c.role);

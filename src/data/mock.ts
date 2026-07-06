@@ -42,6 +42,8 @@ export interface EmployeeRecord {
   address?: string;
   /** Versement (sensible — P1.4 audit fort). */
   mobileMoneyNumber?: string;
+  /** Genre (F/M) — index parité/anti-discrimination (colonne employees.gender). */
+  gender?: 'F' | 'M';
 }
 
 export function employeeAlerts(e: EmployeeRecord): ExpiryAlert[] {

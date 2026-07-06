@@ -15,10 +15,10 @@ export interface DataProvider {
   getReports(tenantId: string): Promise<ReportDoc[]>;
   getReport(id: number): Promise<ReportDoc | undefined>;
   upsertReport(doc: Omit<ReportDoc, 'id'> & { id?: number }): Promise<number>;
-  deleteReport(id: number): Promise<void>;
+  deleteReport(id: number, tenantId?: string): Promise<void>;
 
   // Templates (modèles personnels)
   getTemplates(tenantId: string): Promise<ReportTemplate[]>;
   upsertTemplate(tpl: Omit<ReportTemplate, 'id'> & { id?: number }): Promise<number>;
-  deleteTemplate(id: number): Promise<void>;
+  deleteTemplate(id: number, tenantId?: string): Promise<void>;
 }

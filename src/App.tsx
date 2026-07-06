@@ -50,6 +50,7 @@ import {
   CockpitConformitePage, DuerPage, RpsPage, AtMpPage, RegistrePage,
   DeclarationsPage as DeclarationsConformitePage, VisitesMedicalesPage, HabilitationsPage, AuditsPage,
   InspectionsPage as InspectionsConformitePage, ConservationPage, ParametresConformitePage,
+  GouvernancePage, ReportingPage, AlertesConformitePage,
 } from './pages/conformite/ConformitePages';
 import { JournalAuditPage } from './pages/JournalAuditPage';
 import { SelfServicePage } from './pages/SelfServicePage';
@@ -422,6 +423,9 @@ function App() {
         <Route path="/conformite/audits" element={<AuditsPage />} />
         <Route path="/conformite/inspections" element={<InspectionsConformitePage />} />
         <Route path="/conformite/conservation" element={<ConservationPage />} />
+        <Route path="/conformite/gouvernance" element={<GouvernancePage />} />
+        <Route path="/conformite/reporting" element={<ReportingPage />} />
+        <Route path="/conformite/alertes" element={<AlertesConformitePage />} />
         <Route path="/conformite/parametres" element={<ParametresConformitePage />} />
         <Route path="/objectifs/methodologie" element={<MethodologieOkrPage />} />
         <Route path="/objectifs/notation" element={<NotationOkrPage />} />

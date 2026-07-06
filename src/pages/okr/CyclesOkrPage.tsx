@@ -1,4 +1,5 @@
-import { CalendarRange, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarRange, Plus, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -6,14 +7,23 @@ import { StatCard } from '../../components/ui/StatCard';
 import { useToast } from '../../components/ui/Toast';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
 import { useM7Data } from '../../lib/m7/dataLive';
+import { useCreateOkrCycle, isBackendConfigured } from '../../lib/m7/supabaseLive';
 import { CHECKIN_CADENCES, BEST_PRACTICES } from '../../lib/m7/referentiels';
 
 export function CyclesOkrPage() {
   const m7 = useM7Data();
   const { toast } = useToast();
+  const createCycle = useCreateOkrCycle();
+  const [showForm, setShowForm] = useState(false);
+  const [cycCode, setCycCode] = useState('');
+  const [cycLabel, setCycLabel] = useState('');
+  const [cycStart, setCycStart] = useState('');
+  const [cycEnd, setCycEnd] = useState('');
+
   const tone: Record<string, 'ok' | 'amber' | 'neutral' | 'warn'> = {
     active: 'ok', planned: 'amber', review: 'warn', closed: 'neutral',
   };
+
   return (
     <div className="animate-fade-up space-y-5">
       <OkrSubNav />
@@ -22,8 +32,80 @@ export function CyclesOkrPage() {
           <h1 className="text-2xl font-semibold text-ink">Cycles OKR</h1>
           <p className="text-sm font-medium text-ink-500">Trimestres / semestres · cadence check-in · revue clôture</p>
         </div>
-        <Button size="sm" onClick={() => toast({ variant: 'info', title: 'Cycle', description: 'Wizard nouveau cycle' })}><Plus size={14} /> Nouveau cycle</Button>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)}><Plus size={14} /> {showForm ? 'Annuler' : 'Nouveau cycle'}</Button>
       </div>
+
+      {showForm && (
+        <Card className="border-amber/40">
+          <CardHeader
+            title="Créer un cycle OKR"
+            subtitle="Code unique par tenant · status initial = planning · audit SHA-256"
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined}
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Code (ex. 2026-Q3)</label>
+              <input
+                value={cycCode}
+                onChange={(e) => setCycCode(e.target.value)}
+                placeholder="2026-Q3"
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Libellé</label>
+              <input
+                value={cycLabel}
+                onChange={(e) => setCycLabel(e.target.value)}
+                placeholder="Q3 2026 — Juillet à Septembre"
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date de début</label>
+              <input
+                type="date"
+                value={cycStart}
+                onChange={(e) => setCycStart(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date de fin</label>
+              <input
+                type="date"
+                value={cycEnd}
+                onChange={(e) => setCycEnd(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              disabled={createCycle.isPending || (isBackendConfigured ? (!cycCode.trim() || !cycLabel.trim() || !cycStart || !cycEnd) : false)}
+              onClick={async () => {
+                if (!isBackendConfigured) {
+                  setShowForm(false);
+                  toast({ variant: 'success', title: 'Cycle créé', description: `${cycCode || 'Nouveau cycle'} en planning (mode démo)` });
+                  return;
+                }
+                try {
+                  await createCycle.mutateAsync({ code: cycCode.trim(), label: cycLabel.trim(), startDate: cycStart, endDate: cycEnd });
+                  setShowForm(false);
+                  setCycCode(''); setCycLabel(''); setCycStart(''); setCycEnd('');
+                  toast({ variant: 'success', title: 'Cycle OKR créé', description: `${cycCode} — en statut planning` });
+                } catch (e) {
+                  toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                }
+              }}
+            >
+              {createCycle.isPending ? 'Création…' : 'Créer le cycle'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Cycles total" value={String(m7.cycles.length)} unit="historique + futur" icon={CalendarRange} />

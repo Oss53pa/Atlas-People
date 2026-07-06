@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
         last_name: row.last_name,
         email: row.email ?? null,
         country_code: row.country_code,
-        contract: row.contract ?? 'cdi',
+        contract: row.contract ?? 'CDI',
         status: row.status ?? 'active',
         role_title: row.role_title ?? null,
         department: row.department ?? null,

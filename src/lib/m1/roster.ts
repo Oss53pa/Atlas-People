@@ -40,10 +40,13 @@ export function useRoster(): EmployeeRecord[] {
           contractType: (e.contract as EmployeeRecord['contractType']) ?? base?.contractType ?? 'CDI',
           hireDate: e.hire_date ?? base?.hireDate ?? '',
           status: (e.status as EmployeeRecord['status']) ?? base?.status ?? 'active',
-          baseSalary: e.base_salary,
-          taxableAllowances: e.taxable_allowances,
-          nonTaxableAllowances: e.non_taxable_allowances,
-          fiscalParts: Number(e.fiscal_parts),
+          // Fallbacks numériques : une colonne DB nulle ne doit jamais propager NaN
+          // dans computePayslip (masse salariale des rapports/cockpits).
+          baseSalary: e.base_salary ?? base?.baseSalary ?? 0,
+          taxableAllowances: e.taxable_allowances ?? base?.taxableAllowances ?? 0,
+          nonTaxableAllowances: e.non_taxable_allowances ?? base?.nonTaxableAllowances ?? 0,
+          fiscalParts: Number(e.fiscal_parts ?? base?.fiscalParts ?? 1) || 1,
+          gender: (e.gender === 'F' || e.gender === 'M') ? e.gender : base?.gender,
           retentionAttention: base?.retentionAttention ?? 0,
         };
       })

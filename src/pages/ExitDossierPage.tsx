@@ -35,6 +35,8 @@ import { computePayslip, getRegime } from '../lib/payroll';
 import { ComplianceGuard } from '../lib/compliance/ComplianceGuard';
 import { countryByCode } from '../data/countries';
 import { useDirectory } from '../store/useDirectory';
+import { useUpdateEmployee, useOffboardEmployee, isBackendConfigured } from '../lib/m1/supabaseLive';
+import { useCreateDeparture } from '../lib/m4/supabaseLive';
 import { useEvents } from '../store/useEvents';
 import {
   employeeName,
@@ -70,6 +72,21 @@ const MOTIVES: Motive[] = [
   { code: 'incompatible_after_mobility', label: 'Incompatibilité après mobilité', initiator: 'Mutuel' },
 ];
 
+const MOTIVE_TO_M4_TYPE: Record<string, string> = {
+  resignation: 'DEMISSION',
+  mutual: 'RUPT_CONV',
+  cdd_end: 'FIN_CDD',
+  trial_employer: 'RUPT_ESSAI',
+  trial_employee: 'RUPT_ESSAI',
+  economic: 'LICEN_ECO',
+  personal_non_disc: 'LICEN_PERSO',
+  dismissal_for_cause: 'LICEN_FAUTE',
+  retirement: 'RETRAITE',
+  forced_retirement: 'RETRAITE',
+  death: 'DECES',
+  job_abandonment: 'ABANDON_POSTE',
+};
+
 const PHASES = [
   { key: 'initiation', label: 'Initiation', tone: 'neutral' as const },
   { key: 'notification', label: 'Notification', tone: 'info' as const },
@@ -101,8 +118,26 @@ export function ExitDossierPage() {
   const { toast } = useToast();
   const employee = useDirectory((s) => (id ? s.employees.find((e) => e.id === id) : undefined));
   const updateEmployee = useDirectory((s) => s.updateEmployee);
+  const updateLive = useUpdateEmployee();
+  const offboardLive = useOffboardEmployee();
+  const createDeparture = useCreateDeparture();
+
+  /** Persiste le passage en préavis (live audité, sinon Zustand). */
+  const persistNotice = async () => {
+    if (!isBackendConfigured) { updateEmployee(employee!.id, { status: 'notice' }); return; }
+    try { await updateLive.mutateAsync({ id: employee!.id, patch: { status: 'notice' }, action: 'employee.exit_notice' }); }
+    catch (e) { toast({ variant: 'error', title: 'Échec', description: e instanceof Error ? e.message : 'Erreur.' }); }
+  };
+
+  /** Offboarding final (statut offboarded + date de sortie, live audité). */
+  const finalizeOffboard = async () => {
+    if (!isBackendConfigured) return; // démo : pas de statut 'offboarded' côté EmployeeRecord
+    try { await offboardLive.mutateAsync({ id: employee!.id, exitDate: effectiveDate, reason: motive.label }); }
+    catch (e) { toast({ variant: 'error', title: 'Échec', description: e instanceof Error ? e.message : 'Erreur.' }); }
+  };
   const append = useEvents((s) => s.append);
 
+  const [departureId, setDepartureId] = useState<string | null>(null);
   const [section, setSection] = useState('overview');
   const [motiveCode, setMotiveCode] = useState('resignation');
   const [subMotive, setSubMotive] = useState('');
@@ -220,19 +255,31 @@ export function ExitDossierPage() {
   }, [benefits]);
 
   const applyEffective = () => {
-    updateEmployee(employee.id, { status: 'notice' });
+    void persistNotice();
     append({ employeeId: employee.id, type: 'exit', date: effectiveDate, label: `${reference} — ${motive.label}` });
     toast({ variant: 'warning', title: 'Sortie effective', description: `${reference} · ${motive.label} · effet ${effDate.toLocaleDateString('fr-FR')}.` });
   };
 
   const advance = () => {
     if (motive.redirectM12 || motive.requiresM12) return;
-    if (phase === 'initiation') { setPhase('notification'); return; }
-    if (phase === 'notification') { updateEmployee(employee.id, { status: 'notice' }); setPhase('notice_period'); return; }
+    if (phase === 'initiation') {
+      setPhase('notification');
+      // Création du dossier départ dans m4_departures (non-bloquant)
+      if (isBackendConfigured && employee && !departureId) {
+        void createDeparture.mutateAsync({
+          employeeId: employee.id,
+          type: MOTIVE_TO_M4_TYPE[motiveCode] ?? 'DEMISSION',
+          initiative: motive.initiator === 'Employé' ? 'salarie' : motive.initiator === 'Employeur' ? 'employeur' : 'mutuelle',
+          reason: subMotive || undefined,
+        }).then(({ id: depId }) => setDepartureId(depId)).catch(() => { /* non-bloquant */ });
+      }
+      return;
+    }
+    if (phase === 'notification') { void persistNotice(); setPhase('notice_period'); return; }
     if (phase === 'notice_period') { setPhase('pre_effect'); return; }
     if (phase === 'pre_effect') { if (!blocking) { setPhase('effect'); applyEffective(); } return; }
     if (phase === 'effect') { setPhase('settlement'); toast({ variant: 'success', title: 'Solde de tout compte versé', description: `${fmt(stc.net)} FCFA · reçu signé.` }); return; }
-    if (phase === 'settlement') { setPhase('archived'); navigate(`/collaborateurs/${employee.id}`); return; }
+    if (phase === 'settlement') { void finalizeOffboard(); setPhase('archived'); navigate(`/collaborateurs/${employee.id}`); return; }
   };
 
   const advanceLabel = (): string => {

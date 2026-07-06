@@ -43,10 +43,11 @@ Deno.serve(async (req) => {
     const { error: insErr } = await svc.from('m4_generated_documents').insert({
       id: docId,
       tenant_id: caller.tenantId,
+      document_number: `DOC-${docId.slice(0, 8).toUpperCase()}`,
       employee_id: employeeId,
       category: docType,
       purpose: purpose ?? docType,
-      generation_method: 'edge_function',
+      generation_method: 'automatic',
       generated_at: now,
       generated_by: caller.userId,
       revoked: false,

@@ -5,7 +5,7 @@
 import { Link } from 'react-router-dom';
 import {
   CalendarRange, Megaphone, ClipboardList, Eye, Scale, TrendingUp, MessageSquare,
-  Settings, Plus, ArrowUpRight, Star, CheckCircle2, Clock,
+  Settings, Plus, ArrowUpRight, Star, CheckCircle2, Clock, Wifi,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -22,11 +22,19 @@ import {
 import { employeeById, employeeName } from '../../data/mock';
 import { useMemo, useState } from 'react';
 import { cn } from '../../lib/cn';
+import { useCreateEvalCycle, isBackendConfigured } from '../../lib/m8/supabaseLive';
 
 /* ─────────────────────────────────────── CYCLES */
 export function CyclesEvalPage() {
   const m8 = useM8Data();
   const { toast } = useToast();
+  const createCycle = useCreateEvalCycle();
+  const [showForm, setShowForm] = useState(false);
+  const [cycCode, setCycCode] = useState('');
+  const [cycLabel, setCycLabel] = useState('');
+  const [cycStart, setCycStart] = useState('');
+  const [cycEnd, setCycEnd] = useState('');
+
   return (
     <div className="animate-fade-up space-y-5">
       <EvalSubNav />
@@ -35,8 +43,72 @@ export function CyclesEvalPage() {
           <h1 className="text-2xl font-semibold text-ink">Cycles d'évaluation</h1>
           <p className="text-sm font-medium text-ink-500">{m8.cycles.length} cycles · annuel / mid-year / probatoire / 360°</p>
         </div>
-        <Button size="sm" onClick={() => toast({ variant: 'info', title: 'Cycle', description: 'Wizard nouveau cycle' })}><Plus size={14} /> Nouveau cycle</Button>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)}><Plus size={14} /> {showForm ? 'Annuler' : 'Nouveau cycle'}</Button>
       </div>
+
+      {showForm && (
+        <Card className="border-amber/40">
+          <CardHeader
+            title="Créer un cycle d'évaluation"
+            subtitle="Code unique par tenant · phase initiale = preparation · audit SHA-256"
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined}
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Code (ex. 2026)</label>
+              <input
+                value={cycCode}
+                onChange={(e) => setCycCode(e.target.value)}
+                placeholder="2026"
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Libellé</label>
+              <input
+                value={cycLabel}
+                onChange={(e) => setCycLabel(e.target.value)}
+                placeholder="Cycle annuel 2026"
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date de début</label>
+              <input type="date" value={cycStart} onChange={(e) => setCycStart(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none" />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date de fin</label>
+              <input type="date" value={cycEnd} onChange={(e) => setCycEnd(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none" />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              disabled={createCycle.isPending || (isBackendConfigured ? (!cycCode.trim() || !cycLabel.trim() || !cycStart || !cycEnd) : false)}
+              onClick={async () => {
+                if (!isBackendConfigured) {
+                  setShowForm(false);
+                  toast({ variant: 'success', title: 'Cycle créé', description: `${cycCode || 'Nouveau cycle'} en préparation (mode démo)` });
+                  return;
+                }
+                try {
+                  await createCycle.mutateAsync({ code: cycCode.trim(), label: cycLabel.trim(), startDate: cycStart, endDate: cycEnd });
+                  setShowForm(false);
+                  setCycCode(''); setCycLabel(''); setCycStart(''); setCycEnd('');
+                  toast({ variant: 'success', title: 'Cycle d\'évaluation créé', description: `${cycCode} — phase préparation` });
+                } catch (e) {
+                  toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                }
+              }}
+            >
+              {createCycle.isPending ? 'Création…' : 'Créer le cycle'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+          </div>
+        </Card>
+      )}
       <Card inset={false}>
         <div className="p-5 pb-2"><CardHeader title="Tous les cycles" className="mb-0" /></div>
         <div className="overflow-x-auto">

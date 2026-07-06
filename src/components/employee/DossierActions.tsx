@@ -11,15 +11,44 @@ import { useEvents } from '../../store/useEvents';
 import { COUNTRIES, countryByCode } from '../../data/countries';
 import { Money } from '../../lib/money';
 import { employeeName, type EmployeeRecord } from '../../data/mock';
+import { useUpdateEmployee, mockIdToUuid, isBackendConfigured } from '../../lib/m1/supabaseLive';
+import { useCreateAmendment } from '../../lib/m4/supabaseLive';
 
 const today = '2026-05-27';
 
+const MOTIF_TO_CATEGORY: Record<string, string> = {
+  Promotion: 'fonction',
+  Augmentation: 'remuneration',
+  'Changement de poste': 'fonction',
+  Quotité: 'temps',
+  Lieu: 'lieu',
+  Classification: 'remuneration',
+  Autre: 'divers',
+};
+
 export function DossierActions({ employee }: { employee: EmployeeRecord }) {
   const updateEmployee = useDirectory((s) => s.updateEmployee);
+  const updateLive = useUpdateEmployee();
+  const createAmendment = useCreateAmendment();
   const append = useEvents((s) => s.append);
   const employees = useDirectory((s) => s.employees);
   const { toast } = useToast();
   const [open, setOpen] = useState<null | 'avenant' | 'mobilite'>(null);
+
+  /** Persiste un patch employé : Supabase (live, audité) sinon Zustand (démo). */
+  const applyPatch = async (patch: Partial<EmployeeRecord>, action: string, rawCols?: Record<string, unknown>): Promise<boolean> => {
+    if (isBackendConfigured) {
+      try {
+        await updateLive.mutateAsync({ id: employee.id, patch, action, rawCols });
+        return true;
+      } catch (e) {
+        toast({ variant: 'error', title: 'Échec', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+        return false;
+      }
+    }
+    updateEmployee(employee.id, patch);
+    return true;
+  };
 
   // Avenant
   const [avMotif, setAvMotif] = useState('Augmentation');
@@ -34,17 +63,36 @@ export function DossierActions({ employee }: { employee: EmployeeRecord }) {
 
   const closeAll = () => setOpen(null);
 
-  const submitAvenant = () => {
-    if (avSalary > 0) updateEmployee(employee.id, { baseSalary: avSalary });
+  const submitAvenant = async () => {
+    const patch: Partial<EmployeeRecord> = {};
+    if (avSalary > 0) patch.baseSalary = avSalary;
+    if (avJob.trim()) patch.role = avJob.trim();
+    if (Object.keys(patch).length > 0 && !(await applyPatch(patch, 'employee.amendment'))) return;
+    // Persistance M4 (non-bloquante — l'avenant M1 a déjà été appliqué)
+    if (isBackendConfigured) {
+      try {
+        await createAmendment.mutateAsync({
+          employeeId: employee.id,
+          categoryCode: MOTIF_TO_CATEGORY[avMotif] ?? 'divers',
+          typeLabel: avMotif,
+          objet: avJob.trim() || undefined,
+          effectiveDate: avDate,
+          payrollDeltaCents: avSalary > 0 ? avSalary : undefined,
+        });
+      } catch { /* non-bloquant */ }
+    }
     const type = avMotif === 'Promotion' ? 'promotion' : avSalary > 0 ? 'salary_change' : 'amendment';
     append({ employeeId: employee.id, type, date: avDate, label: `Avenant — ${avMotif}${avSalary > 0 ? ` (${Money.of(avSalary, countryByCode(employee.countryCode).currency).format()} FCFA)` : ''}` });
     toast({ variant: 'success', title: 'Avenant créé', description: `${avMotif} · effet ${new Date(avDate).toLocaleDateString('fr-FR')}.` });
     closeAll();
   };
 
-  const submitMobilite = () => {
+  const submitMobilite = async () => {
     const changedCountry = mbCountry !== employee.countryCode;
-    updateEmployee(employee.id, { countryCode: mbCountry, department: mbDept, manager: mbManager ? employeeName(employees.find((e) => e.id === mbManager)!) : employee.manager });
+    const managerName = mbManager ? employeeName(employees.find((e) => e.id === mbManager)!) : employee.manager;
+    const patch: Partial<EmployeeRecord> = { countryCode: mbCountry, department: mbDept, manager: managerName };
+    const rawCols = mbManager ? { manager_id: mockIdToUuid(mbManager) } : undefined;
+    if (!(await applyPatch(patch, 'employee.mobility', rawCols))) return;
     append({ employeeId: employee.id, type: 'mobility', date: today, label: `Mobilité interne — ${mbDept}${changedCountry ? ` · ${countryByCode(mbCountry).name} (changement de régime)` : ''}` });
     toast({ variant: 'success', title: 'Mobilité validée', description: changedCountry ? 'Changement de pays : régime et devise recalculés.' : `Nouveau département : ${mbDept}.` });
     closeAll();

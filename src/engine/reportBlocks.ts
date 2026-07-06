@@ -491,9 +491,11 @@ export function buildPDFFromBlocks(
 
   /* ------- Contenu (blocks) ------- */
   let cursorY = MARGIN;
+  // Pas de footer in-loop ici : la boucle finale (drawHeaderFooter avec le vrai
+  // total) couvre TOUTES les pages. Dessiner ici avec total=0 superposait
+  // « Page X / 0 » sous « Page X / N ».
   const ensureSpace = (h: number) => {
     if (cursorY + h > PAGE.h - 18) {
-      drawHeaderFooter(doc.getNumberOfPages(), 0);
       doc.addPage();
       cursorY = MARGIN;
     }
@@ -502,7 +504,6 @@ export function buildPDFFromBlocks(
   for (const block of config.blocks) {
     switch (block.type) {
       case 'pageBreak':
-        drawHeaderFooter(doc.getNumberOfPages(), 0);
         doc.addPage();
         cursorY = MARGIN;
         break;
@@ -540,6 +541,7 @@ export function buildPDFFromBlocks(
       }
 
       case 'kpi': {
+        if (block.items.length === 0) break; // garde : items vide → cols=0 → /0 → cursorY=NaN casse toute la pagination
         const cols = Math.min(4, block.items.length);
         const cellW = (PAGE.w - 2 * MARGIN) / cols;
         const rows = Math.ceil(block.items.length / cols);
@@ -638,7 +640,7 @@ export function buildPDFFromBlocks(
 
   /* ------- Remplir la TOC ------- */
   if (config.options.includeTOC && tocEntries.length > 0) {
-    doc.setPage(tocPage + 1);
+    doc.setPage(tocPage); // les entrées vont sous le titre « Sommaire » (même page), pas sur la 1re page de contenu
     doc.setFontSize(9);
     doc.setTextColor(60);
     let tocY = MARGIN + 18;

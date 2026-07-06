@@ -37,8 +37,8 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!cycle) return json({ error: { code: 'SCOPE_DENIED', message: 'Cycle introuvable ou hors périmètre' } }, 403);
 
-    // Invariant : refus si déjà finalisé
-    if (cycle.status === 'finalized') {
+    // Invariant : refus si déjà finalisé (statut terminal 'closed' — cf. CHECK payroll_cycles)
+    if (cycle.status === 'closed' || cycle.status === 'archived') {
       return json({ error: { code: 'NO_ROWS_AFFECTED', message: 'Ce cycle est déjà finalisé — écriture re-tentée refusée' } }, 409);
     }
 
@@ -50,10 +50,10 @@ Deno.serve(async (req) => {
     // 5. Mise à jour (UPDATE 0 rows → erreur)
     const { error: upErr, count } = await svc
       .from('payroll_cycles')
-      .update({ status: 'finalized', closed_at: now, closed_by: caller.userId, final_hash: finalHash })
+      .update({ status: 'closed', closed_at: now, closed_by: caller.userId, final_hash: finalHash }, { count: 'exact' })
       .eq('id', cycleId)
       .eq('tenant_id', caller.tenantId)
-      .neq('status', 'finalized');
+      .neq('status', 'closed');
     if (upErr) return json({ error: { code: 'WRITE_ERROR', message: upErr.message } }, 500);
     if ((count ?? 0) === 0) return json({ error: { code: 'NO_ROWS_AFFECTED', message: 'Aucune ligne mise à jour — cycle déjà finalisé ?' } }, 409);
 
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     });
 
     // 7. Idempotency
-    const result = { cycleId, status: 'finalized', finalHash, closedAt: now };
+    const result = { cycleId, status: 'closed', finalHash, closedAt: now };
     await saveIdempotency(svc, caller.tenantId, idempotencyKey, 'finalize-payroll-cycle', result);
 
     return json(result, 200);

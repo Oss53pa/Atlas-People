@@ -5,10 +5,19 @@ import {
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
+import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toast';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import type { ModeBonus } from '../../engine/bonus';
 import { ENVELOPPE_DEFAUT, simulate } from '../../lib/bonus/mock';
+import {
+  usePersistBonusSimulation, useCommitBonusDecision,
+  type BonusAllocationInput, type PersistBonusResult,
+} from '../../lib/bonus/supabaseLive';
+import { isBackendConfigured } from '../../lib/supabase';
+
+const CAMPAIGN_YEAR = 2026;
 
 const MODES: { key: ModeBonus; label: string; hint: string }[] = [
   { key: 'A_prorata', label: 'A — Prorata', hint: 'Σ = enveloppe (exact)' },
@@ -17,6 +26,11 @@ const MODES: { key: ModeBonus; label: string; hint: string }[] = [
 ];
 
 export function CockpitBonusPage() {
+  const { toast } = useToast();
+  const persistBonus = usePersistBonusSimulation();
+  const commitBonus = useCommitBonusDecision();
+  const [saved, setSaved] = useState<PersistBonusResult | null>(null);
+
   const [montant, setMontant] = useState(ENVELOPPE_DEFAUT);
   const [mode, setMode] = useState<ModeBonus>('A_prorata');
   const [coef, setCoef] = useState(1);
@@ -25,6 +39,48 @@ export function CockpitBonusPage() {
 
   const sim = useMemo(() => simulate(montant, mode, coef), [montant, mode, coef]);
   const byId = useMemo(() => new Map(sim.result.lignes.map((l) => [l.employeId, l])), [sim]);
+
+  // Toute modification des paramètres invalide un enregistrement antérieur.
+  const paramsKey = `${montant}|${mode}|${coef}`;
+  const [savedKey, setSavedKey] = useState('');
+  const isSavedCurrent = saved !== null && savedKey === paramsKey;
+
+  /** Fige la simulation en base (enveloppe brouillon + calculs). */
+  const handleSave = async () => {
+    if (!isBackendConfigured) {
+      toast({ variant: 'info', title: 'Mode démo', description: 'Enregistrement réel disponible après connexion RH.' });
+      return;
+    }
+    const lignes: BonusAllocationInput[] = sim.rows.map((r) => {
+      const l = byId.get(r.employeId)!;
+      return {
+        employeeId: r.employeId, scorePct: r.scorePct,
+        part: l.brut.toInt(), brut: l.brut.toInt(), final: l.final.toInt(),
+        borne: l.borne ?? null, formule: r.fiche.formuleDsl ?? null,
+      };
+    });
+    try {
+      const res = await persistBonus.mutateAsync({ annee: CAMPAIGN_YEAR, montant, mode, lignes });
+      setSaved(res); setSavedKey(paramsKey);
+      toast({ variant: 'success', title: 'Simulation enregistrée', description: `${res.allocations.length} allocations · enveloppe en brouillon.` });
+    } catch (e) {
+      toast({ variant: 'error', title: "Échec de l'enregistrement", description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
+
+  /** Valide la décision (direction) → calculs validés, enveloppe clôturée, vue employé ouverte. */
+  const handleCommit = async () => {
+    if (!isBackendConfigured) { setGated(true); toast({ variant: 'info', title: 'Mode démo', description: 'Validation simulée (non persistée).' }); return; }
+    if (!isSavedCurrent || !saved) { toast({ variant: 'warning', title: 'Enregistrez d’abord', description: 'Figez la simulation avant de la valider.' }); return; }
+    try {
+      const res = await commitBonus.mutateAsync({ campaignId: saved.campaignId, allocations: saved.allocations });
+      if (res.errors.length) { toast({ variant: 'error', title: 'Validation partielle', description: `${res.errors.length} erreur(s).` }); return; }
+      setGated(true);
+      toast({ variant: 'success', title: 'Décision validée', description: `${res.committed.length} bonus validés · enveloppe clôturée.` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Échec de la validation', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
   const empLigne = byId.get(empSel);
   const empRow = sim.rows.find((r) => r.employeId === empSel);
   const emp = employeeById(empSel);
@@ -38,9 +94,17 @@ export function CockpitBonusPage() {
             SCORE = score <b>validé</b> de la campagne (§9) · calcul déterministe <b>Money.ts</b> (zéro décimale, R5)
           </p>
         </div>
-        <StatusPill tone={gated ? 'ok' : 'warn'} dot>
-          {gated ? 'Enveloppe validée — affichée' : 'Non figé — masqué aux employés (R6)'}
-        </StatusPill>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusPill tone={gated ? 'ok' : 'warn'} dot>
+            {gated ? 'Enveloppe validée — affichée' : 'Non figé — masqué aux employés (R6)'}
+          </StatusPill>
+          <Button variant="outline" size="sm" onClick={handleSave} disabled={persistBonus.isPending || isSavedCurrent}>
+            {persistBonus.isPending ? 'Enregistrement…' : isSavedCurrent ? 'Simulation figée ✓' : 'Enregistrer la simulation'}
+          </Button>
+          <Button size="sm" onClick={handleCommit} disabled={commitBonus.isPending || (isBackendConfigured && !isSavedCurrent)}>
+            {commitBonus.isPending ? 'Validation…' : 'Valider — direction'}
+          </Button>
+        </div>
       </div>
 
       {/* Contrôles direction (what-if §8) */}

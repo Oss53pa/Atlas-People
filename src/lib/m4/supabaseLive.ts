@@ -288,6 +288,300 @@ export function useEvaluateProbation() {
   });
 }
 
+/** Crée un dossier de départ dans m4_departures. */
+export function useCreateDeparture() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      type,
+      initiative,
+      reason,
+      notifiedAt,
+    }: {
+      employeeId: string;
+      type: string;
+      initiative?: string;
+      reason?: string;
+      notifiedAt?: string;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const id = crypto.randomUUID();
+      const today = new Date().toISOString().slice(0, 10);
+      const ref = `DEP-${new Date().toISOString().slice(2, 7).replace('-', '')}-${id.slice(0, 8).toUpperCase()}`;
+      const { error } = await sb.schema('atlas_people').from('m4_departures').insert({
+        id,
+        tenant_id: ctx.tenantId,
+        employee_id: employeeId,
+        ref,
+        type,
+        initiative: initiative ?? null,
+        reason: reason ?? null,
+        notified_at: notifiedAt ?? today,
+        status: 'draft',
+        initiated_by: ctx.userId,
+      });
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'departure.create',
+        entity: 'm4_departures', entityId: id,
+        payload: { type, ref, employeeId },
+        surface: 'backoffice',
+      });
+      return { id, ref };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-departures'] });
+      qc.invalidateQueries({ queryKey: ['m4-live'] });
+    },
+  });
+}
+
+/** Crée un avenant dans m4_contract_amendments. */
+export function useCreateAmendment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      categoryCode,
+      typeLabel,
+      objet,
+      effectiveDate,
+      payrollDeltaCents,
+    }: {
+      employeeId: string;
+      categoryCode: string;
+      typeLabel: string;
+      objet?: string;
+      effectiveDate?: string;
+      payrollDeltaCents?: number;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const id = crypto.randomUUID();
+      const ref = `AVN-${new Date().toISOString().slice(2, 7).replace('-', '')}-${id.slice(0, 8).toUpperCase()}`;
+      const { error } = await sb.schema('atlas_people').from('m4_contract_amendments').insert({
+        id,
+        tenant_id: ctx.tenantId,
+        employee_id: employeeId,
+        ref,
+        category_code: categoryCode,
+        type_label: typeLabel,
+        objet: objet ?? null,
+        effective_date: effectiveDate ?? null,
+        payroll_delta: payrollDeltaCents ?? null,
+        status: 'draft',
+        initiated_by: ctx.userId,
+      });
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'amendment.create',
+        entity: 'm4_contract_amendments', entityId: id,
+        payload: { categoryCode, typeLabel, ref, employeeId },
+        surface: 'backoffice',
+      });
+      return { id, ref };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-admin2-raw'] });
+    },
+  });
+}
+
+/** Crée un dossier expatrié dans m4_expat_files. */
+export function useCreateExpatFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      category,
+      originCountry,
+      hostCountry,
+      missionType,
+      missionStart,
+      missionEnd,
+    }: {
+      employeeId: string;
+      category: string;
+      originCountry: string;
+      hostCountry: string;
+      missionType: string;
+      missionStart: string;
+      missionEnd?: string;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const id = crypto.randomUUID();
+      const { error } = await sb.schema('atlas_people').from('m4_expat_files').insert({
+        id,
+        tenant_id: ctx.tenantId,
+        employee_id: employeeId,
+        category,
+        origin_country: originCountry,
+        host_country: hostCountry,
+        mission_type: missionType,
+        mission_start: missionStart,
+        mission_end: missionEnd ?? null,
+      });
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'expat.create',
+        entity: 'm4_expat_files', entityId: id,
+        payload: { employeeId, category, originCountry, hostCountry, missionType },
+        surface: 'backoffice',
+      });
+      return id;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-admin2-raw'] });
+    },
+  });
+}
+
+/** Déclare une DPAE (Déclaration Préalable À l'Embauche) dans m4_legal_dpae. */
+export function useFileDpae() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      countryCode,
+      hireDate,
+      organisme,
+    }: {
+      employeeId: string;
+      countryCode: string;
+      hireDate: string;
+      organisme?: string;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const id = crypto.randomUUID();
+      const { error } = await sb.schema('atlas_people').from('m4_legal_dpae').insert({
+        id,
+        tenant_id: ctx.tenantId,
+        employee_id: employeeId,
+        country_code: countryCode,
+        organisme: organisme ?? 'CNPS',
+        hire_date: hireDate,
+        status: 'to_submit',
+      });
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'dpae.create',
+        entity: 'm4_legal_dpae', entityId: id,
+        payload: { employeeId, countryCode, hireDate, organisme: organisme ?? 'CNPS' },
+        surface: 'backoffice',
+      });
+      return id;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-admin2-raw'] });
+    },
+  });
+}
+
+/** Crée une période d'essai dans m4_probation_periods. */
+export function useCreateProbationPeriod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      contractType,
+      category,
+      durationMonths,
+      startDate,
+    }: {
+      employeeId: string;
+      contractType: string;
+      category?: string;
+      durationMonths: number;
+      startDate: string;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const id = crypto.randomUUID();
+      const endDate = (() => {
+        const dt = new Date(startDate);
+        dt.setMonth(dt.getMonth() + durationMonths);
+        return dt.toISOString().slice(0, 10);
+      })();
+      const { error } = await sb.schema('atlas_people').from('m4_probation_periods').insert({
+        id,
+        tenant_id: ctx.tenantId,
+        employee_id: employeeId,
+        contract_type: contractType,
+        category: category ?? null,
+        duration_months: durationMonths,
+        start_date: startDate,
+        end_date: endDate,
+        decision: 'pending',
+      });
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'probation.create',
+        entity: 'm4_probation_periods', entityId: id,
+        payload: { employeeId, contractType, durationMonths, startDate, endDate },
+        surface: 'backoffice',
+      });
+      return { id, endDate };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-admin2-raw'] });
+      qc.invalidateQueries({ queryKey: ['m4-live'] });
+    },
+  });
+}
+
+/** Crée un mandat de représentation du personnel dans m4_representation_mandates. */
+export function useCreateRepresentationMandate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      employeeId,
+      type,
+      mode,
+      startDate,
+      endDate,
+      delegationHours,
+    }: {
+      employeeId: string;
+      type: string;
+      mode: 'elu' | 'designe';
+      startDate: string;
+      endDate?: string;
+      delegationHours?: number;
+    }) => {
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
+      const id = crypto.randomUUID();
+      const { error } = await sb.schema('atlas_people').from('m4_representation_mandates').insert({
+        id,
+        tenant_id: ctx.tenantId,
+        employee_id: employeeId,
+        type,
+        mode,
+        start_date: startDate,
+        end_date: endDate ?? null,
+        delegation_hours: delegationHours ?? null,
+        protected_until: endDate ?? null,
+        status: 'active',
+      });
+      if (error) throw mapSupabaseError(error);
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'mandate.create',
+        entity: 'm4_representation_mandates', entityId: id,
+        payload: { employeeId, type, mode, startDate },
+        surface: 'backoffice',
+      });
+      return id;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['m4-admin2-raw'] });
+    },
+  });
+}
+
 /** Génère un document RH officiel via Edge Function generate-hr-document. */
 export function useGenerateHrDocument() {
   const qc = useQueryClient();

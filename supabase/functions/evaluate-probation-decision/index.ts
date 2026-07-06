@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     // 5. Enregistrement de la décision
     const { error: upErr, count } = await svc
       .from('m4_probation_periods')
-      .update({ decision, decision_notified_at: now.slice(0, 10) })
+      .update({ decision, decision_notified_at: now.slice(0, 10) }, { count: 'exact' })
       .eq('id', probationId).eq('tenant_id', caller.tenantId).is('decision', null);
     if (upErr) return json({ error: { code: 'WRITE_ERROR', message: upErr.message } }, 500);
     if ((count ?? 0) === 0) return json({ error: { code: 'NO_ROWS_AFFECTED', message: 'Aucune mise à jour — décision déjà présente ?' } }, 409);

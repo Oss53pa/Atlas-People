@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, AlertTriangle, Brain, Activity, BookOpen, Landmark,
   Stethoscope, BadgeCheck, FileSearch, ShieldAlert, Archive, Settings,
+  Users, BarChart3, Siren,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
@@ -19,6 +20,9 @@ const ITEMS = [
   { to: '/conformite/audits',         label: 'Audits',          icon: FileSearch,      end: false },
   { to: '/conformite/inspections',    label: 'Inspections',     icon: ShieldAlert,     end: false },
   { to: '/conformite/conservation',   label: 'Conservation',    icon: Archive,         end: false },
+  { to: '/conformite/gouvernance',    label: 'Gouvernance',     icon: Users,           end: false },
+  { to: '/conformite/reporting',      label: 'Reporting',       icon: BarChart3,       end: false },
+  { to: '/conformite/alertes',        label: 'Alertes',         icon: Siren,           end: false },
   { to: '/conformite/parametres',     label: 'Paramètres',      icon: Settings,        end: false },
 ];
 
