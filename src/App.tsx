@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
@@ -245,6 +246,12 @@ import {
   GouvernanceOkrPage, IntegrationOkrPage, AuditOkrPage,
 } from './pages/okr/OkrEnrichmentPages';
 import { ComingSoonPage } from './pages/ComingSoonPage';
+import { SSOAuthPage } from './pages/SSOAuthPage';
+
+function SSORedirect() {
+  useEffect(() => { window.location.replace('https://atlas-studio.org/portal'); }, []);
+  return null;
+}
 import { CockpitPerformancePage } from './pages/performance/CockpitPerformancePage';
 import { CockpitBonusPage } from './pages/bonus/CockpitBonusPage';
 import { ReadinessPage } from './pages/competences/ReadinessPage';
@@ -276,8 +283,10 @@ function App() {
   return (
     <Routes>
       {/* Auth — hors AppLayout */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/auth/invitation" element={<LoginPage />} />
+      {/* /login redirige vers le portail Atlas Studio (seul point d'entrée) */}
+      <Route path="/login" element={<SSORedirect />} />
+      <Route path="/auth/invitation" element={<SSORedirect />} />
+      <Route path="/auth" element={<SSOAuthPage />} />
       {/* Pages "marketing/welcome" hors AppLayout (sans sidebar / sans topbar) */}
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/accueil" element={<ProtectedRoute><WelcomeCockpitPage /></ProtectedRoute>} />

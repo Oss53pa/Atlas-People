@@ -1,0 +1,2 @@
+[functions.atlas-sso]
+verify_jwt = false

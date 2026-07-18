@@ -173,7 +173,7 @@ export function useDecideExpenseClaim() {
       if (!data || data.length === 0) throw new NoRowsAffectedError('decideExpenseClaim');
       await appendAuditEntry({
         tenantId, actorId: ctx.userId, action: `expense.${decision === 'refused' ? 'refused' : 'manager_approved'}`,
-        entity: 'expense_claims', entityId: claimId, payload: { decision, motif: motif ?? null }, surface: 'mss',
+        entity: 'expense_claims', entityId: claimId, payload: { decision }, surface: 'mss',
       });
     },
     onSuccess: (_, vars) => {
@@ -639,7 +639,7 @@ export function useCreateDelegation() {
         created_by: ctx.employeeId,
       }).select('id').single();
       if (error) throw mapSupabaseError(error);
-      await appendAuditEntry({ tenantId: v.tenantId, actorId: ctx.userId, action: 'delegation.created', entity: 'manager_delegations', entityId: data.id as string, payload: { delegate: v.delegateName, scope: v.scope }, surface: 'mss' });
+      await appendAuditEntry({ tenantId: v.tenantId, actorId: ctx.userId, action: 'delegation.created', entity: 'manager_delegations', entityId: data.id as string, payload: { delegate_employee_id: v.delegateEmployeeId ?? v.delegateName, scope: v.scope }, surface: 'mss' });
       return data;
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['mss-delegations', v.tenantId] }),

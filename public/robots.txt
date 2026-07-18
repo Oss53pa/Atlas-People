@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /auth
+Disallow: /admin
+Disallow: /accueil
+Disallow: /paie
+Disallow: /employes
+Disallow: /recrutement
+Disallow: /conformite
+Disallow: /espace
+Allow: /landing
+Allow: /

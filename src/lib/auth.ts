@@ -126,10 +126,12 @@ function initAuthListener() {
 
     if (data) {
       useAuthStore.getState()._setTenantRole(data.tenant_id as string, data.role as AppRole);
-    } else {
-      // Pas d'appartenance → fallback démo
+    } else if (!isBackendConfigured) {
+      // Demo mode uniquement — jamais sur un backend réel
       useAuthStore.getState()._setTenantRole(DEMO_TENANT, 'hr');
     }
+    // Backend configuré + pas de membership → tenantId reste null
+    // resolveSessionContext() lèvera IdentityUnresolvedError sur toute écriture
   }
 
   supabase.auth.getSession().then(({ data: { session } }) => {
@@ -144,7 +146,7 @@ function initAuthListener() {
     useAuthStore.getState()._setLoading(false);
     if (session?.user) {
       resolveTenant(session.user.id);
-    } else {
+    } else if (!isBackendConfigured) {
       useAuthStore.getState()._setTenantRole(DEMO_TENANT, 'hr');
     }
   });

@@ -526,7 +526,7 @@ export function useSubmitExpenseClaim() {
         action: 'expense.create',
         entity: 'expense_claims',
         entityId: data.id as string,
-        payload: { amount: Math.round(vars.amount), category: vars.category },
+        payload: { category: vars.category },
         surface: 'ess',
       });
       return data;
