@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, Zap, Play, Sparkles, Moon,
+  ArrowRight, ArrowUpRight, Zap, Play, Sparkles, Moon,
   Users, CalendarClock, Wallet, ReceiptText, Briefcase,
   Rocket, Target, Gauge, Network, Route as RouteIcon, GraduationCap,
   ShieldCheck, LayoutGrid, Check, ChevronDown, Mail,
