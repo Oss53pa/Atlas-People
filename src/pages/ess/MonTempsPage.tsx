@@ -21,7 +21,6 @@ import {
 } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
 
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info'> = {
@@ -38,13 +37,15 @@ export function MonTempsPage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
+
   const employee = employeeById(SELF_ID)!;
   const requests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
   const clockings = useClocking((s) => s.clockings).filter((c) => c.employeeId === SELF_ID);
   const balance = useMemo(() => computeSelfLeaveBalance(employee, requests), [employee, requests]);
 
   // ── Couche live S4 (repli mock si absente) ──────────────────────────────
-  const { data: ctx } = useSessionContext();
   const { data: liveBalances } = useMyLeaveBalances(ctx?.tenantId, ctx?.employeeId);
   const { data: liveClockings } = useMyClockings(ctx?.tenantId, ctx?.employeeId);
   const { data: livePlanning } = useMyPlanning(ctx?.tenantId, ctx?.employeeId);

@@ -10,7 +10,7 @@ import { SettingsSubNav } from '../../components/mss/SettingsSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
-import { scopedTeam, MANAGER_ID } from '../../lib/mss/scope';
+import { scopedTeam } from '../../lib/mss/scope';
 import { employeeName } from '../../data/mock';
 import { useSessionContext } from '../../lib/useSession';
 import {
@@ -73,7 +73,7 @@ export function SettingsDelegationsPage() {
       try {
         await createLife.mutateAsync({
           tenantId: ctx.tenantId,
-          delegatorEmployeeId: empUuid(MANAGER_ID),
+          delegatorEmployeeId: ctx?.employeeId ?? empUuid('e1'),
           delegateEmployeeId: empUuid(chosen.id),
           delegateName: employeeName(chosen),
           scope: [...scope],

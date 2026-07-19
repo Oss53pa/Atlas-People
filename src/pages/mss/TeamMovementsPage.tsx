@@ -10,7 +10,7 @@ import { useDirectory } from '../../store/useDirectory';
 import { scopedTeam, DEPTH_LABEL } from '../../lib/mss/scope';
 import { employeeName, employeeCareer, type EmployeeRecord } from '../../data/mock';
 
-const TODAY = '2026-05-28';
+const TODAY = new Date().toISOString().slice(0, 10);
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 const monthsBetween = (a: string, b: string) => (new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24 * 30.4);
 

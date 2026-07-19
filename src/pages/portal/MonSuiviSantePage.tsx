@@ -12,7 +12,6 @@ import { cn } from '../../lib/cn';
 import { useMyMedical, isBackendConfigured } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 const frDay = (d: string) => new Date(d + 'T00:00').toLocaleDateString('fr-FR');
 
@@ -41,6 +40,7 @@ export function MonSuiviSantePage() {
   const { toast } = useToast();
   const [tab, setTab] = useState('overview');
   const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const { data: liveMedical } = useMyMedical(ctx?.tenantId, ctx?.employeeId);
   const hasLive = isBackendConfigured && !!liveMedical;
   const employee = employeeById(SELF_ID)!;

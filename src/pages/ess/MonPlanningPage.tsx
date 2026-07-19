@@ -15,7 +15,6 @@ import { cn } from '../../lib/cn';
 import { isBackendConfigured, useMyPlanning } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
 
 interface Day {
@@ -40,6 +39,8 @@ export function MonPlanningPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const { toast } = useToast();
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const employee = employeeById(SELF_ID)!;
   const requests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID && r.status === 'approved');
   const fer = holidaySet(employee.countryCode);
@@ -47,8 +48,6 @@ export function MonPlanningPage() {
   const [view, setView] = useState<'week' | 'list'>('week');
   const [weekOffset, setWeekOffset] = useState(0);
   const [selected, setSelected] = useState<Day | null>(null);
-
-  const { data: ctx } = useSessionContext();
   const { data: livePlanning } = useMyPlanning(ctx?.tenantId, ctx?.employeeId);
   const planningLive = isBackendConfigured && livePlanning && livePlanning.length > 0 ? livePlanning : undefined;
   const PLAN_TONE: Record<string, 'ok' | 'neutral' | 'amber' | 'info'> = { confirmed: 'ok', planned: 'info', swapped: 'amber', absent: 'neutral' };

@@ -15,7 +15,7 @@ import { LEAVE_CATALOG, leaveTypeByCode } from '../../lib/m2/leaveTypes';
 import { employeeName, employeeById } from '../../data/mock';
 import { DEMO_USER } from '../../app/spaces';
 
-const TODAY = '2026-05-28';
+const TODAY = new Date().toISOString().slice(0, 10);
 const SELECTABLE = LEAVE_CATALOG.filter((t) => t.approvalCircuit !== 'automatic');
 
 export function TeamAbsencePage() {

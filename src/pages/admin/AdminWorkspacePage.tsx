@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
-type AdminTab = 'tenant' | 'users' | 'settings' | 'security';
+type AdminTab = 'apps' | 'tenant' | 'users' | 'settings' | 'security';
 
 interface UserRow {
   id: string;
@@ -66,10 +66,84 @@ const STATUS_META: Record<UserRow['status'], { label: string; tone: string }> = 
 };
 
 const TABS: { key: AdminTab; label: string; icon: typeof Building2 }[] = [
+  { key: 'apps',     label: 'Applications',      icon: LayoutGrid },
   { key: 'tenant',   label: 'Entreprise',        icon: Building2 },
   { key: 'users',    label: 'Utilisateurs',      icon: Users },
   { key: 'settings', label: 'Paramètres app',    icon: Settings2 },
   { key: 'security', label: 'Sécurité & audit',  icon: Shield },
+];
+
+interface AtlasApp {
+  key: string;
+  label: string;
+  sub: string;
+  description: string;
+  version: string;
+  accent: string;          // Tailwind bg class active chip
+  accentText: string;      // Tailwind text class
+  accentBorder: string;
+  accentBg: string;
+  status: 'active' | 'beta' | 'soon';
+  to?: string;
+  landingTo?: string;
+  modules: string[];
+}
+
+const ATLAS_APPS: AtlasApp[] = [
+  {
+    key: 'people',
+    label: 'Atlas People',
+    sub: 'SIRH RH · OHADA',
+    description: 'Gestion RH complète — 14 modules de l\'embauche à la sortie. Paie déterministe, OKR, formation FDFP, conformité SST, cockpit DRH unifié.',
+    version: 'v1.0 · 14 modules',
+    accent: 'bg-amber-600',
+    accentText: 'text-amber-700',
+    accentBorder: 'border-amber-300',
+    accentBg: 'bg-amber-50',
+    status: 'active',
+    to: '/',
+    landingTo: '/landing',
+    modules: ['M1 Collaborateurs', 'M2 Temps & absences', 'M3 Paie', 'M5 Recrutement', 'M7 OKR', 'M8 Évaluations', 'M9 Compétences', 'M10 Carrières', 'M11 Formation', 'M12 Conformité & SST', 'M13 Cockpit DRH'],
+  },
+  {
+    key: 'fna',
+    label: 'Atlas Finance & Accounting',
+    sub: 'ERP Comptable · SYSCOHADA',
+    description: 'Comptabilité africaine SYSCOHADA révisé 2017. Journaux, grand livre, bilan, TAFIRE, fiscalité automatique, trésorerie & banque, rapprochement.',
+    version: 'v1.0 · 8 modules',
+    accent: 'bg-teal-600',
+    accentText: 'text-teal-700',
+    accentBorder: 'border-teal-300',
+    accentBg: 'bg-teal-50',
+    status: 'active',
+    modules: ['Comptabilité SYSCOHADA', 'États financiers', 'Fiscalité automatique', 'Trésorerie & banque', 'IA Proph3t', 'Multi-devises', 'Multi-sociétés', 'Audit trail SHA-256'],
+  },
+  {
+    key: 'analytics',
+    label: 'Atlas Analytics',
+    sub: 'BI & Reporting',
+    description: 'Tableau de bord croisé People + FnA. Rapports décisionnels, consolidation multi-entités, export DSIR et liasse OHADA automatisée.',
+    version: 'Bêta Q3 2026',
+    accent: 'bg-violet-600',
+    accentText: 'text-violet-700',
+    accentBorder: 'border-violet-300',
+    accentBg: 'bg-violet-50',
+    status: 'soon',
+    modules: ['Dashboards croisés', 'Consolidation multi-entités', 'Export DSIR', 'BI temps réel'],
+  },
+  {
+    key: 'payroll',
+    label: 'Atlas Payroll Bureau',
+    sub: 'Bureau de paie · multi-clients',
+    description: 'Plateforme multi-tenant pour cabinets de paie. Gestion simultanée de plusieurs entreprises clientes, bulletins en lot, DSN consolidée.',
+    version: 'Bêta Q4 2026',
+    accent: 'bg-blue-600',
+    accentText: 'text-blue-700',
+    accentBorder: 'border-blue-300',
+    accentBg: 'bg-blue-50',
+    status: 'soon',
+    modules: ['Multi-clients', 'Bulletins en lot', 'DSN consolidée', 'Reporting cabinet'],
+  },
 ];
 
 interface Workspace {
@@ -90,7 +164,7 @@ const WORKSPACES: Workspace[] = [
 ];
 
 export function AdminWorkspacePage() {
-  const [tab, setTab] = useState<AdminTab>('users');
+  const [tab, setTab] = useState<AdminTab>('apps');
   const [search, setSearch] = useState('');
   const [wsOpen, setWsOpen] = useState(false);
   const wsRef = useRef<HTMLDivElement>(null);
@@ -283,6 +357,7 @@ export function AdminWorkspacePage() {
 
       {/* ───────── Tab panels ───────── */}
       <section className="mx-auto max-w-7xl px-6 py-6">
+        {tab === 'apps' && <AppsPanel />}
         {tab === 'tenant' && <TenantPanel />}
         {tab === 'users' && (
           <UsersPanel
@@ -319,6 +394,88 @@ export function AdminWorkspacePage() {
 /* ──────────────────────────────────────────────────────────────────
  * Panneaux
  * ────────────────────────────────────────────────────────────────── */
+
+function AppsPanel() {
+  const STATUS_CHIP: Record<AtlasApp['status'], { label: string; cls: string }> = {
+    active: { label: 'Actif',       cls: 'bg-emerald-100 text-emerald-700' },
+    beta:   { label: 'Bêta',        cls: 'bg-amber-100 text-amber-700' },
+    soon:   { label: 'Bientôt',     cls: 'bg-slate-100 text-slate-500' },
+  };
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Suite Atlas Studio · {ATLAS_APPS.length} applications</p>
+        <p className="mt-1 text-[13px] font-medium text-slate-500">
+          Chaque application partage le même tenant, le même SSO et le même audit SHA-256. Le compte actuel a accès aux applications marquées <strong className="text-slate-700">Actif</strong>.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {ATLAS_APPS.map((app) => {
+          const chip = STATUS_CHIP[app.status];
+          const isActive = app.status === 'active';
+          return (
+            <div key={app.key} className={cn(
+              'flex flex-col rounded-2xl border bg-white shadow-sm transition-shadow',
+              isActive ? `${app.accentBorder} hover:shadow-md` : 'border-slate-200 opacity-70',
+            )}>
+              {/* Header */}
+              <div className={cn('flex items-start justify-between rounded-t-2xl px-5 py-4', isActive ? app.accentBg : 'bg-slate-50')}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('inline-block h-2.5 w-2.5 rounded-full', app.accent)} />
+                    <h3 className={cn('text-[15px] font-bold', isActive ? app.accentText : 'text-slate-700')}>{app.label}</h3>
+                  </div>
+                  <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{app.sub}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="mono text-[10px] font-bold text-slate-400">{app.version}</span>
+                  <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold', chip.cls)}>{chip.label}</span>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="flex flex-1 flex-col gap-4 p-5">
+                <p className="text-[13px] font-medium leading-relaxed text-slate-600">{app.description}</p>
+
+                <div className="flex flex-wrap gap-1">
+                  {app.modules.slice(0, 6).map((m) => (
+                    <span key={m} className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{m}</span>
+                  ))}
+                  {app.modules.length > 6 && (
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400">+{app.modules.length - 6} autres</span>
+                  )}
+                </div>
+
+                {isActive && (
+                  <div className="mt-auto flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                    {app.to && (
+                      <Link to={app.to}
+                        className={cn('inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[12px] font-bold text-white shadow-sm transition-shadow hover:shadow-md', app.accent)}>
+                        <ExternalLink size={13} /> Ouvrir l'application
+                      </Link>
+                    )}
+                    {app.landingTo && (
+                      <Link to={app.landingTo}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50">
+                        <ExternalLink size={13} /> Landing page
+                      </Link>
+                    )}
+                  </div>
+                )}
+                {!isActive && (
+                  <div className="mt-auto border-t border-slate-100 pt-4">
+                    <span className="text-[12px] font-medium text-slate-400">Disponible prochainement · rejoignez la liste d'attente</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function TenantPanel() {
   return (

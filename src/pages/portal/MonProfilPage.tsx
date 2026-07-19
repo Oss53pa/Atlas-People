@@ -29,8 +29,6 @@ import {
 } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
-
 const MEMBER_TYPE_LABEL: Record<string, string> = { spouse: 'Conjoint(e)', child: 'Enfant', ascendant: 'Ascendant', other_dependent: 'Autre ayant droit' };
 const ADDRESS_TYPE_LABEL: Record<string, string> = { residence_primary: 'Résidence principale', residence_secondary: 'Résidence secondaire', family_home: 'Domicile familial', fiscal: 'Fiscale', billing: 'Facturation', temporary: 'Temporaire' };
 const PHONE_TYPE_LABEL: Record<string, string> = { primary: 'Principal', secondary: 'Secondaire', professional: 'Professionnel', landline: 'Fixe', family: 'Famille', emergency: 'Urgence' };
@@ -66,6 +64,7 @@ export function MonProfilPage() {
   const [tab, setTab] = useState('identite');
   const { toast } = useToast();
   const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const { data: liveProfile } = useMyProfile(ctx?.tenantId, ctx?.employeeId);
   const hasLive = isBackendConfigured && !!liveProfile;
 

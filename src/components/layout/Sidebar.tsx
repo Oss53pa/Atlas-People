@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom';
-import { X, ShieldCheck } from 'lucide-react';
+import { NavLink, Link } from 'react-router-dom';
+import { X, ShieldCheck, Settings2, ExternalLink } from 'lucide-react';
 import { Brand } from '../ui/Brand';
 import { NAV } from '../../app/nav';
 import { useAppStore } from '../../store/useAppStore';
@@ -95,8 +95,20 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* Footer souveraineté */}
-        <div className="border-t border-line px-4 py-3">
+        {/* Footer */}
+        <div className="border-t border-line px-4 py-3 space-y-2">
+          {/* Lien console Atlas Studio */}
+          <Link
+            to="/admin"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-2.5 rounded-xl border border-line bg-surface px-3 py-2.5 text-[12px] font-semibold text-ink-500 transition-colors hover:border-amber-deep/30 hover:bg-amber/[0.04] hover:text-ink"
+          >
+            <Settings2 size={15} className="shrink-0 text-ink-400" />
+            <span className="flex-1">Console Atlas Studio</span>
+            <ExternalLink size={11} className="text-ink-300" />
+          </Link>
+
+          {/* Souveraineté */}
           <div className="flex items-center gap-2.5 rounded-xl bg-ok/[0.06] px-3 py-2.5">
             <ShieldCheck size={18} className="shrink-0 text-ok" strokeWidth={2.2} />
             <div className="leading-tight">

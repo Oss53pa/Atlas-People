@@ -24,7 +24,7 @@ interface ViewRow {
   code: string; start: string; end: string; countedDays: number; status: string;
 }
 
-const TODAY = '2026-05-28';
+const TODAY = new Date().toISOString().slice(0, 10);
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 const daysUntil = (iso: string) => Math.round((new Date(`${iso}T00:00:00`).getTime() - new Date(`${TODAY}T00:00:00`).getTime()) / 86400000);
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info'> = { pending: 'warn', approved: 'ok', refused: 'danger', info_requested: 'info' };

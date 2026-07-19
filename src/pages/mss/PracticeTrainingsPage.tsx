@@ -7,7 +7,6 @@ import { PracticeSubNav } from '../../components/mss/PracticeSubNav';
 import { useSurface } from '../../store/useSurface';
 import { MANAGER_TRAININGS } from '../../lib/mss/practice';
 import { isBackendConfigured, empUuid, useManagerOwnPractice } from '../../lib/mss/supabaseLive';
-import { MANAGER_ID } from '../../lib/mss/scope';
 import { useSessionContext } from '../../lib/useSession';
 
 const TRAINING_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info' | 'neutral'> = {
@@ -22,7 +21,7 @@ export function PracticeTrainingsPage() {
   useEffect(() => { setSurface('mss'); }, [setSurface]);
 
   const { data: ctx } = useSessionContext();
-  const { data: live } = useManagerOwnPractice(ctx?.tenantId, empUuid(MANAGER_ID));
+  const { data: live } = useManagerOwnPractice(ctx?.tenantId, ctx?.employeeId ?? empUuid('e1'));
   const liveTrainings = isBackendConfigured && live && live.trainings.length > 0 ? live.trainings : null;
 
   return (

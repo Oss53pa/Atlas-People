@@ -13,7 +13,6 @@ import { cn } from '../../lib/cn';
 import { isBackendConfigured, useMyOvertime } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const fmtH = (n: number) => `${Math.floor(n)}h${n % 1 ? String(Math.round((n % 1) * 60)).padStart(2, '0') : '00'}`;
 
@@ -29,11 +28,11 @@ export function MesHeuresSupPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const { toast } = useToast();
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const records = useOvertime((s) => s.records).filter((r) => r.employeeId === SELF_ID);
   const declare = useOvertime((s) => s.declare);
   const setPreference = useOvertime((s) => s.setPreference);
-
-  const { data: ctx } = useSessionContext();
   const { data: liveOvertime } = useMyOvertime(ctx?.tenantId, ctx?.employeeId);
   const overtimeLive = isBackendConfigured && liveOvertime && liveOvertime.length > 0 ? liveOvertime : undefined;
 

@@ -11,7 +11,7 @@ import { RecruitmentSubNav } from '../../components/mss/RecruitmentSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
-import { scopedTeamIds, MANAGER_ID } from '../../lib/mss/scope';
+import { scopedTeamIds } from '../../lib/mss/scope';
 import { recruitmentRequests, REQUEST_STATUS_META, REQUEST_TYPES, REQUEST_URGENCY, frDate, daysSince } from '../../lib/mss/recruit';
 import { isBackendConfigured, useTeamJobs } from '../../lib/mss/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
@@ -46,7 +46,7 @@ export function TeamRecruitmentRequestsPage() {
     const inScope = (hmId: string | null) => {
       if (!hmId) return false;
       const eid = mockEmpId(hmId);
-      return teamIds.has(eid) || eid === MANAGER_ID;
+      return teamIds.has(eid) || eid === (ctx?.employeeId ?? 'e1');
     };
     const mine = liveJobs!.filter((j) => inScope(j.hiring_manager_id));
     return mine.length > 0 ? mine : liveJobs!;

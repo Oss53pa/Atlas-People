@@ -27,12 +27,14 @@ import {
 import { useMyBulletins } from '../../lib/ess/supabaseLive';
 import { useMyServiceRequests } from '../../lib/ess/serviceRequestsLive';
 
-const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
 
 export function PortalHomePage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('ess'); }, [setSurface]);
+
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
 
   const employee = employeeById(SELF_ID)!;
   const regime = getRegime(employee.countryCode);
@@ -83,7 +85,6 @@ export function PortalHomePage() {
   ];
 
   // ── Couche live Supabase (repli mock ci-dessus si backend absent) ──────
-  const { data: ctx } = useSessionContext();
   const { data: liveBulletins } = useMyBulletins(ctx?.tenantId, ctx?.employeeId);
   const { data: liveBalances } = useMyLeaveBalances(ctx?.tenantId, ctx?.employeeId);
   const { data: liveObjectives } = useMyObjectives(ctx?.tenantId, ctx?.employeeId);

@@ -18,7 +18,7 @@ import { isBackendConfigured, useTeamServiceRequests } from '../../lib/mss/supab
 import { useSessionContext } from '../../lib/useSession';
 import { mockEmpId } from '../../lib/m1/roster';
 
-const TODAY = '2026-05-28';
+const TODAY = new Date().toISOString().slice(0, 10);
 const daysSince = (iso: string) => Math.round((new Date(`${TODAY}T00:00:00`).getTime() - new Date(`${iso}T00:00:00`).getTime()) / 86400000);
 const CAT_LABEL: Record<string, string> = { career: 'RDV de carrière', time: 'Question temps', document: 'Document', remuneration: 'Rémunération', administrative: 'Administratif', rgpd: 'RGPD' };
 const frDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR');

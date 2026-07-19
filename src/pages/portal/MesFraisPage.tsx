@@ -17,10 +17,9 @@ import { cn } from '../../lib/cn';
 import { useMyExpenseClaims, useSubmitExpenseClaim, isBackendConfigured } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
-const SELF_CUR = employeeCurrency(employeeById(SELF_ID)!);
+const SELF_CUR_DEFAULT = employeeCurrency(employeeById('e2')!);
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
-const fmt = (n: number) => Money.of(n, SELF_CUR).format();
+const fmt = (n: number, cur = SELF_CUR_DEFAULT) => Money.of(n, cur).format();
 
 const STATUS_TONE: Record<ExpenseReportStatus, 'ok' | 'warn' | 'danger' | 'info' | 'neutral'> = {
   draft: 'neutral', submitted: 'warn', manager_approved: 'info', finance_approved: 'info', reimbursed: 'ok', refused: 'danger',
@@ -50,6 +49,8 @@ export function MesFraisPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
   const { toast } = useToast();
   const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
+  const SELF_CUR = employeeCurrency(employeeById(SELF_ID) ?? employeeById('e2')!);
   const { data: liveClaims } = useMyExpenseClaims(ctx?.tenantId, ctx?.employeeId);
   const submitClaim = useSubmitExpenseClaim();
   const hasLive = isBackendConfigured && !!liveClaims && liveClaims.length > 0;

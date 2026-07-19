@@ -21,7 +21,6 @@ import {
 } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'amber' | 'neutral'> = { unread: 'amber', action_required: 'amber', read: 'neutral', signed: 'ok', acknowledged: 'ok', archived: 'neutral' };
@@ -58,6 +57,8 @@ export function MonCourrierPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const { toast } = useToast();
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const items = useCorrespondence((s) => s.items).filter((c) => c.employeeId === SELF_ID);
   const markRead = useCorrespondence((s) => s.markRead);
   const sign = useCorrespondence((s) => s.sign);
@@ -65,7 +66,6 @@ export function MonCourrierPage() {
   const confirmAttendance = useCorrespondence((s) => s.confirmAttendance);
   const archive = useCorrespondence((s) => s.archive);
 
-  const { data: ctx } = useSessionContext();
   const { data: liveItems } = useMyCorrespondence(ctx?.tenantId, ctx?.employeeId);
   const markReadLive = useMarkCorrespondenceRead();
   const acknowledgeLive = useAcknowledgeCorrespondence();

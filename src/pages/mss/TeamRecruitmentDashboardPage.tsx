@@ -8,7 +8,7 @@ import { RecruitmentSubNav } from '../../components/mss/RecruitmentSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
-import { scopedTeam, scopedTeamIds, MANAGER_ID } from '../../lib/mss/scope';
+import { scopedTeam, scopedTeamIds } from '../../lib/mss/scope';
 import { recruitmentRequests, candidatePipeline, newcomers, leavers, frDate } from '../../lib/mss/recruit';
 import { employeeName } from '../../data/mock';
 import { isBackendConfigured, useTeamJobs, useTeamApplications } from '../../lib/mss/supabaseLive';
@@ -42,7 +42,7 @@ export function TeamRecruitmentDashboardPage() {
   const inScope = (hmId: string | null | undefined) => {
     if (!hmId) return false;
     const eid = mockEmpId(hmId);
-    return teamIds.has(eid) || eid === MANAGER_ID;
+    return teamIds.has(eid) || eid === (ctx?.employeeId ?? 'e1');
   };
   const scopedJobs = useMemo(() => {
     if (!hasLive) return [];

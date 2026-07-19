@@ -14,7 +14,7 @@ import { isBackendConfigured, useTeamClockings } from '../../lib/mss/supabaseLiv
 import { useSessionContext } from '../../lib/useSession';
 import { mockEmpId } from '../../lib/m1/roster';
 
-const TODAY = '2026-05-28';
+const TODAY = new Date().toISOString().slice(0, 10);
 
 const clockingLabel = (t: string): string => {
   const k = t.toLowerCase();

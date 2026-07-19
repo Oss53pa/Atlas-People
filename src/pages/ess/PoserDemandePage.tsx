@@ -19,7 +19,6 @@ import { useSubmitLeaveRequest } from '../../lib/ess/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 import { isBackendConfigured } from '../../lib/supabase';
 
-const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
 // Types ouverts à la demande employé (la délégation est en E2.7 ; flux automatiques exclus)
 const SELECTABLE = LEAVE_CATALOG.filter((t) => t.approvalCircuit !== 'automatic');
@@ -30,6 +29,7 @@ export function PoserDemandePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const submitToDb = useSubmitLeaveRequest();
   const employee = employeeById(SELF_ID)!;
   const requests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);

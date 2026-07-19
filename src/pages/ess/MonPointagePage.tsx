@@ -13,8 +13,6 @@ import { cn } from '../../lib/cn';
 import { isBackendConfigured, useMyClockings } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
-
 function fmtTime(iso: string) { return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); }
 function fmtDay(iso: string) { return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }); }
 
@@ -36,10 +34,10 @@ export function MonPointagePage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const { toast } = useToast();
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const clockings = useClocking((s) => s.clockings).filter((c) => c.employeeId === SELF_ID);
   const clock = useClocking((s) => s.clock);
-
-  const { data: ctx } = useSessionContext();
   const { data: liveClockings } = useMyClockings(ctx?.tenantId, ctx?.employeeId);
   const clockingsLive = isBackendConfigured && liveClockings && liveClockings.length > 0 ? liveClockings : undefined;
   const CK_STATUS_TONE: Record<string, 'ok' | 'warn' | 'neutral'> = { verified: 'ok', to_verify: 'warn', pending: 'warn', rejected: 'neutral' };

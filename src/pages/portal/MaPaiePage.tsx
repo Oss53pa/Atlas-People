@@ -15,8 +15,6 @@ import { employeeById, employeeName, mobileMoney, employeeCompensation, employee
 import { useMyBulletins, isBackendConfigured } from '../../lib/ess/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
-
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
 const STATUS_LABEL_BUL: Record<string, string> = {
   calculated: 'Calculé', validated_n1: 'Validé N+1', validated_n2: 'Validé N+2',
@@ -36,6 +34,8 @@ export function MaPaiePage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const { toast } = useToast();
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const employee = employeeById(SELF_ID)!;
   const regime = getRegime(employee.countryCode);
   const computation = useMemo(() => computePayslip({ baseSalary: employee.baseSalary, taxableAllowances: employee.taxableAllowances, nonTaxableAllowances: employee.nonTaxableAllowances, fiscalParts: employee.fiscalParts, otherDeductions: employee.otherDeductions }, regime, employeeName(employee)), [employee, regime]);
@@ -47,7 +47,6 @@ export function MaPaiePage() {
 
   const [tab, setTab] = useState('bulletins');
   const [showSlip, setShowSlip] = useState<string | null>(null);
-  const { data: ctx } = useSessionContext();
   const { data: liveBulletins } = useMyBulletins(ctx?.tenantId, ctx?.employeeId);
 
   const attestations = useCorrespondence((s) => s.items).filter((c) => c.employeeId === SELF_ID && (c.type.startsWith('CUR-ATT') || c.typeLabel.toLowerCase().includes('attestation')));

@@ -12,7 +12,7 @@ import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { employeeName, employeeById } from '../../data/mock';
 
-const MONTH = '2026-05';
+const MONTH = new Date().toISOString().slice(0, 7);
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 const fmtH = (n: number) => `${Math.round(n * 10) / 10}h`;
 

@@ -14,7 +14,6 @@ import { cn } from '../../lib/cn';
 import { useMyServiceRequests, useCreateServiceRequest, isBackendConfigured } from '../../lib/ess/serviceRequestsLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
 
 const CATEGORY_LABEL: Record<RequestCategory, string> = {
@@ -47,6 +46,7 @@ export function MesDemandesPage() {
 
   const { toast } = useToast();
   const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const { data: liveRequests } = useMyServiceRequests(ctx?.tenantId, ctx?.employeeId);
   const createLive = useCreateServiceRequest();
   const mockRequests = useServiceRequests((s) => s.requests).filter((r) => r.employeeId === SELF_ID);

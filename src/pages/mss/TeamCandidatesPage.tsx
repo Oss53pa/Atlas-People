@@ -10,7 +10,7 @@ import { RecruitmentSubNav } from '../../components/mss/RecruitmentSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
-import { scopedTeamIds, MANAGER_ID } from '../../lib/mss/scope';
+import { scopedTeamIds } from '../../lib/mss/scope';
 import { candidatePipeline, STAGE_META, CANDIDATE_DECISIONS, type Stage } from '../../lib/mss/recruit';
 import { isBackendConfigured, useTeamApplications } from '../../lib/mss/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
@@ -38,7 +38,7 @@ export function TeamCandidatesPage() {
     const inScope = (hmId: string | undefined) => {
       if (!hmId) return false;
       const eid = mockEmpId(hmId);
-      return teamIds.has(eid) || eid === MANAGER_ID;
+      return teamIds.has(eid) || eid === (ctx?.employeeId ?? 'e1');
     };
     const mine = liveApps!.filter((a) => inScope(a.job_hiring_manager_id));
     return mine.length > 0 ? mine : liveApps!;

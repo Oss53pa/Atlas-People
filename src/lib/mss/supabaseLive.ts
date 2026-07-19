@@ -502,18 +502,19 @@ export interface TeamOvertimeRow {
   employee_last_name?: string;
 }
 
-/** Heures supplémentaires de l'équipe en attente de validation (status detected). */
-export function useTeamOvertime(tenantId = DEMO, status = 'detected') {
+/** Heures supplémentaires de l'équipe. status='all' pour ignorer le filtre. */
+export function useTeamOvertime(tenantId = DEMO, status: string | 'all' = 'detected') {
   return useQuery({
     queryKey: ['mss-overtime', tenantId, status],
     queryFn: async () => {
       if (!supabase) return [];
-      const { data, error } = await supabase.schema('atlas_people')
+      let q = supabase.schema('atlas_people')
         .from('overtime_records')
         .select('id,employee_id,work_date,hours,rate_pct,category,status,employees!employee_id(first_name,last_name)')
         .eq('tenant_id', tenantId)
-        .eq('status', status)
         .order('work_date', { ascending: false });
+      if (status !== 'all') q = (q as typeof q).eq('status', status);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []).map((r: Record<string, unknown>) => {
         const emp = r['employees'] as Record<string, string> | null;
@@ -748,6 +749,73 @@ export function useManagerOwnPractice(tenantId = DEMO, managerEmployeeId?: strin
     },
     enabled: isBackendConfigured && Boolean(managerEmployeeId),
     staleTime: 60_000,
+  });
+}
+
+// ── Annuaire équipe ───────────────────────────────────────────────────
+
+export interface TeamDirectoryRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  department: string | null;
+  role_title: string | null;
+  status: string;
+  hire_date: string | null;
+  birth_date: string | null;
+  manager_id: string | null;
+  employee_number: string | null;
+  site: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export function useTeamDirectory(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-team-directory', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('employees')
+        .select('id, first_name, last_name, department, role_title, status, hire_date, birth_date, manager_id, employee_number, site, email, phone')
+        .eq('tenant_id', tenantId)
+        .order('last_name');
+      if (error) throw error;
+      return (data ?? []) as TeamDirectoryRow[];
+    },
+    enabled: isBackendConfigured,
+    staleTime: 120_000,
+  });
+}
+
+export const dirName = (e: TeamDirectoryRow) => `${e.first_name} ${e.last_name}`;
+
+// ── Soldes de congés ──────────────────────────────────────────────────
+
+export interface TeamLeaveBalanceRow {
+  id: string;
+  employee_id: string;
+  leave_type_code: string;
+  balance: number;
+  taken: number;
+  remaining: number;
+  expiry_date: string | null;
+}
+
+export function useTeamLeaveBalances(tenantId = DEMO) {
+  return useQuery({
+    queryKey: ['mss-leave-balances', tenantId],
+    queryFn: async () => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.schema('atlas_people')
+        .from('leave_balances')
+        .select('id, employee_id, leave_type_code, balance, taken, remaining, expiry_date')
+        .eq('tenant_id', tenantId);
+      if (error) throw error;
+      return (data ?? []) as TeamLeaveBalanceRow[];
+    },
+    enabled: isBackendConfigured,
+    staleTime: 120_000,
   });
 }
 

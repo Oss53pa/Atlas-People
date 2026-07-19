@@ -8,7 +8,6 @@ import { PracticeSubNav } from '../../components/mss/PracticeSubNav';
 import { useSurface } from '../../store/useSurface';
 import { PRACTICE_OVERVIEW as o } from '../../lib/mss/practice';
 import { isBackendConfigured, empUuid, useManagerOwnPractice } from '../../lib/mss/supabaseLive';
-import { MANAGER_ID } from '../../lib/mss/scope';
 import { useSessionContext } from '../../lib/useSession';
 
 const EVAL_STATUS_LABEL: Record<string, string> = {
@@ -20,7 +19,7 @@ export function PracticeOverviewPage() {
   useEffect(() => { setSurface('mss'); }, [setSurface]);
 
   const { data: ctx } = useSessionContext();
-  const { data: live } = useManagerOwnPractice(ctx?.tenantId, empUuid(MANAGER_ID));
+  const { data: live } = useManagerOwnPractice(ctx?.tenantId, ctx?.employeeId ?? empUuid('e1'));
   const showLive = isBackendConfigured && live && (live.evaluation !== null || live.trainings.length > 0);
 
   return (

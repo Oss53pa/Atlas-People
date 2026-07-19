@@ -18,7 +18,6 @@ import { useMyLeaveRequests, isBackendConfigured } from '../../lib/ess/supabaseL
 import { useMyLeaveBalances } from '../../lib/portal/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 
-const SELF_ID = 'e2';
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info'> = { pending: 'warn', approved: 'ok', refused: 'danger', info_requested: 'info' };
 const STATUS_LABEL: Record<string, string> = { pending: 'En attente', approved: 'Approuvée', refused: 'Refusée', info_requested: 'Info demandée' };
 
@@ -34,6 +33,7 @@ export function MesCongesPage() {
 
   const [tab, setTab] = useState('balances');
   const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const { data: liveRequests } = useMyLeaveRequests(ctx?.tenantId, ctx?.employeeId);
   const { data: liveBalances } = useMyLeaveBalances(ctx?.tenantId, ctx?.employeeId);
   const employee = employeeById(SELF_ID)!;
