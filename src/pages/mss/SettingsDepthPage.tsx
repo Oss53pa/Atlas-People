@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Layers, Info } from 'lucide-react';
+import { Layers, Info, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { useToast } from '../../components/ui/Toast';
@@ -8,6 +8,8 @@ import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { DEPTH_LABEL, DEPTH_SUBLABEL, depthCounts, type ManagerDepth } from '../../lib/mss/scope';
+import { isBackendConfigured, useTeamDirectory } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const OPTIONS: ManagerDepth[] = ['direct', 'department', 'all'];
 
@@ -19,8 +21,23 @@ export function SettingsDepthPage() {
   const employees = useDirectory((s) => s.employees);
   const depth = useManagerScope((s) => s.depth);
   const setDepth = useManagerScope((s) => s.setDepth);
-  const counts = useMemo(() => depthCounts(employees), [employees]);
+  const mockCounts = useMemo(() => depthCounts(employees), [employees]);
 
+  const { data: ctx } = useSessionContext();
+  const { data: liveDir } = useTeamDirectory(ctx?.tenantId);
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
+
+  const liveCounts = useMemo(() => {
+    if (!hasLive || !liveDir || !ctx?.employeeId) return null;
+    const managerId = ctx.employeeId;
+    const n1 = liveDir.filter(d => d.manager_id === managerId).length;
+    const n1Ids = new Set(liveDir.filter(d => d.manager_id === managerId).map(d => d.id));
+    const n2 = liveDir.filter(d => d.manager_id && n1Ids.has(d.manager_id)).length;
+    const n3plus = Math.max(0, liveDir.length - n1 - n2);
+    return { n1, n2, n3plus, total: liveDir.length };
+  }, [hasLive, liveDir, ctx?.employeeId]);
+
+  const counts = liveCounts ?? mockCounts;
   const countFor = (d: ManagerDepth) => d === 'direct' ? counts.n1 : d === 'department' ? counts.n1 + counts.n2 : counts.total;
 
   const choose = (d: ManagerDepth) => {
@@ -31,10 +48,13 @@ export function SettingsDepthPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <SettingsSubNav />
-      <h1 className="text-2xl font-semibold text-ink">Profondeur de vue par défaut</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-semibold text-ink">Profondeur de vue par défaut</h1>
+        {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+      </div>
 
       <Card>
-        <p className="flex items-start gap-2 text-[12px] font-medium text-ink-700"><Info size={14} className="mt-0.5 shrink-0 text-info" /> Détermine le périmètre affiché par défaut dans tout le portail (équipe, reporting, validations). Vous pouvez toujours l’ajuster ponctuellement via le sélecteur de la barre latérale.</p>
+        <p className="flex items-start gap-2 text-[12px] font-medium text-ink-700"><Info size={14} className="mt-0.5 shrink-0 text-info" /> Détermine le périmètre affiché par défaut dans tout le portail (équipe, reporting, validations). Vous pouvez toujours l'ajuster ponctuellement via le sélecteur de la barre latérale.</p>
       </Card>
 
       <div className="space-y-2.5">
@@ -55,7 +75,7 @@ export function SettingsDepthPage() {
       </div>
 
       <Card>
-        <p className="text-[12px] font-medium text-ink-500">Répartition réelle de votre cascade : <span className="mono font-semibold text-ink">{counts.n1}</span> en N-1, <span className="mono font-semibold text-ink">{counts.n2}</span> en N-2, <span className="mono font-semibold text-ink">{counts.n3plus}</span> au-delà — total <span className="mono font-semibold text-ink">{counts.total}</span>.</p>
+        <p className="text-[12px] font-medium text-ink-500">Répartition de votre cascade : <span className="mono font-semibold text-ink">{counts.n1}</span> en N-1, <span className="mono font-semibold text-ink">{counts.n2}</span> en N-2, <span className="mono font-semibold text-ink">{counts.n3plus}</span> au-delà — total <span className="mono font-semibold text-ink">{counts.total}</span>.</p>
       </Card>
     </div>
   );

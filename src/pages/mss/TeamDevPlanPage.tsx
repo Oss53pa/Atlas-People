@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { CalendarRange, Send, Sparkles, TrendingUp } from 'lucide-react';
+import { CalendarRange, Send, Sparkles, TrendingUp, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
@@ -7,6 +7,8 @@ import { useToast } from '../../components/ui/Toast';
 import { DevelopmentSubNav } from '../../components/mss/DevelopmentSubNav';
 import { useSurface } from '../../store/useSurface';
 import { DEV_BUDGET, budgetAvailable, fmtFCFA } from '../../lib/mss/dev';
+import { isBackendConfigured } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const PRIORITIES = [
   { n: 1, title: 'Combler l\'écart « Grands comptes » (3 personnes)', action: 'Formation interne 2 j + mentorat expert', cost: 0, impact: 'Couverture 60% → 100%' },
@@ -19,6 +21,9 @@ export function TeamDevPlanPage() {
   useEffect(() => { setSurface('mss'); }, [setSurface]);
   const { toast } = useToast();
 
+  const { data: ctx } = useSessionContext();
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
+
   const consumedPct = Math.round((DEV_BUDGET.consumed / DEV_BUDGET.allocated) * 100);
   const programmedPct = Math.round((DEV_BUDGET.programmed / DEV_BUDGET.allocated) * 100);
 
@@ -26,7 +31,10 @@ export function TeamDevPlanPage() {
     <div className="animate-fade-up space-y-5">
       <DevelopmentSubNav />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-ink">Plan de développement équipe — 2026</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink">Plan de développement équipe — 2026</h1>
+          {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+        </div>
         <Button size="sm" onClick={() => toast({ variant: 'success', title: 'Plan soumis à la RH', description: 'Le plan de développement équipe est transmis pour validation budgétaire.' })}><Send size={14} /> Soumettre à la RH</Button>
       </div>
 

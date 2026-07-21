@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Receipt, Inbox, CalendarX, Mail, HeartPulse, Award, ArrowRight } from 'lucide-react';
+import { Zap, Receipt, Inbox, CalendarX, Mail, HeartPulse, Award, ArrowRight, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -11,6 +11,8 @@ import { useManagerScope } from '../../store/useManagerScope';
 import { useManagerBadges } from '../../lib/mss/badges';
 import { scopedTeam } from '../../lib/mss/scope';
 import { climateMetrics, climateSignals, managerMail, schedulingConflicts } from '../../lib/mss/daily';
+import { isBackendConfigured, useTeamExpenseClaims, useTeamServiceRequests } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 export function TeamDailyDashboardPage() {
   const setSurface = useSurface((s) => s.setSurface);
@@ -28,6 +30,14 @@ export function TeamDailyDashboardPage() {
   const conflicts = schedulingConflicts(team).length;
   const enough = team.length >= 5;
 
+  const { data: ctx } = useSessionContext();
+  const { data: liveExpenses } = useTeamExpenseClaims(ctx?.tenantId);
+  const { data: liveRequests } = useTeamServiceRequests(ctx?.tenantId);
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
+
+  const expensesCount = hasLive ? (liveExpenses ?? []).length : badges.expensesToValidate;
+  const requestsCount = hasLive ? (liveRequests ?? []).filter(r => r.status === 'pending').length : badges.teamRequests;
+
   const Row = ({ to, icon: Icon, label, count, tone }: { to: string; icon: typeof Zap; label: string; count: number; tone: 'amber' | 'info' | 'ok' }) => (
     <Link to={to} className="flex items-center justify-between rounded-xl bg-surface2 px-3 py-2.5 transition-colors hover:bg-ink/[0.04]">
       <span className="flex items-center gap-2 text-sm font-semibold text-ink"><Icon size={15} className="text-ink-400" /> {label}</span>
@@ -38,13 +48,16 @@ export function TeamDailyDashboardPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <DailySubNav />
-      <h1 className="text-2xl font-semibold text-ink">Vie quotidienne managériale</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-semibold text-ink">Vie quotidienne managériale</h1>
+        {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+      </div>
 
       <Card className="glass-amber">
         <CardHeader title="À valider maintenant" action={<Zap size={16} className="text-amber-deep" />} />
         <div className="space-y-2">
-          <Row to="/team/quotidien/ndf-a-valider" icon={Receipt} label="Notes de frais" count={badges.expensesToValidate} tone="amber" />
-          <Row to="/team/quotidien/demandes-equipe" icon={Inbox} label="Demandes équipe" count={badges.teamRequests} tone="amber" />
+          <Row to="/team/quotidien/ndf-a-valider" icon={Receipt} label="Notes de frais" count={expensesCount} tone="amber" />
+          <Row to="/team/quotidien/demandes-equipe" icon={Inbox} label="Demandes équipe" count={requestsCount} tone="amber" />
           <Row to="/team/quotidien/conflits-planning" icon={CalendarX} label="Conflits planning" count={conflicts} tone="amber" />
         </div>
       </Card>

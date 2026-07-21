@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Star } from 'lucide-react';
-import { Card } from '../../components/ui/Card';
+import { AlertTriangle, Star, BookOpen, Check, X, Wifi } from 'lucide-react';
+import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
@@ -13,6 +13,8 @@ import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { teamTrainings, type TeamTraining } from '../../lib/mss/dev';
 import { employeeName } from '../../data/mock';
+import { isBackendConfigured, useTeamTrainingRequests, useDecideTrainingRequest } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 type Tab = 'upcoming' | 'inprogress' | 'done' | 'overdue';
 const TAB_LABEL: Record<Tab, string> = { upcoming: 'À venir', inprogress: 'En cours', done: 'Terminées', overdue: 'En retard' };
@@ -20,6 +22,8 @@ const TAB_LABEL: Record<Tab, string> = { upcoming: 'À venir', inprogress: 'En c
 function Bar({ pct }: { pct: number }) {
   return <div className="h-1.5 overflow-hidden rounded-full bg-ink/[0.06]"><div className="h-full rounded-full bg-info" style={{ width: `${pct}%` }} /></div>;
 }
+
+const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 
 export function TeamTrainingsPage() {
   const setSurface = useSurface((s) => s.setSurface);
@@ -33,13 +37,59 @@ export function TeamTrainingsPage() {
   const [tab, setTab] = useState<Tab>('inprogress');
   const [feedback, setFeedback] = useState<TeamTraining | null>(null);
 
+  const { data: ctx } = useSessionContext();
+  const { data: liveRequests } = useTeamTrainingRequests(ctx?.tenantId);
+  const decideTraining = useDecideTrainingRequest();
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
+
   const counts = (t: Tab) => all.filter((x) => x.status === t).length;
   const shown = all.filter((x) => x.status === tab);
+
+  const handleDecide = (registrationId: string, decision: 'approved' | 'cancelled', empName: string, courseTitle: string) => {
+    if (!ctx?.tenantId) return;
+    decideTraining.mutate(
+      { registrationId, decision, tenantId: ctx.tenantId },
+      {
+        onSuccess: () => toast({ variant: decision === 'approved' ? 'success' : 'info', title: decision === 'approved' ? 'Formation approuvée' : 'Formation refusée', description: `${empName} — ${courseTitle || 'Formation'}` }),
+        onError: () => toast({ variant: 'error', title: 'Erreur', description: 'La décision n\'a pas pu être enregistrée.' }),
+      }
+    );
+  };
 
   return (
     <div className="animate-fade-up space-y-5">
       <DevelopmentSubNav />
-      <h1 className="text-2xl font-semibold text-ink">Formations en cours dans mon équipe</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-semibold text-ink">Formations dans mon équipe</h1>
+        {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+      </div>
+
+      {hasLive && (liveRequests ?? []).length > 0 && (
+        <Card>
+          <CardHeader title="Demandes en attente de validation" subtitle={`${(liveRequests ?? []).length} demande(s) à traiter`} action={<BookOpen size={16} className="text-info" />} />
+          <div className="space-y-2">
+            {(liveRequests ?? []).map((r) => {
+              const empName = [r.employee_first_name, r.employee_last_name].filter(Boolean).join(' ') || r.employee_id;
+              const courseTitle = r.course_title ?? 'Formation';
+              return (
+                <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface2 px-3 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={empName} size="xs" />
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{empName} — {courseTitle}</p>
+                      <p className="text-[11px] font-medium text-ink-400">Demandé le {frDate(r.requested_at)}{r.allocated_cost ? ` · ${r.allocated_cost.toLocaleString('fr-FR')} FCFA` : ''}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button size="sm" onClick={() => handleDecide(r.id, 'approved', empName, courseTitle)} disabled={decideTraining.isPending}><Check size={13} /> Approuver</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleDecide(r.id, 'cancelled', empName, courseTitle)} disabled={decideTraining.isPending}><X size={13} /> Refuser</Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(TAB_LABEL) as Tab[]).map((t) => (

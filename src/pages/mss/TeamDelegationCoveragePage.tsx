@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Megaphone, Info, ShieldCheck, Eye } from 'lucide-react';
+import { Megaphone, Info, ShieldCheck, Eye, GitBranch, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
@@ -11,10 +11,20 @@ import { useDelegation } from '../../store/useDelegation';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { employeeName, employeeById } from '../../data/mock';
+import { isBackendConfigured, useMyDelegations } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const MONTH = new Date().toISOString().slice(0, 7);
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 const fmtH = (n: number) => `${Math.round(n * 10) / 10}h`;
+
+const SCOPE_LABEL: Record<string, string> = {
+  absences: 'Absences',
+  expenses: 'Notes de frais',
+  trainings: 'Formations',
+  evaluations: 'Évaluations',
+  all: 'Tous les droits',
+};
 
 export function TeamDelegationCoveragePage() {
   const setSurface = useSurface((s) => s.setSurface);
@@ -27,16 +37,52 @@ export function TeamDelegationCoveragePage() {
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
   const teamIds = useMemo(() => new Set(team.map((e) => e.id)), [team]);
 
+  const { data: ctx } = useSessionContext();
+  const { data: liveDelegations } = useMyDelegations(ctx?.tenantId);
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
+
   const mandated = credits.filter((c) => teamIds.has(c.employeeId) && c.month === MONTH);
+
+  const activeDelegations = (liveDelegations ?? []).filter(d => d.status === 'active');
 
   return (
     <div className="animate-fade-up space-y-5">
       <TeamTimeSubNav />
-      <h1 className="text-2xl font-semibold text-ink">Délégations syndicales — couverture</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-semibold text-ink">Délégations syndicales — couverture</h1>
+        {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+      </div>
 
       <Card className="border-info/25 bg-info/[0.04]">
         <p className="flex items-start gap-2 text-[12px] font-medium text-ink-700"><Info size={15} className="mt-0.5 shrink-0 text-info" /> Vous voyez uniquement l'<strong>usage du crédit d'heures</strong> (pour organiser la couverture de poste). Vous ne voyez <strong>jamais</strong> le contenu des activités syndicales — protection légale (R6). La consultation de cette page est elle-même tracée vis-à-vis du mandaté.</p>
       </Card>
+
+      {hasLive && activeDelegations.length > 0 && (
+        <Card>
+          <CardHeader title="Mes délégations managériales actives" subtitle={`${activeDelegations.length} délégation(s)`} action={<GitBranch size={16} className="text-info" />} />
+          <div className="space-y-1.5">
+            {activeDelegations.map((d) => (
+              <div key={d.id} className="rounded-xl bg-surface2 px-3 py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={d.delegate_name ?? d.delegate_employee_id} size="xs" />
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{d.delegate_name ?? d.delegate_employee_id}</p>
+                      <p className="text-[11px] font-medium text-ink-400">
+                        {d.scope.map(s => SCOPE_LABEL[s] ?? s).join(', ')}
+                        {d.valid_from ? ` · du ${frDate(d.valid_from)}` : ''}
+                        {d.valid_until ? ` au ${frDate(d.valid_until)}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusPill tone="info" dot={false}>Active</StatusPill>
+                </div>
+                {d.message && <p className="mt-1.5 text-[11px] font-medium text-ink-400">« {d.message} »</p>}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {mandated.length > 0 ? (
         <div className="space-y-4">
