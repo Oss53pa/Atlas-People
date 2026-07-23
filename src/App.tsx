@@ -31,6 +31,7 @@ function SSORedirect() {
 // ── Lazy pages ────────────────────────────────────────────────────────
 
 // Top-level
+const LoginPage               = lz(() => import('./pages/LoginPage'),              'LoginPage');
 const CockpitPage            = lz(() => import('./pages/CockpitPage'),            'CockpitPage');
 const UnifiedCockpitDRHPage  = lz(() => import('./pages/UnifiedCockpitPage'),     'UnifiedCockpitDRHPage');
 const LandingPage            = lz(() => import('./pages/LandingPage'),            'LandingPage');
@@ -367,7 +368,7 @@ function App() {
   return (
     <Routes>
       {/* Auth — hors layouts */}
-      <Route path="/login" element={<SSORedirect />} />
+      <Route path="/login" element={<Suspense fallback={<PageLoader />}><LoginPage /></Suspense>} />
       <Route path="/auth/invitation" element={<SSORedirect />} />
       <Route path="/auth" element={<Suspense fallback={<PageLoader />}><SSOAuthPage /></Suspense>} />
       <Route path="/landing" element={<Suspense fallback={<PageLoader />}><LandingPage /></Suspense>} />
