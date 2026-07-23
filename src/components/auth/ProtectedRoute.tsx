@@ -16,7 +16,7 @@ const ROLE_RANK: Record<string, number> = {
 };
 
 export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, role } = useAuth();
 
   if (loading) {
     return (
