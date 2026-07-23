@@ -22,8 +22,12 @@ import {
   Plus, Search, MoreVertical, CheckCircle2, AlertCircle,
   ExternalLink, ChevronRight, Lock, Globe, Coins, FileText,
   Key, ChevronDown, Inbox, Home, LayoutGrid, Compass,
+  Briefcase, Check, Network,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../lib/auth';
+import type { TenantType } from '../../store/useAppStore';
 
 type AdminTab = 'apps' | 'tenant' | 'users' | 'settings' | 'security';
 
@@ -477,9 +481,150 @@ function AppsPanel() {
   );
 }
 
+const TENANT_MODES: {
+  key: TenantType;
+  label: string;
+  sub: string;
+  description: string;
+  icon: typeof Building2;
+  accent: string;
+  accentBg: string;
+  accentText: string;
+  chip: string;
+  tags: string[];
+}[] = [
+  {
+    key: 'entreprise',
+    label: 'Entreprise',
+    sub: 'Auto-gestion RH',
+    description: 'Votre entreprise gère directement son propre RH et sa paie. Accès complet aux 14 modules Atlas People.',
+    icon: Building2,
+    accent: 'border-amber-400',
+    accentBg: 'bg-amber-50',
+    accentText: 'text-amber-700',
+    chip: 'bg-amber-100 text-amber-700',
+    tags: ['14 modules actifs', 'Multi-pays OHADA', 'Self-service ESS/MSS'],
+  },
+  {
+    key: 'cabinet_complet',
+    label: 'Cabinet — Gestion complète',
+    sub: 'Pour le compte de tiers',
+    description: 'Votre cabinet prend en charge la gestion RH et administrative complète pour des entreprises clientes.',
+    icon: Briefcase,
+    accent: 'border-teal-400',
+    accentBg: 'bg-teal-50',
+    accentText: 'text-teal-700',
+    chip: 'bg-teal-100 text-teal-700',
+    tags: ['Gestion multi-clients', 'RH + Paie tiers', 'Reporting cabinet'],
+  },
+  {
+    key: 'cabinet_paie',
+    label: 'Cabinet — Gestion de la paie',
+    sub: 'Pour le compte de tiers',
+    description: 'Votre cabinet traite uniquement la paie pour des entreprises clientes. Modules M2 Temps et M3 Paie prioritaires.',
+    icon: Coins,
+    accent: 'border-blue-400',
+    accentBg: 'bg-blue-50',
+    accentText: 'text-blue-700',
+    chip: 'bg-blue-100 text-blue-700',
+    tags: ['Paie multi-clients', 'Bulletins en lot', 'DSN consolidée'],
+  },
+  {
+    key: 'cabinet_mixte',
+    label: 'Cabinet — Mixte',
+    sub: 'RH propre + tiers clients',
+    description: 'Votre cabinet gère à la fois son propre personnel en interne et des entreprises clientes. Deux périmètres distincts, un seul workspace.',
+    icon: Network,
+    accent: 'border-violet-400',
+    accentBg: 'bg-violet-50',
+    accentText: 'text-violet-700',
+    chip: 'bg-violet-100 text-violet-700',
+    tags: ['RH interne', 'Multi-clients', 'Double périmètre'],
+  },
+];
+
+function TenantModeSelector() {
+  const tenantId = useAuthStore((s) => s.tenantId);
+  const tenantType = useAuthStore((s) => s.tenantType);
+  const setTenantType = useAuthStore((s) => s._setTenantType);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSelect = async (key: TenantType) => {
+    if (!tenantId || key === tenantType || saving || !supabase) return;
+    setSaving(true); setSaveError(null); setSaved(false);
+    const { error } = await supabase
+      .schema('atlas_people')
+      .from('tenants')
+      .update({ tenant_type: key, updated_at: new Date().toISOString() })
+      .eq('id', tenantId);
+    setSaving(false);
+    if (error) { setSaveError(error.message); return; }
+    setTenantType(key);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3500);
+  };
+
+  return (
+    <PanelCard title="Mode de fonctionnement" subtitle="Définit la nature de votre workspace Atlas People" icon={Settings2}>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {TENANT_MODES.map((m) => {
+          const Icon = m.icon;
+          const isActive = tenantType === m.key;
+          return (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => handleSelect(m.key)}
+              disabled={saving}
+              className={cn(
+                'relative rounded-2xl border-2 p-4 text-left transition-all hover:shadow-md disabled:opacity-60',
+                isActive ? `${m.accent} ${m.accentBg}` : 'border-slate-200 bg-white hover:border-slate-300',
+              )}
+            >
+              {isActive && (
+                <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-white">
+                  <Check size={13} />
+                </span>
+              )}
+              <span className={cn(
+                'inline-flex h-10 w-10 items-center justify-center rounded-xl ring-1',
+                isActive ? `${m.accentBg} ${m.accentText} ring-current/20` : 'bg-slate-100 text-slate-600 ring-slate-200',
+              )}>
+                <Icon size={18} />
+              </span>
+              <p className={cn('mt-3 text-[14px] font-bold', isActive ? m.accentText : 'text-slate-900')}>{m.label}</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{m.sub}</p>
+              <p className="mt-2 text-[12px] font-medium leading-relaxed text-slate-600">{m.description}</p>
+              <div className="mt-3 flex flex-wrap gap-1">
+                {m.tags.map((t) => (
+                  <span key={t} className={cn('rounded-md px-2 py-0.5 text-[10px] font-semibold', isActive ? m.chip : 'bg-slate-100 text-slate-600')}>{t}</span>
+                ))}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {saved && (
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-[12px] font-semibold text-emerald-700">
+          <CheckCircle2 size={14} /> Mode enregistré avec succès.
+        </div>
+      )}
+      {saveError && (
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
+          <AlertCircle size={14} /> {saveError}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
 function TenantPanel() {
   return (
-    <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+    <div className="space-y-4">
+      <TenantModeSelector />
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <PanelCard title="Identité de l'entreprise" subtitle="Données SYSCOHADA · OHADA · pour bulletins, contrats, déclarations" icon={Building2}>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
@@ -511,6 +656,7 @@ function TenantPanel() {
           ))}
         </ul>
       </PanelCard>
+      </div>
     </div>
   );
 }

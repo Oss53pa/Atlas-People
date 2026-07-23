@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Search, Bell, Sparkles, Home } from 'lucide-react';
+import { Menu, Search, Bell, Sparkles, Home, Briefcase, Coins, Network } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
+import { useAuth } from '../../lib/auth';
 import { Avatar } from '../ui/Avatar';
 import { Brand } from '../ui/Brand';
 import { CountrySwitcher } from './CountrySwitcher';
@@ -13,6 +14,7 @@ export function Topbar() {
   const notifications = useNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
   const count = notifications.length;
+  const { tenantType } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-canvas/80 px-4 backdrop-blur-xl lg:px-7">
@@ -36,6 +38,23 @@ export function Topbar() {
 
       {/* Sélecteur d'espace (ESS / MSS / Back-office RH) */}
       <SpaceSwitcher />
+
+      {/* Badge mode Cabinet (masqué en mode Entreprise) */}
+      {tenantType === 'cabinet_complet' && (
+        <span className="hidden items-center gap-1.5 rounded-full border border-teal-300/70 bg-teal-50 px-2.5 py-1 text-[11px] font-bold text-teal-700 sm:inline-flex">
+          <Briefcase size={11} /> Cabinet — Gestion complète
+        </span>
+      )}
+      {tenantType === 'cabinet_paie' && (
+        <span className="hidden items-center gap-1.5 rounded-full border border-blue-300/70 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 sm:inline-flex">
+          <Coins size={11} /> Cabinet — Paie tiers
+        </span>
+      )}
+      {tenantType === 'cabinet_mixte' && (
+        <span className="hidden items-center gap-1.5 rounded-full border border-violet-300/70 bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-700 sm:inline-flex">
+          <Network size={11} /> Cabinet — Mixte
+        </span>
+      )}
 
       {/* Quick Launcher (Cmd+K) */}
       <button

@@ -12,6 +12,7 @@ import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isBackendConfigured } from './supabase';
 import { clearSessionContextCache } from './session';
+import type { TenantType } from '../store/useAppStore';
 export { isBackendConfigured };
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -24,6 +25,8 @@ export interface AuthState {
   /** ID du tenant actif (UUID). Null tant que non résolu. */
   tenantId: string | null;
   role: AppRole;
+  /** Mode de fonctionnement du workspace. */
+  tenantType: TenantType;
   loading: boolean;
   error: string | null;
 }
@@ -33,6 +36,7 @@ interface AuthActions {
   _setLoading: (v: boolean) => void;
   _setError: (e: string | null) => void;
   _setTenantRole: (tenantId: string, role: AppRole) => void;
+  _setTenantType: (type: TenantType) => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   sendMagicLink: (email: string) => Promise<{ error: string | null }>;
@@ -49,6 +53,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   user: null,
   tenantId: isBackendConfigured ? null : DEMO_TENANT,
   role: 'hr',
+  tenantType: 'entreprise',
   loading: isBackendConfigured, // si backend présent, on attend onAuthStateChange
   error: null,
 
@@ -56,6 +61,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   _setLoading: (v) => set({ loading: v }),
   _setError: (e) => set({ error: e }),
   _setTenantRole: (tenantId, role) => set({ tenantId, role }),
+  _setTenantType: (type) => set({ tenantType: type }),
 
   signIn: async (email, password) => {
     if (!supabase) return { error: null }; // demo
@@ -126,6 +132,16 @@ function initAuthListener() {
 
     if (data) {
       useAuthStore.getState()._setTenantRole(data.tenant_id as string, data.role as AppRole);
+      // Charge le mode de fonctionnement du tenant
+      const { data: tenantRow } = await supabase
+        .schema('atlas_people')
+        .from('tenants')
+        .select('tenant_type')
+        .eq('id', data.tenant_id)
+        .single();
+      if (tenantRow?.tenant_type) {
+        useAuthStore.getState()._setTenantType(tenantRow.tenant_type as TenantType);
+      }
     } else if (!isBackendConfigured) {
       // Demo mode uniquement — jamais sur un backend réel
       useAuthStore.getState()._setTenantRole(DEMO_TENANT, 'hr');
@@ -165,6 +181,8 @@ export function useAuth() {
     [state.session],
   );
 
+  const isCabinet = state.tenantType === 'cabinet_complet' || state.tenantType === 'cabinet_paie' || state.tenantType === 'cabinet_mixte';
+
   return {
     ...state,
     isAuthenticated,
@@ -172,6 +190,8 @@ export function useAuth() {
     isAdmin: state.role === 'admin' || state.role === 'super_admin',
     isHR: state.role === 'hr' || state.role === 'admin' || state.role === 'super_admin',
     isManager: state.role === 'manager' || state.role === 'hr' || state.role === 'admin' || state.role === 'super_admin',
+    isCabinet,
+    isCabinetPaie: state.tenantType === 'cabinet_paie',
   };
 }
 

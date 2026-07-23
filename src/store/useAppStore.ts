@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+export type TenantType = 'entreprise' | 'cabinet_complet' | 'cabinet_paie' | 'cabinet_mixte';
+
 export interface Tenant {
   id: string;
   name: string;
