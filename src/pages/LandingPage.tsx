@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight, ArrowUpRight, Zap, Play, Sparkles, Moon,
-  Users, CalendarClock, Wallet, ReceiptText, Briefcase,
+  Users, CalendarClock, Wallet, ReceiptText, Briefcase, Building2,
   Rocket, Target, Gauge, Network, Route as RouteIcon, GraduationCap,
   ShieldCheck, LayoutGrid, Check, ChevronDown, Mail,
   Lock, FileCheck2, Server, Quote, MapPin, Phone, Linkedin, Twitter,
@@ -240,6 +240,82 @@ const FAQ: FaqItem[] = [
   },
 ];
 
+interface TenantPersona {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  sub: string;
+  description: string;
+  mode: string;
+  modeColor: string;
+  tags: string[];
+  accentBg: string;
+  accentText: string;
+  accentBorder: string;
+}
+
+const TENANT_PERSONAS: TenantPersona[] = [
+  {
+    icon: Building2,
+    label: 'Entreprise',
+    sub: 'PME · ETI · Groupe multi-filiales',
+    description: 'Vous gérez directement vos propres collaborateurs. Accès complet aux 14 modules RH, paie déterministe, ESS mobile.',
+    mode: 'Mode Entreprise',
+    modeColor: 'bg-amber-100 text-amber-700',
+    tags: ['Auto-gestion RH', '14 modules', 'Multi-pays OHADA'],
+    accentBg: 'bg-amber-50',
+    accentText: 'text-amber-700',
+    accentBorder: 'border-amber-200',
+  },
+  {
+    icon: Briefcase,
+    label: 'Cabinet RH & Conseil',
+    sub: 'Externalisation RH complète',
+    description: 'Votre cabinet prend en charge la gestion RH et administrative complète pour des entreprises clientes.',
+    mode: 'Mode Cabinet complet',
+    modeColor: 'bg-teal-100 text-teal-700',
+    tags: ['Multi-clients', 'RH + Paie tiers', 'Reporting cabinet'],
+    accentBg: 'bg-teal-50',
+    accentText: 'text-teal-700',
+    accentBorder: 'border-teal-200',
+  },
+  {
+    icon: Wallet,
+    label: 'Bureau de paie',
+    sub: 'Externalisation paie & admin',
+    description: 'Votre bureau traite la paie pour des entreprises clientes. Bulletins en lot, DSN consolidée, 14 régimes OHADA.',
+    mode: 'Mode Cabinet paie',
+    modeColor: 'bg-blue-100 text-blue-700',
+    tags: ['Paie multi-clients', 'Bulletins en lot', 'DSN consolidée'],
+    accentBg: 'bg-blue-50',
+    accentText: 'text-blue-700',
+    accentBorder: 'border-blue-200',
+  },
+  {
+    icon: Users,
+    label: 'Agence de mise à disposition',
+    sub: 'Intérim · staffing · prêt de main-d\'œuvre',
+    description: 'Vous êtes l\'employeur légal de travailleurs placés chez des entreprises clientes. RH, paie et conformité centralisées.',
+    mode: 'Mode Agence',
+    modeColor: 'bg-rose-100 text-rose-700',
+    tags: ['Employeur légal', 'Travailleurs placés', 'Multi-sites clients'],
+    accentBg: 'bg-rose-50',
+    accentText: 'text-rose-700',
+    accentBorder: 'border-rose-200',
+  },
+  {
+    icon: LayoutGrid,
+    label: 'Structure mixte',
+    sub: 'RH interne + clients tiers',
+    description: 'Vous gérez vos propres salariés ET des entreprises clientes. Deux périmètres distincts, un seul workspace Atlas People.',
+    mode: 'Mode Cabinet mixte',
+    modeColor: 'bg-violet-100 text-violet-700',
+    tags: ['RH interne', 'Multi-clients', 'Double périmètre'],
+    accentBg: 'bg-violet-50',
+    accentText: 'text-violet-700',
+    accentBorder: 'border-violet-200',
+  },
+];
+
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-surface text-ink">
@@ -419,6 +495,72 @@ export function LandingPage() {
               <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-ink-400">{s.label}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ─────────────────────── Pour qui ? ─────────────────────── */}
+      <section id="pour-qui" className="scroll-mt-20 bg-surface2/30">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="mb-12 text-center">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-deep">Conçu pour tous les acteurs RH</p>
+            <h2 className="mt-2 font-display text-[38px] leading-tight tracking-tight text-ink sm:text-[46px]">
+              Pour qui est Atlas People ?
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-[14px] font-medium leading-relaxed text-ink-500">
+              Un seul SIRH, cinq modes de workspace — chaque organisation choisit le mode qui correspond à sa structure.
+              Le mode se configure en un clic depuis le panneau Admin.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {TENANT_PERSONAS.map((p) => {
+              const Icon = p.icon;
+              return (
+                <div key={p.label} className={cn(
+                  'rounded-2xl border p-5 transition-shadow hover:shadow-md',
+                  p.accentBorder, p.accentBg,
+                )}>
+                  <span className={cn(
+                    'inline-flex h-11 w-11 items-center justify-center rounded-xl bg-surface shadow-sm ring-1 ring-line',
+                    p.accentText,
+                  )}>
+                    <Icon size={20} />
+                  </span>
+                  <h3 className="mt-4 text-[16px] font-bold text-ink">{p.label}</h3>
+                  <p className="mt-0.5 text-[11px] font-semibold text-ink-400">{p.sub}</p>
+                  <p className="mt-2 text-[13px] font-medium leading-relaxed text-ink-500">{p.description}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-bold', p.modeColor)}>
+                      {p.mode}
+                    </span>
+                    {p.tags.map((t) => (
+                      <span key={t} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-ink-500 ring-1 ring-line">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Carte CTA */}
+            <div className="flex flex-col items-start justify-between rounded-2xl border border-ink/10 bg-ink p-5 text-surface">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber">Changer de mode</p>
+                <h3 className="mt-2 text-[16px] font-bold">Vous changez de structure ?</h3>
+                <p className="mt-2 text-[13px] font-medium leading-relaxed text-surface/70">
+                  Le mode se modifie à tout moment depuis <strong className="text-surface">Admin → Entreprise → Mode de fonctionnement</strong>.
+                  Aucune migration de données.
+                </p>
+              </div>
+              <Link
+                to="/admin?tab=tenant"
+                className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-amber px-4 py-2.5 text-[13px] font-bold text-night transition-shadow hover:shadow-lg"
+              >
+                <Settings2 size={14} /> Configurer le mode <ArrowRight size={13} />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 

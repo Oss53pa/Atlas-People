@@ -181,7 +181,7 @@ export function useAuth() {
     [state.session],
   );
 
-  const isCabinet = state.tenantType === 'cabinet_complet' || state.tenantType === 'cabinet_paie' || state.tenantType === 'cabinet_mixte';
+  const isCabinet = state.tenantType === 'cabinet_complet' || state.tenantType === 'cabinet_paie' || state.tenantType === 'cabinet_mixte' || state.tenantType === 'cabinet_agence';
 
   return {
     ...state,

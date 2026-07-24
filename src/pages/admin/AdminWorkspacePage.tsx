@@ -16,13 +16,13 @@
  * volontaire avec Atlas People amber-deep pour signaler que c'est une couche au-dessus).
  */
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Settings2, Users, Building2, Shield, ScrollText, ArrowRight,
   Plus, Search, MoreVertical, CheckCircle2, AlertCircle,
   ExternalLink, ChevronRight, Lock, Globe, Coins, FileText,
   Key, ChevronDown, Inbox, Home, LayoutGrid, Compass,
-  Briefcase, Check, Network,
+  Briefcase, Check, Network, UserCheck,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { supabase } from '../../lib/supabase';
@@ -168,7 +168,8 @@ const WORKSPACES: Workspace[] = [
 ];
 
 export function AdminWorkspacePage() {
-  const [tab, setTab] = useState<AdminTab>('apps');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<AdminTab>((searchParams.get('tab') as AdminTab) ?? 'apps');
   const [search, setSearch] = useState('');
   const [wsOpen, setWsOpen] = useState(false);
   const wsRef = useRef<HTMLDivElement>(null);
@@ -541,6 +542,18 @@ const TENANT_MODES: {
     chip: 'bg-violet-100 text-violet-700',
     tags: ['RH interne', 'Multi-clients', 'Double périmètre'],
   },
+  {
+    key: 'cabinet_agence',
+    label: 'Agence de mise à disposition',
+    sub: 'Intérim · staffing · prêt de main-d\'œuvre',
+    description: 'Votre agence emploie des travailleurs placés chez des entreprises clientes. Vous êtes l\'employeur légal — gestion RH, paie et conformité centralisées.',
+    icon: UserCheck,
+    accent: 'border-rose-400',
+    accentBg: 'bg-rose-50',
+    accentText: 'text-rose-700',
+    chip: 'bg-rose-100 text-rose-700',
+    tags: ['Employeur légal', 'Travailleurs placés', 'Multi-sites clients'],
+  },
 ];
 
 function TenantModeSelector() {
@@ -568,7 +581,7 @@ function TenantModeSelector() {
 
   return (
     <PanelCard title="Mode de fonctionnement" subtitle="Définit la nature de votre workspace Atlas People" icon={Settings2}>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {TENANT_MODES.map((m) => {
           const Icon = m.icon;
           const isActive = tenantType === m.key;
