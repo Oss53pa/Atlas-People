@@ -37,7 +37,9 @@ const UnifiedCockpitDRHPage  = lz(() => import('./pages/UnifiedCockpitPage'),   
 const LandingPage            = lz(() => import('./pages/LandingPage'),            'LandingPage');
 const WelcomeCockpitPage     = lz(() => import('./pages/WelcomeCockpitPage'),     'WelcomeCockpitPage');
 const AdminWorkspacePage     = lz(() => import('./pages/admin/AdminWorkspacePage'),'AdminWorkspacePage');
-const BackOfficeQueuePage    = lz(() => import('./pages/backoffice/BackOfficeQueuePage'), 'BackOfficeQueuePage');
+const BackOfficeQueuePage       = lz(() => import('./pages/backoffice/BackOfficeQueuePage'),   'BackOfficeQueuePage');
+const PortefeuilleClientsPage   = lz(() => import('./pages/cabinet/PortefeuilleClientsPage'),  'PortefeuilleClientsPage');
+const TravailleursPlacesPage    = lz(() => import('./pages/placement/TravailleursPlacesPage'), 'TravailleursPlacesPage');
 const ReportsPage            = lz(() => import('./pages/Reports'),                'ReportsPage');
 const WhatIfSimulatorPage    = lz(() => import('./pages/WhatIfSimulatorPage'),    'WhatIfSimulatorPage');
 const WhatIfComparePage      = lz(() => import('./pages/WhatIfComparePage'),      'WhatIfComparePage');
@@ -385,6 +387,9 @@ function App() {
               element={READY[m.path] ?? <ComingSoonPage module={m} />}
             />
           ))}
+          {/* Cabinet & Placement */}
+          <Route path="/clients" element={<PortefeuilleClientsPage />} />
+          <Route path="/travailleurs-places" element={<TravailleursPlacesPage />} />
           <Route path="/collaborateurs/nouveau" element={<NewEmployeeWizard />} />
           <Route path="/collaborateurs/import" element={<ImportEmployeesWizard />} />
           <Route path="/collaborateurs/demandes" element={<DemandesModifPage />} />
