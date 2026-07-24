@@ -192,4 +192,13 @@ export function getNav(tenantType: TenantType): NavGroup[] {
 
 // Rétrocompatibilité
 export const NAV = navCore();
-export const ALL_MODULES = NAV.flatMap((g) => g.modules);
+
+// Modules uniques de tous les produits — utilisé par App.tsx pour enregistrer
+// les routes React Router (fallback ComingSoonPage pour les ready:false).
+function allUniqueModules(): NavModule[] {
+  const all = [navCore(), navConseil(), navPayroll(), nav360(), navPlacement()]
+    .flatMap((n) => n.flatMap((g) => g.modules));
+  const seen = new Set<string>();
+  return all.filter((m) => { if (seen.has(m.code)) return false; seen.add(m.code); return true; });
+}
+export const ALL_MODULES = allUniqueModules();
