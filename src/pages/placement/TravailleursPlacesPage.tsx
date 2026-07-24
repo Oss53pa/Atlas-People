@@ -3,10 +3,11 @@
  * Stub v1 : liste factice de travailleurs avec site d'affectation.
  */
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   UserCheck, Search, Plus, Building2,
   MapPin, CalendarClock, CheckCircle2, AlertCircle, Clock,
-  MoreVertical,
+  MoreVertical, FileSignature, Users, BarChart2, ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -163,6 +164,30 @@ export function TravailleursPlacesPage() {
             Données démo · Travailleurs réels depuis <span className="mono">atlas_people.workers</span>
           </p>
         </div>
+      </div>
+      {/* Accès rapide modules Placement */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: 'Contrats de mission', desc: 'CTM et suivi signatures',         to: '/contrats-mission', icon: FileSignature },
+          { label: 'Sites & entreprises', desc: 'Clients et sites d\'affectation',  to: '/sites-clients',    icon: Building2 },
+          { label: 'Administration RH',   desc: 'Dossiers et conformité dossiers',  to: '/admin-personnel',  icon: Users },
+          { label: 'Rapport agence',      desc: 'KPIs et honoraires consolidés',    to: '/rapport-agence',   icon: BarChart2 },
+        ].map((card) => (
+          <Link
+            key={card.label}
+            to={card.to}
+            className="group flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 transition-shadow hover:shadow-md"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
+              <card.icon size={16} />
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="text-[13px] font-bold text-ink">{card.label}</p>
+              <p className="truncate text-[11px] font-medium text-ink-400">{card.desc}</p>
+            </div>
+            <ChevronRight size={14} className="shrink-0 text-ink-300 transition-transform group-hover:translate-x-0.5 group-hover:text-ink-500" />
+          </Link>
+        ))}
       </div>
     </div>
   );

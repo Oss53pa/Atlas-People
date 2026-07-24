@@ -183,20 +183,24 @@ export function PortefeuilleClientsPage() {
         </div>
       </div>
 
-      {/* CTA modules cabinet */}
+      {/* Accès rapide modules cabinet */}
       <div className="grid gap-3 sm:grid-cols-3">
         {[
-          { label: 'Préfacturation',   desc: 'Générez les factures pour vos clients',  soon: true },
-          { label: 'Rapport cabinet',  desc: 'Consolidez les KPIs de tout le portefeuille', soon: true },
-          { label: 'Interface client', desc: 'Portail lecture pour vos clients',       soon: true },
+          { label: 'Préfacturation',   desc: 'Honoraires et facturation clients',         to: '/prefacturation' },
+          { label: 'Rapport cabinet',  desc: 'KPIs consolidés de tout le portefeuille',   to: '/rapport-cabinet' },
+          { label: 'Interface client', desc: 'Portail lecture pour vos clients',          to: '/interface-client' },
         ].map((card) => (
-          <div key={card.label} className="rounded-2xl border border-line bg-surface p-4 opacity-60">
+          <Link
+            key={card.label}
+            to={card.to}
+            className="group rounded-2xl border border-line bg-surface p-4 transition-shadow hover:shadow-md"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-bold text-ink">{card.label}</span>
-              <span className="rounded-full bg-surface2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-400">bientôt</span>
+              <ChevronRight size={14} className="text-ink-300 transition-transform group-hover:translate-x-0.5 group-hover:text-ink-500" />
             </div>
             <p className="mt-1.5 text-[12px] font-medium leading-relaxed text-ink-500">{card.desc}</p>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

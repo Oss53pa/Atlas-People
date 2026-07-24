@@ -49,6 +49,7 @@ const TravailleursPlacesPage    = lz(() => import('./pages/placement/Travailleur
 const ContratsMissionPage       = lz(() => import('./pages/placement/ContratsMissionPage'),     'ContratsMissionPage');
 const SitesClientsPage          = lz(() => import('./pages/placement/SitesClientsPage'),         'SitesClientsPage');
 const RapportAgencePage         = lz(() => import('./pages/placement/RapportAgencePage'),        'RapportAgencePage');
+const AdminPersonnelPlacementPage = lz(() => import('./pages/placement/AdminPersonnelPlacementPage'), 'AdminPersonnelPlacementPage');
 const ReportsPage            = lz(() => import('./pages/Reports'),                'ReportsPage');
 const WhatIfSimulatorPage    = lz(() => import('./pages/WhatIfSimulatorPage'),    'WhatIfSimulatorPage');
 const WhatIfComparePage      = lz(() => import('./pages/WhatIfComparePage'),      'WhatIfComparePage');
@@ -396,6 +397,7 @@ const READY: Record<string, JSX.Element> = {
   '/contrats-mission':  <ContratsMissionPage />,
   '/sites-clients':     <SitesClientsPage />,
   '/rapport-agence':    <RapportAgencePage />,
+  '/admin-personnel':   <AdminPersonnelPlacementPage />,
 };
 
 function App() {

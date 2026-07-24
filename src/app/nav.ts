@@ -97,7 +97,7 @@ const M: Record<string, NavModule> = {
   dsn:         { code: 'DSN',   path: '/dsn-consolidee',     label: 'DSN consolidée',        icon: FileCheck2,      ready: true  },
   // ── Atlas People Placement spécifique
   travPlaces:  { code: 'TPLC',  path: '/travailleurs-places',label: 'Travailleurs placés',   icon: UserCheck,       ready: true  },
-  adminPerso:  { code: 'APERS', path: '/admin-personnel',    label: 'Administration RH',     icon: Users,           ready: false },
+  adminPerso:  { code: 'APERS', path: '/admin-personnel',    label: 'Administration RH',     icon: Users,           ready: true  },
   contratMis:  { code: 'CMIS',  path: '/contrats-mission',   label: 'Contrats de mission',   icon: FileSignature,   ready: true  },
   sites:       { code: 'SITES', path: '/sites-clients',      label: 'Sites & entreprises',   icon: Building2,       ready: true  },
   rapportAge:  { code: 'RAGE',  path: '/rapport-agence',    label: 'Rapport agence',        icon: BarChart2,       ready: true  },
