@@ -40,7 +40,11 @@ const WelcomeCockpitPage     = lz(() => import('./pages/WelcomeCockpitPage'),   
 const AdminWorkspacePage     = lz(() => import('./pages/admin/AdminWorkspacePage'),'AdminWorkspacePage');
 const BackOfficeQueuePage       = lz(() => import('./pages/backoffice/BackOfficeQueuePage'),   'BackOfficeQueuePage');
 const PortefeuilleClientsPage   = lz(() => import('./pages/cabinet/PortefeuilleClientsPage'),  'PortefeuilleClientsPage');
+const PrefacturationPage        = lz(() => import('./pages/cabinet/PrefacturationPage'),        'PrefacturationPage');
+const RapportCabinetPage        = lz(() => import('./pages/cabinet/RapportCabinetPage'),        'RapportCabinetPage');
+const BulletinsLotPage          = lz(() => import('./pages/payroll/BulletinsLotPage'),          'BulletinsLotPage');
 const TravailleursPlacesPage    = lz(() => import('./pages/placement/TravailleursPlacesPage'), 'TravailleursPlacesPage');
+const ContratsMissionPage       = lz(() => import('./pages/placement/ContratsMissionPage'),     'ContratsMissionPage');
 const ReportsPage            = lz(() => import('./pages/Reports'),                'ReportsPage');
 const WhatIfSimulatorPage    = lz(() => import('./pages/WhatIfSimulatorPage'),    'WhatIfSimulatorPage');
 const WhatIfComparePage      = lz(() => import('./pages/WhatIfComparePage'),      'WhatIfComparePage');
@@ -377,6 +381,13 @@ const READY: Record<string, JSX.Element> = {
   '/conformite': <CockpitConformitePage />,
   '/moi': <SelfServicePage />,
   '/cockpit-360': <UnifiedCockpitDRHPage />,
+  // Cabinet
+  '/prefacturation':   <PrefacturationPage />,
+  '/rapport-cabinet':  <RapportCabinetPage />,
+  // Payroll
+  '/bulletins-lot':    <BulletinsLotPage />,
+  // Placement
+  '/contrats-mission': <ContratsMissionPage />,
 };
 
 function App() {
