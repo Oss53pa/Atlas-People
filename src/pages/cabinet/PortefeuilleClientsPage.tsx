@@ -8,40 +8,20 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Briefcase, Search, Plus, ChevronRight,
+  Search, Plus, ChevronRight,
   CheckCircle2, AlertCircle, Clock, Users,
-  Building2, Globe, MoreVertical,
+  Building2, Globe,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useAuth } from '../../lib/auth';
 import { PRODUCT_META } from '../../app/nav';
+import { MOCK_CLIENTS, FLAG } from '../../data/mockClients';
 
-interface ClientRow {
-  id: string;
-  name: string;
-  pays: string;
-  effectif: number;
-  status: 'actif' | 'en_attente' | 'suspendu';
-  modules: string[];
-  lastSync: string;
-}
-
-const MOCK_CLIENTS: ClientRow[] = [
-  { id: 'c1', name: 'TechCorp Abidjan',       pays: 'CI', effectif: 87,  status: 'actif',      modules: ['RH', 'Paie', 'Formation'],  lastSync: 'il y a 2 h' },
-  { id: 'c2', name: 'OHADA Manufacturing',    pays: 'CI', effectif: 245, status: 'actif',      modules: ['Paie', 'Temps'],            lastSync: 'il y a 4 h' },
-  { id: 'c3', name: 'PanAfrica Holding SN',   pays: 'SN', effectif: 134, status: 'actif',      modules: ['RH', 'Paie', 'OKR'],        lastSync: 'il y a 1 j' },
-  { id: 'c4', name: 'Groupe Soleil CM',       pays: 'CM', effectif: 62,  status: 'en_attente', modules: ['Paie'],                     lastSync: 'en attente' },
-  { id: 'c5', name: 'Dakar Distribution',     pays: 'SN', effectif: 31,  status: 'actif',      modules: ['RH', 'Paie'],               lastSync: 'il y a 6 h' },
-  { id: 'c6', name: 'BTP Lomé Constructions', pays: 'TG', effectif: 110, status: 'suspendu',   modules: ['Paie'],                     lastSync: 'il y a 5 j' },
-];
-
-const STATUS_META: Record<ClientRow['status'], { label: string; icon: typeof CheckCircle2; cls: string }> = {
+const STATUS_META = {
   actif:      { label: 'Actif',      icon: CheckCircle2, cls: 'bg-emerald-100 text-emerald-700' },
   en_attente: { label: 'En attente', icon: Clock,        cls: 'bg-amber-100 text-amber-700' },
   suspendu:   { label: 'Suspendu',   icon: AlertCircle,  cls: 'bg-rose-100 text-rose-700' },
-};
-
-const FLAG: Record<string, string> = { CI: '🇨🇮', SN: '🇸🇳', CM: '🇨🇲', TG: '🇹🇬', BJ: '🇧🇯', BF: '🇧🇫' };
+} as const;
 
 export function PortefeuilleClientsPage() {
   const [search, setSearch] = useState('');
@@ -131,12 +111,12 @@ export function PortefeuilleClientsPage() {
                 return (
                   <tr key={c.id} className="group hover:bg-surface2/40">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
+                      <Link to={`/clients/${c.id}`} className="flex items-center gap-3 hover:underline">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface2 text-[13px] font-bold text-ink-500">
                           <Building2 size={16} />
                         </span>
                         <span className="text-[13px] font-semibold text-ink">{c.name}</span>
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-500">
@@ -163,10 +143,13 @@ export function PortefeuilleClientsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[11px] font-medium text-ink-400">{c.lastSync}</td>
-                    <td className="px-4 py-3">
-                      <button type="button" className="rounded-lg p-1 text-ink-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface2 hover:text-ink-500">
-                        <MoreVertical size={15} />
-                      </button>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        to={`/clients/${c.id}`}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface2 hover:text-ink"
+                      >
+                        Détail <ChevronRight size={12} />
+                      </Link>
                     </td>
                   </tr>
                 );

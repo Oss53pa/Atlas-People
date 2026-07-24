@@ -40,6 +40,7 @@ const WelcomeCockpitPage     = lz(() => import('./pages/WelcomeCockpitPage'),   
 const AdminWorkspacePage     = lz(() => import('./pages/admin/AdminWorkspacePage'),'AdminWorkspacePage');
 const BackOfficeQueuePage       = lz(() => import('./pages/backoffice/BackOfficeQueuePage'),   'BackOfficeQueuePage');
 const PortefeuilleClientsPage   = lz(() => import('./pages/cabinet/PortefeuilleClientsPage'),  'PortefeuilleClientsPage');
+const ClientDetailPage          = lz(() => import('./pages/cabinet/ClientDetailPage'),          'ClientDetailPage');
 const PrefacturationPage        = lz(() => import('./pages/cabinet/PrefacturationPage'),        'PrefacturationPage');
 const RapportCabinetPage        = lz(() => import('./pages/cabinet/RapportCabinetPage'),        'RapportCabinetPage');
 const InterfaceClientPage       = lz(() => import('./pages/cabinet/InterfaceClientPage'),        'InterfaceClientPage');
@@ -423,6 +424,7 @@ function App() {
           ))}
           {/* Cabinet & Placement */}
           <Route path="/clients" element={<PortefeuilleClientsPage />} />
+          <Route path="/clients/:id" element={<ClientDetailPage />} />
           <Route path="/travailleurs-places" element={<TravailleursPlacesPage />} />
           <Route path="/collaborateurs/nouveau" element={<NewEmployeeWizard />} />
           <Route path="/collaborateurs/import" element={<ImportEmployeesWizard />} />

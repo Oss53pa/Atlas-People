@@ -18,6 +18,7 @@ export function Topbar() {
   const count = notifications.length;
   const { tenantType, signOut, user } = useAuth();
   const displayName = user?.email?.split('@')[0] ?? 'Utilisateur';
+  const fullName = (user as { full_name?: string } | null)?.full_name ?? displayName;
 
   // Fermer le dropdown profil au clic extérieur
   const handleProfileKeyDown = (e: React.KeyboardEvent) => {
@@ -112,10 +113,10 @@ export function Topbar() {
             aria-expanded={profileOpen}
             className="flex items-center gap-2.5 rounded-xl border border-line bg-surface py-1.5 pl-1.5 pr-2.5 transition-colors hover:border-amber/40"
           >
-            <Avatar name="Valentina Okou" size="sm" />
+            <Avatar name={fullName} size="sm" />
             <div className="hidden text-left leading-tight lg:block">
-              <p className="text-sm font-bold text-ink">Valentina Okou</p>
-              <p className="text-[11px] font-medium text-ink-400">DRH · Atlas Demo</p>
+              <p className="text-sm font-bold text-ink">{fullName}</p>
+              <p className="text-[11px] font-medium text-ink-400">{displayName}</p>
             </div>
             <ChevronDown size={12} className="text-ink-400" />
           </button>
@@ -127,7 +128,7 @@ export function Topbar() {
               onMouseLeave={() => setProfileOpen(false)}
             >
               <div className="border-b border-line px-4 py-3">
-                <p className="text-[13px] font-bold text-ink">Valentina Okou</p>
+                <p className="text-[13px] font-bold text-ink">{fullName}</p>
                 <p className="text-[11px] font-medium text-ink-400">{displayName}</p>
               </div>
               <ul className="py-1">
