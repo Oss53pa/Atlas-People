@@ -86,7 +86,7 @@ const M: Record<string, NavModule> = {
   conformite:  { code: 'M12',   path: '/conformite',          label: 'Conformité & SST',      icon: ShieldCheck,     ready: true  },
   // ── Espaces personnels
   ess:         { code: 'SS',    path: '/moi',                 label: 'Espace employé (ESS)',  icon: Smartphone,      ready: true  },
-  mss:         { code: 'MSS',   path: '/manager',             label: 'Espace manager (MSS)',  icon: UserCog,         ready: false },
+  mss:         { code: 'MSS',   path: '/team',                label: 'Espace manager (MSS)',  icon: UserCog,         ready: true  },
   // ── Cabinet — Clients
   clients:     { code: 'CLI',   path: '/clients',             label: 'Portefeuille clients',  icon: Briefcase,       ready: true  },
   prefact:     { code: 'PFACT', path: '/prefacturation',      label: 'Préfacturation',        icon: ReceiptText,     ready: false },

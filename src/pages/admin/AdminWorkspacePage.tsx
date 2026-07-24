@@ -496,8 +496,8 @@ const TENANT_MODES: {
 }[] = [
   {
     key: 'entreprise',
-    label: 'Entreprise',
-    sub: 'Auto-gestion RH',
+    label: 'Atlas People Core',
+    sub: 'SIRH Entreprise · Auto-gestion RH',
     description: 'Votre entreprise gère directement son propre RH et sa paie. Accès complet aux 14 modules Atlas People.',
     icon: Building2,
     accent: 'border-amber-400',
@@ -508,8 +508,8 @@ const TENANT_MODES: {
   },
   {
     key: 'cabinet_complet',
-    label: 'Cabinet — Gestion complète',
-    sub: 'Pour le compte de tiers',
+    label: 'Atlas People Conseil',
+    sub: 'Cabinet RH · Gestion complète tiers',
     description: 'Votre cabinet prend en charge la gestion RH et administrative complète pour des entreprises clientes.',
     icon: Briefcase,
     accent: 'border-teal-400',
@@ -520,8 +520,8 @@ const TENANT_MODES: {
   },
   {
     key: 'cabinet_paie',
-    label: 'Cabinet — Gestion de la paie',
-    sub: 'Pour le compte de tiers',
+    label: 'Atlas Payroll',
+    sub: 'Bureau de paie · Pour le compte de tiers',
     description: 'Votre cabinet traite uniquement la paie pour des entreprises clientes. Modules M2 Temps et M3 Paie prioritaires.',
     icon: Coins,
     accent: 'border-blue-400',
@@ -532,8 +532,8 @@ const TENANT_MODES: {
   },
   {
     key: 'cabinet_mixte',
-    label: 'Cabinet — Mixte',
-    sub: 'RH propre + tiers clients',
+    label: 'Atlas People 360',
+    sub: 'Structure mixte · RH propre + tiers',
     description: 'Votre cabinet gère à la fois son propre personnel en interne et des entreprises clientes. Deux périmètres distincts, un seul workspace.',
     icon: Network,
     accent: 'border-violet-400',
@@ -544,8 +544,8 @@ const TENANT_MODES: {
   },
   {
     key: 'cabinet_agence',
-    label: 'Agence de mise à disposition',
-    sub: 'Intérim · staffing · prêt de main-d\'œuvre',
+    label: 'Atlas People Placement',
+    sub: 'Agence · Mise à disposition · Intérim',
     description: 'Votre agence emploie des travailleurs placés chez des entreprises clientes. Vous êtes l\'employeur légal — gestion RH, paie et conformité centralisées.',
     icon: UserCheck,
     accent: 'border-rose-400',

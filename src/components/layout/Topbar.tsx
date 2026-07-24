@@ -50,22 +50,22 @@ export function Topbar() {
       {/* Badge mode (cliquable → Admin > Mode de fonctionnement, masqué en mode Entreprise) */}
       {tenantType === 'cabinet_complet' && (
         <Link to="/admin?tab=tenant" className="hidden items-center gap-1.5 rounded-full border border-teal-300/70 bg-teal-50 px-2.5 py-1 text-[11px] font-bold text-teal-700 transition-colors hover:bg-teal-100 sm:inline-flex">
-          <Briefcase size={11} /> Cabinet — Gestion complète
+          <Briefcase size={11} /> Atlas People Conseil
         </Link>
       )}
       {tenantType === 'cabinet_paie' && (
         <Link to="/admin?tab=tenant" className="hidden items-center gap-1.5 rounded-full border border-blue-300/70 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 transition-colors hover:bg-blue-100 sm:inline-flex">
-          <Coins size={11} /> Cabinet — Paie tiers
+          <Coins size={11} /> Atlas Payroll
         </Link>
       )}
       {tenantType === 'cabinet_mixte' && (
         <Link to="/admin?tab=tenant" className="hidden items-center gap-1.5 rounded-full border border-violet-300/70 bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-700 transition-colors hover:bg-violet-100 sm:inline-flex">
-          <Network size={11} /> Cabinet — Mixte
+          <Network size={11} /> Atlas People 360
         </Link>
       )}
       {tenantType === 'cabinet_agence' && (
         <Link to="/admin?tab=tenant" className="hidden items-center gap-1.5 rounded-full border border-rose-300/70 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 transition-colors hover:bg-rose-100 sm:inline-flex">
-          <UserCheck size={11} /> Agence mise à disposition
+          <UserCheck size={11} /> Atlas People Placement
         </Link>
       )}
 

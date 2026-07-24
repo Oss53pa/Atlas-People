@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Route, Routes, Outlet } from 'react-router-dom';
+import { Route, Routes, Outlet, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { PortalLayout } from './components/layout/PortalLayout';
 import { ManagerLayout } from './components/layout/ManagerLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { ALL_MODULES } from './app/nav';
+import { useAuth } from './lib/auth';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const lz = (factory: () => Promise<any>, name: string) =>
@@ -345,8 +346,20 @@ const SettingsTemplatesPage          = lz(() => import('./pages/mss/SettingsTemp
 
 // ── READY map (cockpit paths → lazy elements) ─────────────────────────
 
+function HomeDispatch() {
+  const { tenantType, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  if (tenantType === 'cabinet_complet' || tenantType === 'cabinet_paie' || tenantType === 'cabinet_mixte') {
+    return <Navigate to="/clients" replace />;
+  }
+  if (tenantType === 'cabinet_agence') {
+    return <Navigate to="/travailleurs-places" replace />;
+  }
+  return <CockpitPage />;
+}
+
 const READY: Record<string, JSX.Element> = {
-  '/': <CockpitPage />,
+  '/': <HomeDispatch />,
   '/collaborateurs': <CollaborateursPage />,
   '/temps': <TempsAbsencesPage />,
   '/frais': <NotesFraisPage />,
