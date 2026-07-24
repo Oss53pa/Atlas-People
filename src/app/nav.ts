@@ -91,16 +91,16 @@ const M: Record<string, NavModule> = {
   clients:     { code: 'CLI',   path: '/clients',             label: 'Portefeuille clients',  icon: Briefcase,       ready: true  },
   prefact:     { code: 'PFACT', path: '/prefacturation',      label: 'Préfacturation',        icon: ReceiptText,     ready: true  },
   rapportCab:  { code: 'RCAB',  path: '/rapport-cabinet',    label: 'Rapport cabinet',       icon: BarChart2,       ready: true  },
-  ifClient:    { code: 'IFC',   path: '/interface-client',   label: 'Interface client',      icon: ExternalLink,    ready: false },
+  ifClient:    { code: 'IFC',   path: '/interface-client',   label: 'Interface client',      icon: ExternalLink,    ready: true  },
   // ── Atlas Payroll spécifique
   bulLot:      { code: 'BLOT',  path: '/bulletins-lot',      label: 'Bulletins en lot',      icon: Files,           ready: true  },
-  dsn:         { code: 'DSN',   path: '/dsn-consolidee',     label: 'DSN consolidée',        icon: FileCheck2,      ready: false },
+  dsn:         { code: 'DSN',   path: '/dsn-consolidee',     label: 'DSN consolidée',        icon: FileCheck2,      ready: true  },
   // ── Atlas People Placement spécifique
   travPlaces:  { code: 'TPLC',  path: '/travailleurs-places',label: 'Travailleurs placés',   icon: UserCheck,       ready: true  },
   adminPerso:  { code: 'APERS', path: '/admin-personnel',    label: 'Administration RH',     icon: Users,           ready: false },
   contratMis:  { code: 'CMIS',  path: '/contrats-mission',   label: 'Contrats de mission',   icon: FileSignature,   ready: true  },
-  sites:       { code: 'SITES', path: '/sites-clients',      label: 'Sites & entreprises',   icon: Building2,       ready: false },
-  rapportAge:  { code: 'RAGE',  path: '/rapport-agence',    label: 'Rapport agence',        icon: BarChart2,       ready: false },
+  sites:       { code: 'SITES', path: '/sites-clients',      label: 'Sites & entreprises',   icon: Building2,       ready: true  },
+  rapportAge:  { code: 'RAGE',  path: '/rapport-agence',    label: 'Rapport agence',        icon: BarChart2,       ready: true  },
 };
 
 // ── Navigation par produit ────────────────────────────────────────────────

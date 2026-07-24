@@ -42,9 +42,13 @@ const BackOfficeQueuePage       = lz(() => import('./pages/backoffice/BackOffice
 const PortefeuilleClientsPage   = lz(() => import('./pages/cabinet/PortefeuilleClientsPage'),  'PortefeuilleClientsPage');
 const PrefacturationPage        = lz(() => import('./pages/cabinet/PrefacturationPage'),        'PrefacturationPage');
 const RapportCabinetPage        = lz(() => import('./pages/cabinet/RapportCabinetPage'),        'RapportCabinetPage');
+const InterfaceClientPage       = lz(() => import('./pages/cabinet/InterfaceClientPage'),        'InterfaceClientPage');
 const BulletinsLotPage          = lz(() => import('./pages/payroll/BulletinsLotPage'),          'BulletinsLotPage');
+const DSNConsolideePage         = lz(() => import('./pages/payroll/DSNConsolideePage'),          'DSNConsolideePage');
 const TravailleursPlacesPage    = lz(() => import('./pages/placement/TravailleursPlacesPage'), 'TravailleursPlacesPage');
 const ContratsMissionPage       = lz(() => import('./pages/placement/ContratsMissionPage'),     'ContratsMissionPage');
+const SitesClientsPage          = lz(() => import('./pages/placement/SitesClientsPage'),         'SitesClientsPage');
+const RapportAgencePage         = lz(() => import('./pages/placement/RapportAgencePage'),        'RapportAgencePage');
 const ReportsPage            = lz(() => import('./pages/Reports'),                'ReportsPage');
 const WhatIfSimulatorPage    = lz(() => import('./pages/WhatIfSimulatorPage'),    'WhatIfSimulatorPage');
 const WhatIfComparePage      = lz(() => import('./pages/WhatIfComparePage'),      'WhatIfComparePage');
@@ -381,13 +385,17 @@ const READY: Record<string, JSX.Element> = {
   '/conformite': <CockpitConformitePage />,
   '/moi': <SelfServicePage />,
   '/cockpit-360': <UnifiedCockpitDRHPage />,
-  // Cabinet
-  '/prefacturation':   <PrefacturationPage />,
-  '/rapport-cabinet':  <RapportCabinetPage />,
-  // Payroll
-  '/bulletins-lot':    <BulletinsLotPage />,
-  // Placement
-  '/contrats-mission': <ContratsMissionPage />,
+  // Cabinet (Conseil / Payroll / 360 / Placement)
+  '/prefacturation':    <PrefacturationPage />,
+  '/rapport-cabinet':   <RapportCabinetPage />,
+  '/interface-client':  <InterfaceClientPage />,
+  // Atlas Payroll
+  '/bulletins-lot':     <BulletinsLotPage />,
+  '/dsn-consolidee':    <DSNConsolideePage />,
+  // Atlas People Placement
+  '/contrats-mission':  <ContratsMissionPage />,
+  '/sites-clients':     <SitesClientsPage />,
+  '/rapport-agence':    <RapportAgencePage />,
 };
 
 function App() {
