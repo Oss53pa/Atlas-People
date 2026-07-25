@@ -394,6 +394,9 @@ const READY: Record<string, JSX.Element> = {
   // Atlas Payroll
   '/bulletins-lot':     <BulletinsLotPage />,
   '/dsn-consolidee':    <DSNConsolideePage />,
+  // Cabinet & Placement — portails d'accueil (aussi dans ALL_MODULES via M.clients / M.travPlaces)
+  '/clients':           <PortefeuilleClientsPage />,
+  '/travailleurs-places': <TravailleursPlacesPage />,
   // Atlas People Placement
   '/contrats-mission':  <ContratsMissionPage />,
   '/sites-clients':     <SitesClientsPage />,
