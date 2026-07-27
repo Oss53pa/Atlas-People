@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users, Search, CheckCircle2, AlertCircle, XCircle, FileSignature,
   Wallet, CalendarClock, Stethoscope,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { useAuthStore } from '../../lib/auth';
+import { supabase, isBackendConfigured } from '../../lib/supabase';
 
 type DocStatut = 'ok' | 'expiré' | 'manquant';
 
@@ -18,7 +20,7 @@ interface WorkerHR {
   visite: DocStatut;
 }
 
-const WORKERS: WorkerHR[] = [
+const MOCK_WORKERS: WorkerHR[] = [
   { id: 'w1', nom: 'Kofi Mensah',      poste: 'Technicien SI',          siteClient: 'TechCorp Abidjan',        contrat: 'ok',      fichesPaie: 'ok',      conges: 'ok',      visite: 'ok' },
   { id: 'w2', nom: 'Aminata Diallo',   poste: 'Assistante RH',          siteClient: 'OHADA Manufacturing',     contrat: 'ok',      fichesPaie: 'ok',      conges: 'manquant',visite: 'expiré' },
   { id: 'w3', nom: 'Ibrahima Sow',     poste: 'Opérateur logistique',   siteClient: 'Dakar Distribution',      contrat: 'ok',      fichesPaie: 'ok',      conges: 'ok',      visite: 'ok' },
@@ -26,6 +28,19 @@ const WORKERS: WorkerHR[] = [
   { id: 'w5', nom: 'Youssouf Traoré',  poste: 'Magasinier',             siteClient: 'BTP Lomé Constructions',  contrat: 'expiré',  fichesPaie: 'ok',      conges: 'ok',      visite: 'expiré' },
   { id: 'w6', nom: 'Cécile Ndoumbe',   poste: 'Comptable',              siteClient: '—',                       contrat: 'manquant',fichesPaie: 'manquant',conges: 'manquant',visite: 'ok' },
 ];
+
+function mapDbWorker(row: Record<string, unknown>): WorkerHR {
+  return {
+    id:         row.id as string,
+    nom:        row.nom as string,
+    poste:      (row.poste as string) ?? '—',
+    siteClient: (row.site_client as string) ?? '—',
+    contrat:    (row.contrat_statut as DocStatut) ?? 'manquant',
+    fichesPaie: (row.fiches_paie_statut as DocStatut) ?? 'manquant',
+    conges:     (row.conges_statut as DocStatut) ?? 'ok',
+    visite:     (row.visite_statut as DocStatut) ?? 'manquant',
+  };
+}
 
 const DOC_META: Record<DocStatut, { icon: typeof CheckCircle2; cls: string; label: string }> = {
   ok:       { icon: CheckCircle2, cls: 'text-emerald-500', label: 'OK' },
@@ -51,16 +66,34 @@ function conformiteScore(w: WorkerHR): number {
 
 export function AdminPersonnelPlacementPage() {
   const [search, setSearch] = useState('');
+  const [realWorkers, setRealWorkers] = useState<WorkerHR[] | null>(null);
+  const tenantId = useAuthStore((s) => s.tenantId);
 
-  const filtered = WORKERS.filter(
+  useEffect(() => {
+    if (!supabase || !isBackendConfigured || !tenantId) return;
+    supabase
+      .schema('atlas_people')
+      .from('workers')
+      .select('id, nom, poste, site_client, contrat_statut, fiches_paie_statut, conges_statut, visite_statut')
+      .eq('tenant_id', tenantId)
+      .order('nom')
+      .then(({ data }) => {
+        if (data && data.length > 0) setRealWorkers(data.map(mapDbWorker));
+      });
+  }, [tenantId]);
+
+  const displayWorkers = realWorkers ?? MOCK_WORKERS;
+  const isLive = isBackendConfigured && realWorkers !== null;
+
+  const filtered = displayWorkers.filter(
     (w) =>
       !search ||
       w.nom.toLowerCase().includes(search.toLowerCase()) ||
       w.siteClient.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const complets   = WORKERS.filter((w) => conformiteScore(w) === 100).length;
-  const incomplets = WORKERS.filter((w) => conformiteScore(w) < 100).length;
+  const complets   = displayWorkers.filter((w) => conformiteScore(w) === 100).length;
+  const incomplets = displayWorkers.filter((w) => conformiteScore(w) < 100).length;
 
   return (
     <div className="space-y-6">
@@ -81,9 +114,9 @@ export function AdminPersonnelPlacementPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: 'Dossiers complets',     value: complets },
-          { label: 'Contrats à régulariser', value: WORKERS.filter((w) => w.contrat !== 'ok').length },
-          { label: 'Visites médicales',      value: WORKERS.filter((w) => w.visite !== 'ok').length },
-          { label: 'Fiches de paie manquantes', value: WORKERS.filter((w) => w.fichesPaie === 'manquant').length },
+          { label: 'Contrats à régulariser', value: displayWorkers.filter((w) => w.contrat !== 'ok').length },
+          { label: 'Visites médicales',      value: displayWorkers.filter((w) => w.visite !== 'ok').length },
+          { label: 'Fiches de paie manquantes', value: displayWorkers.filter((w) => w.fichesPaie === 'manquant').length },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">{s.label}</p>
@@ -166,9 +199,15 @@ export function AdminPersonnelPlacementPage() {
         </div>
 
         <div className="border-t border-line px-4 py-3">
-          <p className="flex items-center gap-2 text-[11px] font-medium text-ink-400">
-            <Users size={12} /> Données démo · Dossiers réels depuis <span className="mono">atlas_people.workers</span>
-          </p>
+          {isLive ? (
+            <p className="flex items-center gap-2 text-[11px] font-medium text-emerald-600">
+              <CheckCircle2 size={10} /> Données live · <span className="mono">atlas_people.workers</span>
+            </p>
+          ) : (
+            <p className="flex items-center gap-2 text-[11px] font-medium text-ink-400">
+              <Users size={12} /> Données démo · <span className="mono">atlas_people.workers</span>
+            </p>
+          )}
         </div>
       </div>
     </div>
