@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin Atlas Studio Console — /admin (HORS AppLayout).
  *
  * Workspace de l'administrateur de l'application qui accède DEPUIS Atlas Studio
@@ -23,9 +23,10 @@ import {
   ExternalLink, ChevronRight, Lock, Globe, Coins, FileText,
   Key, ChevronDown, Inbox, Home, LayoutGrid, Compass,
   Briefcase, Check, Network, UserCheck,
+  Mail, X, Send,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { supabase } from '../../lib/supabase';
+import { supabase, isBackendConfigured } from '../../lib/supabase';
 import { useAuthStore } from '../../lib/auth';
 import type { TenantType } from '../../store/useAppStore';
 
@@ -62,6 +63,46 @@ const USERS: UserRow[] = [
   { id: 'u7', name: 'Aïcha Diop',         email: 'aicha.diop@atlasdemo.ci',role: 'employee',   spaces: ['ESS'],                         status: 'active',    lastSeen: 'il y a 30 min', mfa: false },
   { id: 'u8', name: 'Fatou Diallo',       email: 'fatou.d@atlasdemo.ci',   role: 'employee',   spaces: ['ESS'],                         status: 'invited',   mfa: false },
 ];
+
+// ── Membre chargé depuis atlas_people.tenant_members ─────────────────
+interface DBMember {
+  id: number;
+  email: string;
+  display_name: string | null;
+  role: string;
+  active: boolean;
+  invited_at: string;
+  last_login_at: string | null;
+}
+
+function mapMemberToUserRow(m: DBMember): UserRow {
+  const roleMap: Record<string, UserRow['role']> = {
+    super_admin: 'admin', admin: 'admin', hr: 'drh',
+    manager: 'manager', employee: 'employee',
+  };
+  const spacesMap: Record<string, string[]> = {
+    admin:    ['Back-office', 'MSS', 'ESS', 'Atlas Studio'],
+    drh:      ['Back-office', 'MSS', 'ESS'],
+    hr_agent: ['Back-office', 'ESS'],
+    manager:  ['MSS', 'ESS'],
+    employee: ['ESS'],
+    payroll:  ['Back-office', 'ESS'],
+    compliance:['Back-office', 'ESS'],
+  };
+  const mappedRole = (roleMap[m.role] ?? 'employee') as UserRow['role'];
+  return {
+    id:       String(m.id),
+    name:     m.display_name ?? m.email.split('@')[0],
+    email:    m.email,
+    role:     mappedRole,
+    spaces:   spacesMap[mappedRole] ?? ['ESS'],
+    status:   !m.active ? 'suspended' : !m.last_login_at ? 'invited' : 'active',
+    lastSeen: m.last_login_at
+      ? new Date(m.last_login_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+      : undefined,
+    mfa: false,
+  };
+}
 
 const STATUS_META: Record<UserRow['status'], { label: string; tone: string }> = {
   active:    { label: 'Actif',    tone: 'bg-emerald-100 text-emerald-700' },
@@ -173,6 +214,36 @@ export function AdminWorkspacePage() {
   const [search, setSearch] = useState('');
   const [wsOpen, setWsOpen] = useState(false);
   const wsRef = useRef<HTMLDivElement>(null);
+  const tenantId = useAuthStore((s) => s.tenantId);
+  const [realUsers, setRealUsers] = useState<UserRow[] | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  // Chargement des membres réels depuis atlas_people.tenant_members
+  useEffect(() => {
+    if (!supabase || !tenantId) return;
+    supabase
+      .schema('atlas_people')
+      .from('tenant_members')
+      .select('id, email, display_name, role, active, invited_at, last_login_at')
+      .eq('tenant_id', tenantId)
+      .order('invited_at', { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) setRealUsers((data as DBMember[]).map(mapMemberToUserRow));
+      });
+  }, [tenantId]);
+
+  const reloadUsers = () => {
+    if (!supabase || !tenantId) return;
+    supabase
+      .schema('atlas_people')
+      .from('tenant_members')
+      .select('id, email, display_name, role, active, invited_at, last_login_at')
+      .eq('tenant_id', tenantId)
+      .order('invited_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setRealUsers((data as DBMember[]).map(mapMemberToUserRow));
+      });
+  };
 
   // Click outside → close workspaces dropdown
   useEffect(() => {
@@ -184,7 +255,8 @@ export function AdminWorkspacePage() {
     return () => document.removeEventListener('mousedown', onClick);
   }, [wsOpen]);
 
-  const filtered = USERS.filter((u) =>
+  const displayUsers = realUsers ?? USERS;
+  const filtered = displayUsers.filter((u) =>
     !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -326,9 +398,9 @@ export function AdminWorkspacePage() {
           <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Statut global</p>
             <div className="grid grid-cols-2 gap-3">
-              <SmallStat label="Utilisateurs" value={USERS.filter((u) => u.status === 'active').length} unit={`/ ${USERS.length}`} />
-              <SmallStat label="Invitations" value={USERS.filter((u) => u.status === 'invited').length} unit="en attente" />
-              <SmallStat label="MFA activé" value={USERS.filter((u) => u.mfa).length} unit={`/ ${USERS.length}`} tone="success" />
+              <SmallStat label="Utilisateurs" value={displayUsers.filter((u) => u.status === 'active').length} unit={`/ ${displayUsers.length}`} />
+              <SmallStat label="Invitations" value={displayUsers.filter((u) => u.status === 'invited').length} unit="en attente" />
+              <SmallStat label="MFA activé" value={displayUsers.filter((u) => u.mfa).length} unit={`/ ${displayUsers.length}`} tone="success" />
               <SmallStat label="Sessions live" value={4} unit="actives" />
             </div>
           </div>
@@ -369,11 +441,22 @@ export function AdminWorkspacePage() {
             users={filtered}
             search={search}
             onSearch={setSearch}
+            onInvite={() => setInviteOpen(true)}
+            isLive={isBackendConfigured && realUsers !== null}
           />
         )}
         {tab === 'settings' && <SettingsPanel />}
         {tab === 'security' && <SecurityPanel />}
       </section>
+
+      {/* ───────── Invite modal ───────── */}
+      {inviteOpen && (
+        <InviteModal
+          tenantId={tenantId}
+          onClose={() => setInviteOpen(false)}
+          onSuccess={() => { setInviteOpen(false); reloadUsers(); }}
+        />
+      )}
 
       {/* ───────── Footer ───────── */}
       <footer className="border-t border-slate-200 bg-white">
@@ -674,20 +757,27 @@ function TenantPanel() {
   );
 }
 
-interface UsersPanelProps { users: UserRow[]; search: string; onSearch: (s: string) => void }
+interface UsersPanelProps {
+  users: UserRow[];
+  search: string;
+  onSearch: (s: string) => void;
+  onInvite: () => void;
+  isLive: boolean;
+}
 
-function UsersPanel({ users, search, onSearch }: UsersPanelProps) {
+function UsersPanel({ users, search, onSearch, onInvite, isLive }: UsersPanelProps) {
   return (
     <PanelCard
       title="Utilisateurs Atlas People"
-      subtitle={`${users.length} comptes · MFA activé sur ${users.filter((u) => u.mfa).length}`}
+      subtitle={`${users.length} comptes${isLive ? ' · données live' : ' · démo'} · MFA activé sur ${users.filter((u) => u.mfa).length}`}
       icon={Users}
       action={
         <button
           type="button"
+          onClick={onInvite}
           className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition-shadow hover:shadow-lg"
         >
-          <Plus size={13} /> Nouvel utilisateur
+          <Plus size={13} /> Inviter un utilisateur
         </button>
       }
     >
@@ -880,6 +970,169 @@ function SecRow({ icon: Icon, label, value, tone }: SecRowProps) {
         {label}
       </span>
       <span className={cn('mono text-[11px] font-bold', tone === 'success' ? 'text-emerald-700' : tone === 'warn' ? 'text-amber-700' : 'text-rose-700')}>{value}</span>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * InviteModal — créer une invitation et envoyer l'email
+ * ────────────────────────────────────────────────────────────────── */
+
+const INVITE_ROLES: { value: string; label: string }[] = [
+  { value: 'employee',    label: 'Collaborateur (ESS uniquement)' },
+  { value: 'manager',     label: 'Manager (MSS + ESS)' },
+  { value: 'hr',          label: 'DRH / Agent RH (Back-office)' },
+  { value: 'admin',       label: 'Administrateur (accès complet)' },
+];
+
+interface InviteModalProps {
+  tenantId: string | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function InviteModal({ onClose, onSuccess }: InviteModalProps) {
+  const [email, setEmail]           = useState('');
+  const [role, setRole]             = useState('employee');
+  const [displayName, setDisplayName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [result, setResult]         = useState<{ inviteUrl?: string; note?: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    setSubmitting(true); setError(null);
+
+    const { data, error: fnErr } = await supabase.functions.invoke('send-invitation-email', {
+      body: { email: email.trim(), role, display_name: displayName.trim() || undefined },
+    });
+
+    setSubmitting(false);
+    if (fnErr) { setError(fnErr.message); return; }
+    if (data?.error) { setError(data.error); return; }
+
+    if (data?.invite_url) {
+      setResult({ inviteUrl: data.invite_url, note: data.note });
+    } else {
+      onSuccess();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Fermer"
+        >
+          <X size={16} />
+        </button>
+
+        <div className="mb-5 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-200/60">
+            <Mail size={18} />
+          </span>
+          <div>
+            <h2 className="text-[16px] font-bold text-slate-900">Inviter un utilisateur</h2>
+            <p className="text-[11px] font-medium text-slate-500">Un lien d'invitation sera envoyé par email</p>
+          </div>
+        </div>
+
+        {result ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-amber-50 p-4 text-[13px] font-medium text-amber-800">
+              <p className="font-bold">{result.note ?? "Lien d'accès généré"}</p>
+              <p className="mono mt-2 break-all rounded-lg bg-white/70 px-3 py-2 text-[11px] text-amber-900">{result.inviteUrl}</p>
+            </div>
+            <p className="text-[12px] font-medium text-slate-500">L'utilisateur avait déjà un compte — partagez ce lien directement.</p>
+            <button
+              type="button"
+              onClick={onSuccess}
+              className="w-full rounded-2xl bg-teal-600 py-2.5 text-[13px] font-bold text-white transition-shadow hover:shadow-lg"
+            >
+              Terminer
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Adresse email *
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="prenom@entreprise.ci"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Nom affiché
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Prénom Nom (optionnel)"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Rôle
+              </label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-medium text-slate-900 focus:border-teal-500 focus:outline-none"
+              >
+                {INVITE_ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2.5 text-[12px] font-semibold text-rose-700">
+                <AlertCircle size={13} /> {error}
+              </div>
+            )}
+
+            {!isBackendConfigured && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-700">
+                <AlertCircle size={13} /> Mode démo — l'invitation ne sera pas envoyée
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-2xl border border-slate-200 bg-white py-2.5 text-[13px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || !email}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-teal-600 py-2.5 text-[13px] font-bold text-white transition-shadow hover:shadow-lg disabled:opacity-60"
+              >
+                {submitting ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  <><Send size={13} /> Envoyer l'invitation</>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
