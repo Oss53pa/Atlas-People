@@ -47,6 +47,7 @@ const InterfaceClientPage       = lz(() => import('./pages/cabinet/InterfaceClie
 const BulletinsLotPage          = lz(() => import('./pages/payroll/BulletinsLotPage'),          'BulletinsLotPage');
 const DSNConsolideePage         = lz(() => import('./pages/payroll/DSNConsolideePage'),          'DSNConsolideePage');
 const TravailleursPlacesPage    = lz(() => import('./pages/placement/TravailleursPlacesPage'), 'TravailleursPlacesPage');
+const TravailleurDetailPage     = lz(() => import('./pages/placement/TravailleurDetailPage'),  'TravailleurDetailPage');
 const ContratsMissionPage       = lz(() => import('./pages/placement/ContratsMissionPage'),     'ContratsMissionPage');
 const SitesClientsPage          = lz(() => import('./pages/placement/SitesClientsPage'),         'SitesClientsPage');
 const RapportAgencePage         = lz(() => import('./pages/placement/RapportAgencePage'),        'RapportAgencePage');
@@ -429,6 +430,7 @@ function App() {
           <Route path="/clients" element={<PortefeuilleClientsPage />} />
           <Route path="/clients/:id" element={<ClientDetailPage />} />
           <Route path="/travailleurs-places" element={<TravailleursPlacesPage />} />
+          <Route path="/travailleurs-places/:id" element={<TravailleurDetailPage />} />
           <Route path="/collaborateurs/nouveau" element={<NewEmployeeWizard />} />
           <Route path="/collaborateurs/import" element={<ImportEmployeesWizard />} />
           <Route path="/collaborateurs/demandes" element={<DemandesModifPage />} />

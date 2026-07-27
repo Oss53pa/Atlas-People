@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Search, Plus, Building2,
   CalendarClock, CheckCircle2, AlertCircle, Clock,
-  MoreVertical, FileSignature, Users, BarChart2, ChevronRight,
+  ChevronRight, FileSignature, Users, BarChart2,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useAuthStore } from '../../lib/auth';
@@ -182,10 +182,13 @@ export function TravailleursPlacesPage() {
                         <StatusIcon size={10} /> {s.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <button type="button" className="rounded-lg p-1 text-ink-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface2 hover:text-ink-500">
-                        <MoreVertical size={15} />
-                      </button>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        to={`/travailleurs-places/${t.id}`}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface2 hover:text-ink"
+                      >
+                        Détail <ChevronRight size={12} />
+                      </Link>
                     </td>
                   </tr>
                 );
