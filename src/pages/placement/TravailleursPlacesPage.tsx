@@ -1,15 +1,13 @@
-/**
- * Travailleurs placés — page d'accueil Atlas People Placement.
- * Stub v1 : liste factice de travailleurs avec site d'affectation.
- */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  UserCheck, Search, Plus, Building2,
-  MapPin, CalendarClock, CheckCircle2, AlertCircle, Clock,
+  Search, Plus, Building2,
+  CalendarClock, CheckCircle2, AlertCircle, Clock,
   MoreVertical, FileSignature, Users, BarChart2, ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { useAuthStore } from '../../lib/auth';
+import { supabase, isBackendConfigured } from '../../lib/supabase';
 
 interface TravailleurRow {
   id: string;
@@ -37,20 +35,57 @@ const STATUS_META: Record<TravailleurRow['status'], { label: string; icon: typeo
   fin_mission: { label: 'Fin mission', icon: AlertCircle,  cls: 'bg-slate-100 text-slate-500' },
 };
 
-const FLAG: Record<string, string> = { CI: '🇨🇮', SN: '🇸🇳', CM: '🇨🇲', TG: '🇹🇬' };
+const FLAG: Record<string, string> = { CI: '🇨🇮', SN: '🇸🇳', CM: '🇨🇲', TG: '🇹🇬', BJ: '🇧🇯', BF: '🇧🇫' };
+
+function fmtDate(d: string | null): string {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function mapDbWorker(row: Record<string, unknown>): TravailleurRow {
+  return {
+    id:           row.id as string,
+    nom:          row.nom as string,
+    poste:        (row.poste as string) ?? '—',
+    siteClient:   (row.site_client as string) ?? '—',
+    pays:         (row.pays as string) ?? 'CI',
+    debutMission: fmtDate(row.debut_mission as string | null),
+    finMission:   fmtDate(row.fin_mission as string | null),
+    status:       (row.status as TravailleurRow['status']) ?? 'disponible',
+  };
+}
 
 export function TravailleursPlacesPage() {
   const [search, setSearch] = useState('');
+  const [realWorkers, setRealWorkers] = useState<TravailleurRow[] | null>(null);
+  const tenantId = useAuthStore((s) => s.tenantId);
 
-  const filtered = MOCK_TRAVAILLEURS.filter((t) =>
+  useEffect(() => {
+    if (!supabase || !isBackendConfigured || !tenantId) return;
+    supabase
+      .schema('atlas_people')
+      .from('workers')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('nom')
+      .then(({ data }) => {
+        if (data && data.length > 0) setRealWorkers(data.map(mapDbWorker));
+      });
+  }, [tenantId]);
+
+  const displayWorkers = realWorkers ?? MOCK_TRAVAILLEURS;
+  const isLive = isBackendConfigured && realWorkers !== null;
+
+  const filtered = displayWorkers.filter((t) =>
     !search ||
     t.nom.toLowerCase().includes(search.toLowerCase()) ||
     t.siteClient.toLowerCase().includes(search.toLowerCase()) ||
     t.poste.toLowerCase().includes(search.toLowerCase())
   );
 
-  const enMission = MOCK_TRAVAILLEURS.filter((t) => t.status === 'en_mission').length;
-  const disponibles = MOCK_TRAVAILLEURS.filter((t) => t.status === 'disponible').length;
+  const enMission = displayWorkers.filter((t) => t.status === 'en_mission').length;
+  const disponibles = displayWorkers.filter((t) => t.status === 'disponible').length;
 
   return (
     <div className="space-y-6">
@@ -81,7 +116,7 @@ export function TravailleursPlacesPage() {
           { label: 'En mission',    value: enMission },
           { label: 'Disponibles',   value: disponibles },
           { label: 'Fins de mission < 30 j', value: 1 },
-          { label: 'Sites actifs',  value: [...new Set(MOCK_TRAVAILLEURS.filter(t => t.status === 'en_mission').map(t => t.siteClient))].length },
+          { label: 'Sites actifs',  value: [...new Set(displayWorkers.filter(t => t.status === 'en_mission').map(t => t.siteClient))].length },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">{s.label}</p>
@@ -160,9 +195,15 @@ export function TravailleursPlacesPage() {
         </div>
 
         <div className="border-t border-line px-4 py-3">
-          <p className="text-[11px] font-medium text-ink-400">
-            Données démo · Travailleurs réels depuis <span className="mono">atlas_people.workers</span>
-          </p>
+          {isLive ? (
+            <p className="text-[11px] font-medium text-emerald-600">
+              <CheckCircle2 size={10} className="mr-1 inline" /> Données live · <span className="mono">atlas_people.workers</span>
+            </p>
+          ) : (
+            <p className="text-[11px] font-medium text-ink-400">
+              Données démo · <span className="mono">atlas_people.workers</span>
+            </p>
+          )}
         </div>
       </div>
       {/* Accès rapide modules Placement */}

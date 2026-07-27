@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import {
   ArrowLeft, Building2, Globe, Users, ShieldCheck,
@@ -8,7 +9,8 @@ import {
 import { cn } from '../../lib/cn';
 import { useAuth } from '../../lib/auth';
 import { PRODUCT_META } from '../../app/nav';
-import { MOCK_CLIENTS, FLAG } from '../../data/mockClients';
+import { MOCK_CLIENTS, FLAG, type ClientRow } from '../../data/mockClients';
+import { supabase, isBackendConfigured } from '../../lib/supabase';
 
 const STATUS_META = {
   actif:      { label: 'Actif',      icon: CheckCircle2, cls: 'bg-emerald-100 text-emerald-700' },
@@ -38,12 +40,53 @@ function confColor(n: number) {
   return 'text-rose-600';
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { tenantType } = useAuth();
   const product = PRODUCT_META[tenantType];
 
-  const client = MOCK_CLIENTS.find((c) => c.id === id);
+  const [dbClient, setDbClient] = useState<ClientRow | null | 'loading'>('loading');
+
+  useEffect(() => {
+    if (!id || !supabase || !isBackendConfigured || !UUID_RE.test(id)) {
+      setDbClient(null);
+      return;
+    }
+    supabase
+      .schema('atlas_people')
+      .from('clients')
+      .select('*')
+      .eq('id', id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setDbClient({
+            id: data.id as string,
+            name: data.name as string,
+            pays: (data.pays as string) ?? '',
+            effectif: (data.effectif as number) ?? 0,
+            status: (data.status as ClientRow['status']) ?? 'actif',
+            modules: (data.modules as string[]) ?? [],
+            lastSync: data.updated_at ? new Date(data.updated_at as string).toLocaleDateString('fr-FR') : '—',
+            contact: (data.contact as string) ?? '—',
+            email: (data.email as string) ?? '—',
+            secteur: (data.secteur as string) ?? '—',
+            ville: (data.ville as string) ?? '—',
+            depuis: (data.depuis as string) ?? '—',
+            conformite: (data.conformite as number) ?? 0,
+          });
+        } else {
+          setDbClient(null);
+        }
+      });
+  }, [id]);
+
+  const client = dbClient === 'loading'
+    ? MOCK_CLIENTS.find((c) => c.id === id) ?? null
+    : dbClient ?? MOCK_CLIENTS.find((c) => c.id === id) ?? null;
+
   if (!client) return <Navigate to="/clients" replace />;
 
   const s = STATUS_META[client.status];

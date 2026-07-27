@@ -1,11 +1,4 @@
-/**
- * Portefeuille clients — page d'accueil des modes cabinet.
- * Atlas People Conseil / Atlas Payroll / Atlas People 360 / Atlas People Placement
- *
- * Stub v1 : liste factice de clients avec statut, accès rapide.
- * Prochaine étape : données réelles depuis atlas_people.clients.
- */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search, Plus, ChevronRight,
@@ -14,8 +7,10 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useAuth } from '../../lib/auth';
+import { useAuthStore } from '../../lib/auth';
 import { PRODUCT_META } from '../../app/nav';
-import { MOCK_CLIENTS, FLAG } from '../../data/mockClients';
+import { MOCK_CLIENTS, FLAG, type ClientRow } from '../../data/mockClients';
+import { supabase, isBackendConfigured } from '../../lib/supabase';
 
 const STATUS_META = {
   actif:      { label: 'Actif',      icon: CheckCircle2, cls: 'bg-emerald-100 text-emerald-700' },
@@ -23,17 +18,62 @@ const STATUS_META = {
   suspendu:   { label: 'Suspendu',   icon: AlertCircle,  cls: 'bg-rose-100 text-rose-700' },
 } as const;
 
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.floor(diff / 3_600_000);
+  if (h < 1) return 'il y a < 1 h';
+  if (h < 24) return `il y a ${h} h`;
+  const d = Math.floor(h / 24);
+  return `il y a ${d} j`;
+}
+
+function mapDbClient(row: Record<string, unknown>): ClientRow {
+  return {
+    id:         row.id as string,
+    name:       row.name as string,
+    pays:       (row.pays as string) ?? '',
+    effectif:   (row.effectif as number) ?? 0,
+    status:     (row.status as ClientRow['status']) ?? 'actif',
+    modules:    (row.modules as string[]) ?? [],
+    lastSync:   row.updated_at ? relativeTime(row.updated_at as string) : '—',
+    contact:    (row.contact as string) ?? '—',
+    email:      (row.email as string) ?? '—',
+    secteur:    (row.secteur as string) ?? '—',
+    ville:      (row.ville as string) ?? '—',
+    depuis:     (row.depuis as string) ?? '—',
+    conformite: (row.conformite as number) ?? 0,
+  };
+}
+
 export function PortefeuilleClientsPage() {
   const [search, setSearch] = useState('');
+  const [realClients, setRealClients] = useState<ClientRow[] | null>(null);
   const { tenantType } = useAuth();
+  const tenantId = useAuthStore((s) => s.tenantId);
   const product = PRODUCT_META[tenantType];
 
-  const filtered = MOCK_CLIENTS.filter((c) =>
+  useEffect(() => {
+    if (!supabase || !isBackendConfigured || !tenantId) return;
+    supabase
+      .schema('atlas_people')
+      .from('clients')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('name')
+      .then(({ data }) => {
+        if (data && data.length > 0) setRealClients(data.map(mapDbClient));
+      });
+  }, [tenantId]);
+
+  const displayClients = realClients ?? MOCK_CLIENTS;
+  const isLive = isBackendConfigured && realClients !== null;
+
+  const filtered = displayClients.filter((c) =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.pays.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalEffectif = MOCK_CLIENTS.reduce((s, c) => s + c.effectif, 0);
-  const actifs = MOCK_CLIENTS.filter((c) => c.status === 'actif').length;
+  const totalEffectif = displayClients.reduce((s, c) => s + c.effectif, 0);
+  const actifs = displayClients.filter((c) => c.status === 'actif').length;
 
   return (
     <div className="space-y-6">
@@ -61,10 +101,10 @@ export function PortefeuilleClientsPage() {
       {/* Stats rapides */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Clients actifs',    value: actifs,                          unit: `/ ${MOCK_CLIENTS.length}` },
-          { label: 'Collaborateurs',    value: totalEffectif.toLocaleString('fr-FR'), unit: 'gérés' },
-          { label: 'Pays couverts',     value: [...new Set(MOCK_CLIENTS.map(c => c.pays))].length, unit: 'OHADA' },
-          { label: 'En attente',        value: MOCK_CLIENTS.filter(c => c.status === 'en_attente').length, unit: 'clients' },
+          { label: 'Clients actifs',    value: actifs,                                          unit: `/ ${displayClients.length}` },
+          { label: 'Collaborateurs',    value: totalEffectif.toLocaleString('fr-FR'),           unit: 'gérés' },
+          { label: 'Pays couverts',     value: [...new Set(displayClients.map(c => c.pays))].length, unit: 'OHADA' },
+          { label: 'En attente',        value: displayClients.filter(c => c.status === 'en_attente').length, unit: 'clients' },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">{s.label}</p>
@@ -160,9 +200,15 @@ export function PortefeuilleClientsPage() {
 
         {/* Footer */}
         <div className="border-t border-line px-4 py-3">
-          <p className="text-[11px] font-medium text-ink-400">
-            Données démo · Les clients réels seront chargés depuis <span className="mono">atlas_people.clients</span>
-          </p>
+          {isLive ? (
+            <p className="text-[11px] font-medium text-emerald-600">
+              <CheckCircle2 size={10} className="mr-1 inline" /> Données live · <span className="mono">atlas_people.clients</span>
+            </p>
+          ) : (
+            <p className="text-[11px] font-medium text-ink-400">
+              Données démo · <span className="mono">atlas_people.clients</span>
+            </p>
+          )}
         </div>
       </div>
 
