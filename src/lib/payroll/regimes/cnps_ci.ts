@@ -52,7 +52,7 @@ export const REGIME_CI: Regime = {
   incomeTax: {
     code: 'IGR',
     label: 'IGR / IRPP',
-    abatementBps: 2000, // abattement 20 % frais professionnels (illustratif)
+    abatementBps: 0, // aucun abattement depuis la réforme ITS 2024 (Ordonnance n°2023-719, CGI art. 119)
     brackets: [
       { upTo: 75_000, bps: 0 },
       { upTo: 240_000, bps: 1600 }, // 16 %

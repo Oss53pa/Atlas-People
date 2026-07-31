@@ -87,7 +87,7 @@ describe('PayrollEngine — CI (CNPS / IGR)', () => {
   });
 
   it('IGR nul en dessous du seuil (60 000 FCFA → taxable < 75k)', () => {
-    // base=60000, social=60000*6.30%=3780, after=56220, abat20%=11244, taxable=44976 < 75000
+    // base=60000, social=60000*6.30%=3780, taxable=after=56220 (pas d'abattement depuis 2024) < 75000
     const r = run({ baseSalary: 60_000 });
     const igr = line(r, 'IGR');
     expect(igr).toBeDefined();
