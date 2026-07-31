@@ -487,8 +487,8 @@ export function TalentsMobilitePage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Postes ouverts" value={String(opportunities.length)} unit="mobilité interne" icon={Target} />
-        <StatCard label="Candidatures matchées" value={String(matches.length)} unit="≥ 40 % minimum" icon={ArrowRightLeft} />
-        <StatCard label="Match ≥ 80 %" value={String(matches.filter((m) => m.match >= 80).length)} unit="prioritaires" icon={CheckCircle2} tone="default" />
+        <StatCard label="Candidatures matchées" value={String(matches.length)} unit={`≥ ${COMPETENCE_THRESHOLDS.MOBILITY_MATCH_MIN_PCT} % minimum`} icon={ArrowRightLeft} />
+        <StatCard label="Match ≥ 80 %" value={String(matches.filter((m) => m.match >= COMPETENCE_THRESHOLDS.MOBILITY_MATCH_AUTO_VALIDATE_PCT).length)} unit="prioritaires" icon={CheckCircle2} tone="default" />
         <StatCard label="Experts référents" value={String(referents.length)} unit="niveau 5" icon={Award} />
       </div>
 
@@ -507,8 +507,8 @@ export function TalentsMobilitePage() {
                 </div>
                 <div className="text-right">
                   <p className={cn('mono text-[24px] font-bold leading-none',
-                    m.match >= 80 ? 'text-emerald-600' :
-                    m.match >= 60 ? 'text-amber-700' :
+                    m.match >= COMPETENCE_THRESHOLDS.MOBILITY_MATCH_AUTO_VALIDATE_PCT ? 'text-emerald-600' :
+                    m.match >= COMPETENCE_THRESHOLDS.MOBILITY_MATCH_PDC_MIN_PCT ? 'text-amber-700' :
                                     'text-rose-600')}>{m.match} %</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-ink-500">match</p>
                 </div>
@@ -525,7 +525,7 @@ export function TalentsMobilitePage() {
               </div>
               <div className="mt-2 flex gap-2">
                 <Button variant="outline" size="sm">Voir profil</Button>
-                {m.match >= 40 && <Button size="sm">Initier candidature</Button>}
+                {m.match >= COMPETENCE_THRESHOLDS.MOBILITY_MATCH_MIN_PCT && <Button size="sm">Initier candidature</Button>}
               </div>
             </div>
           ))}
