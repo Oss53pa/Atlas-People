@@ -17,6 +17,7 @@ import { CompetencesSubNav } from '../../components/competences/CompetencesSubNa
 import { EMPLOYEES, employeeName, SKILLS } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
+import { COMPETENCE_THRESHOLDS } from '../../lib/m9/referentiels';
 
 // ────────── seed compétences × employés (cartographie matricielle)
 type SkillLevel = 0 | 1 | 2 | 3 | 4 | 5;
@@ -328,9 +329,9 @@ export function GapAnalysisPage() {
 export function SpofPage() {
   const roster = useRoster();
   const spofs = SKILLS.map((s) => {
-    const holders = SKILL_MATRIX.filter((c) => c.skillName === s.name && c.level >= 3);
+    const holders = SKILL_MATRIX.filter((c) => c.skillName === s.name && c.level >= COMPETENCE_THRESHOLDS.MASTERY_LEVEL);
     return { skill: s, holders, count: holders.length };
-  }).filter((s) => s.count <= 1).sort((a, b) => a.count - b.count);
+  }).filter((s) => s.count <= COMPETENCE_THRESHOLDS.SPOF_MAX_HOLDERS).sort((a, b) => a.count - b.count);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -370,7 +371,7 @@ export function SpofPage() {
             <tbody className="divide-y divide-line">
               {spofs.map((s) => {
                 const holders = s.holders.map((h) => roster.find((e) => e.id === h.employeeId)).filter(Boolean) as typeof roster;
-                const sev = s.count === 0 ? 'critical' : s.skill.projectedGap >= 2 ? 'high' : 'medium';
+                const sev = s.count === 0 ? 'critical' : s.skill.projectedGap >= COMPETENCE_THRESHOLDS.GAP_SEVERITY_HIGH_THRESHOLD ? 'high' : 'medium';
                 return (
                   <tr key={s.skill.name} className="hover:bg-amber/[0.03]">
                     <td className="px-3 py-2 text-[12px] font-semibold text-ink">{s.skill.name}</td>
@@ -563,19 +564,19 @@ export function ParametresCompetencesPage() {
           <div className="grid grid-cols-2 gap-3 text-[11px]">
             <div className="rounded-xl border border-line bg-surface2/40 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Réeval. cadence</p>
-              <p className="mono mt-1 text-[16px] font-bold text-ink">12 mois</p>
+              <p className="mono mt-1 text-[16px] font-bold text-ink">{COMPETENCE_THRESHOLDS.REEVALUATION_CADENCE_MONTHS} mois</p>
             </div>
             <div className="rounded-xl border border-line bg-surface2/40 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">SPOF seuil</p>
-              <p className="mono mt-1 text-[16px] font-bold text-ink">≤ 1 détenteur</p>
+              <p className="mono mt-1 text-[16px] font-bold text-ink">≤ {COMPETENCE_THRESHOLDS.SPOF_MAX_HOLDERS} détenteur</p>
             </div>
             <div className="rounded-xl border border-line bg-surface2/40 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Niveau Maîtrise</p>
-              <p className="mono mt-1 text-[16px] font-bold text-ink">≥ 3/5</p>
+              <p className="mono mt-1 text-[16px] font-bold text-ink">≥ {COMPETENCE_THRESHOLDS.MASTERY_LEVEL}/5</p>
             </div>
             <div className="rounded-xl border border-line bg-surface2/40 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Certif. expire</p>
-              <p className="mono mt-1 text-[16px] font-bold text-ink">90 jours</p>
+              <p className="mono mt-1 text-[16px] font-bold text-ink">{COMPETENCE_THRESHOLDS.CERT_EXPIRATION_ALERT_DAYS} jours</p>
             </div>
           </div>
         </Card>
