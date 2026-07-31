@@ -1,6 +1,16 @@
 -- =====================================================================
 -- Correctif — pondération des dimensions M8 dans settings_registry
 --
+-- NOTE DE NUMÉROTATION : ce fichier a d'abord porté le préfixe 0056 et a été
+-- APPLIQUÉ en base sous le nom « 0056_fix_settings_registry_m8_dimensions ».
+-- Il a été renuméroté en 0058 après coup : une autre branche a poussé
+-- 0056_reconcile_payroll_ci_legal_values.sql, créant une collision de
+-- préfixe. Les deux migrations sont indépendantes (registre de paramétrage
+-- ici, barèmes légaux là), donc l'ordre relatif n'a aucune incidence. Le nom
+-- enregistré dans supabase_migrations diverge volontairement du nom de
+-- fichier : renommer l'enregistrement d'une migration déjà appliquée serait
+-- plus risqué que de documenter l'écart.
+--
 -- La migration 0054 a seedé une entrée unique ('M8','weighting','dimensions')
 -- dont l'objet jsonb était clé par les CODES du référentiel TypeScript
 -- (okr / competences / comportements / leadership / culture). Or les
