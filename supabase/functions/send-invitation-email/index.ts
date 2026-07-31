@@ -105,7 +105,7 @@ serve(async (req: Request) => {
       JSON.stringify({
         ok: true,
         invite_url: linkData?.properties?.action_link ?? inviteUrl,
-        note: 'Lien signé à transmettre à l'utilisateur existant',
+        note: "Lien signé à transmettre à l'utilisateur existant",
       }),
       { status: 200, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } },
     );
