@@ -12,7 +12,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { json, corsHeaders } from '../_shared/cors.ts';
-import { callerClient, serviceClient, resolveCaller, isHrOrAdmin } from '../_shared/supabase.ts';
+import { serviceClient, resolveCaller, isHrOrAdmin } from '../_shared/supabase.ts';
 
 const VALID_ROLES = ['super_admin', 'admin', 'hr', 'manager', 'employee'];
 
