@@ -7,7 +7,7 @@
  * L'écriture produite est toujours équilibrée (Σ débit = Σ crédit).
  */
 
-import { Money } from '../money';
+import { Money, type Currency } from '../money';
 import type { PayslipResult } from './types';
 import { DEFAULT_ACCOUNTING_PLAN, type AccountingPlan } from './AccountingPlan';
 
@@ -23,6 +23,12 @@ export interface JournalEntry {
   balanced: boolean;
   totalDebitUnits: string;
   totalCreditUnits: string;
+  /**
+   * Devise de l'écriture. Les lignes ne portent que des `units` : sans cette
+   * information au niveau de l'écriture, agréger des bulletins XOF et XAF
+   * produirait un total silencieusement faux au lieu d'une erreur.
+   */
+  currency: Currency;
 }
 
 export class AccountingMapper {
@@ -49,11 +55,17 @@ export class AccountingMapper {
       .map((l) => {
         const amount = M(l.amountUnits); // négatif côté salarié
         const positive = amount.isNegative() ? amount.negate() : amount;
-        return credit(l.account ?? '421000', l.label, positive);
+        // `||` et non `??` : une rubrique mal paramétrée porte un compte VIDE
+        // plus souvent qu'un compte absent, et une ligne sans compte casse le
+        // déversement bien plus loin (côté Atlas FNA).
+        return credit(l.account || plan.deductionDefault, l.label, positive);
       });
 
     const lines: JournalLine[] = [
-      debit(plan.gross, `Rémunérations — ${employeeLabel}`, grossTotal),
+      // Le segment avant le tiret est celui que `aggregate` conserve sur l'OD
+      // consolidée : il est choisi identique au libellé produit côté SQL
+      // (migration 0057) pour que l'écran et la base disent la même chose.
+      debit(plan.gross, `Rémunérations du personnel (brut) — ${employeeLabel}`, grossTotal),
       debit(plan.employerSocial, 'Charges sociales patronales', employerContrib),
       debit(plan.employerTaxExpense, 'Cotisations formation prof. (FDFP/CFCE)', employerTax),
       credit(plan.net, 'Personnel — rémunérations dues (net)', netToPay),
@@ -77,6 +89,72 @@ export class AccountingMapper {
       balanced: totalDebit.equals(totalCredit),
       totalDebitUnits: totalDebit.toJSON().units,
       totalCreditUnits: totalCredit.toJSON().units,
+      currency,
+    };
+  }
+
+  /**
+   * Consolide plusieurs écritures individuelles (une par bulletin) en UNE
+   * écriture de campagne, agrégée par compte — c'est l'OD de paie du cycle.
+   *
+   * Somme de deux écritures équilibrées ⇒ écriture équilibrée : le `balanced`
+   * retourné n'est donc pas un contrôle décoratif, il ne peut tomber à `false`
+   * que si l'une des écritures sources l'était déjà. Le contrôle reste explicite
+   * (et affiché) parce qu'un déversement comptable ne se fait jamais à l'aveugle.
+   *
+   * ⚠️ Devise unique, vérifiée écriture par écriture : les lignes ne portant que
+   * des `units`, une campagne XOF + XAF s'additionnerait sans broncher et
+   * produirait un total dénué de sens. Une campagne multi-zone doit être agrégée
+   * par devise (une OD par devise), jamais convertie ici.
+   */
+  static aggregate(entries: JournalEntry[], currency: Currency): JournalEntry {
+    const byAccount = new Map<
+      string,
+      { label: string; mixedLabels: boolean; debit: Money; credit: Money }
+    >();
+
+    for (const entry of entries) {
+      if (entry.currency !== currency) {
+        throw new Error(
+          `AccountingMapper.aggregate: mélange de devises interdit (${entry.currency} dans une OD ${currency})`,
+        );
+      }
+      for (const line of entry.lines) {
+        const acc = byAccount.get(line.account) ?? {
+          label: line.label,
+          mixedLabels: false,
+          debit: Money.zero(currency),
+          credit: Money.zero(currency),
+        };
+        acc.mixedLabels = acc.mixedLabels || acc.label !== line.label;
+        acc.debit = acc.debit.add(Money.fromJSON({ units: line.debitUnits, currency }));
+        acc.credit = acc.credit.add(Money.fromJSON({ units: line.creditUnits, currency }));
+        byAccount.set(line.account, acc);
+      }
+    }
+
+    const lines: JournalLine[] = [...byAccount.entries()].map(([account, v]) => ({
+      account,
+      label: v.mixedLabels ? collectiveLabel(v.label) : v.label,
+      debitUnits: v.debit.toJSON().units,
+      creditUnits: v.credit.toJSON().units,
+    }));
+
+    const totalDebit = Money.sum(
+      lines.map((l) => Money.fromJSON({ units: l.debitUnits, currency })),
+      currency,
+    );
+    const totalCredit = Money.sum(
+      lines.map((l) => Money.fromJSON({ units: l.creditUnits, currency })),
+      currency,
+    );
+
+    return {
+      lines,
+      balanced: totalDebit.equals(totalCredit),
+      totalDebitUnits: totalDebit.toJSON().units,
+      totalCreditUnits: totalCredit.toJSON().units,
+      currency,
     };
   }
 }
@@ -89,4 +167,16 @@ function credit(account: string, label: string, amount: Money): JournalLine {
 }
 function isZero(l: JournalLine): boolean {
   return l.debitUnits === '0' && l.creditUnits === '0';
+}
+
+/**
+ * Libellé d'une ligne consolidée dont les sources divergent — en pratique le
+ * compte 661, dont l'écriture individuelle porte le nom du salarié
+ * (« Rémunérations — Awa Koné »). Garder le premier nommerait un salarié au
+ * hasard sur une ligne qui les agrège tous : on ne conserve que le segment
+ * commun, avant le tiret cadratin.
+ */
+function collectiveLabel(label: string): string {
+  const [head] = label.split(' — ');
+  return head.trim() || label;
 }

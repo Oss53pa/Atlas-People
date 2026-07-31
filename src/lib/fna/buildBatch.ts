@@ -2,14 +2,21 @@
  * Construit un lot d'écritures FNA consolidé au niveau d'une campagne de paie,
  * à partir des bulletins calculés (agrégation déterministe par compte).
  * Utilisé pour la prévisualisation côté front ; le déversement réel est
- * effectué par l'Edge Function `post-to-fna` qui relit les écritures persistées.
+ * effectué par l'Edge Function `post-to-fna` qui relit les écritures persistées
+ * (`payroll_accounting_entries` + `_lines`, produites par la RPC
+ * `atlas_people.generate_cycle_accounting_entry` — cf. migration 0057).
+ *
+ * L'agrégation par compte est déléguée à `AccountingMapper.aggregate` : le lot
+ * envoyé à FNA et l'OD affichée à l'écran sortent ainsi du MÊME code. Ce fichier
+ * ne fait plus que l'habillage transport (clé d'idempotence, période, devise).
  */
-import { Money } from '../money';
+import { AccountingMapper } from '../payroll/AccountingMapper';
 import type { JournalEntry } from '../payroll/AccountingMapper';
 import type { FnaBatch, FnaJournalLine } from './types';
 
 export function buildFnaBatch(params: {
   tenantId: string;
+  /** Identifiant de la campagne de paie (cycle_id — cf. arbitrage migration 0057). */
   runId: string;
   period: string;
   currency: 'XOF' | 'XAF';
@@ -17,36 +24,14 @@ export function buildFnaBatch(params: {
 }): FnaBatch {
   const { tenantId, runId, period, currency, entries } = params;
 
-  // Agrégation par compte sur l'ensemble de la campagne.
-  const byAccount = new Map<string, { label: string; debit: Money; credit: Money }>();
-  for (const entry of entries) {
-    for (const line of entry.lines) {
-      const acc = byAccount.get(line.account) ?? {
-        label: line.label,
-        debit: Money.zero(currency),
-        credit: Money.zero(currency),
-      };
-      acc.debit = acc.debit.add(Money.fromJSON({ units: line.debitUnits, currency }));
-      acc.credit = acc.credit.add(Money.fromJSON({ units: line.creditUnits, currency }));
-      byAccount.set(line.account, acc);
-    }
-  }
+  const od = AccountingMapper.aggregate(entries, currency);
 
-  const lines: FnaJournalLine[] = [...byAccount.entries()].map(([account, v]) => ({
-    account,
-    label: v.label,
-    debit: v.debit.toJSON().units,
-    credit: v.credit.toJSON().units,
+  const lines: FnaJournalLine[] = od.lines.map((l) => ({
+    account: l.account,
+    label: l.label,
+    debit: l.debitUnits,
+    credit: l.creditUnits,
   }));
-
-  const totalDebit = Money.sum(
-    lines.map((l) => Money.fromJSON({ units: l.debit, currency })),
-    currency,
-  );
-  const totalCredit = Money.sum(
-    lines.map((l) => Money.fromJSON({ units: l.credit, currency })),
-    currency,
-  );
 
   return {
     tenantId,
@@ -55,8 +40,8 @@ export function buildFnaBatch(params: {
     currency,
     idempotencyKey: `${tenantId}:${runId}`,
     lines,
-    totalDebit: totalDebit.toJSON().units,
-    totalCredit: totalCredit.toJSON().units,
-    balanced: totalDebit.equals(totalCredit),
+    totalDebit: od.totalDebitUnits,
+    totalCredit: od.totalCreditUnits,
+    balanced: od.balanced,
   };
 }

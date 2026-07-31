@@ -6,28 +6,47 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { useToast } from '../../components/ui/Toast';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
-import { cycleBulletins, cycleTotals } from '../../lib/m3/cycle';
+import { cycleOdEntry } from '../../lib/m3/cycle';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
 
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
 export function ComptabilitePage() {
-  const { cycle, variables, statuses, prevNet } = usePayrollCycle();
+  const { cycle, variables } = usePayrollCycle();
   const { toast } = useToast();
-  const totals = useMemo(() => cycleTotals(cycleBulletins(variables, statuses, prevNet)), [variables, statuses, prevNet]);
 
-  // OD de paie SYSCOHADA (schéma simplifié, équilibré).
-  const lines = [
-    { account: '661100', label: 'Rémunérations du personnel (brut)', debit: totals.brut, credit: 0 },
-    { account: '664000', label: 'Charges sociales patronales', debit: totals.patronal, credit: 0 },
-    { account: '431000', label: 'Sécurité sociale (CNPS)', debit: 0, credit: Math.round(totals.cotisationsEmp * 0.45) + totals.patronal },
-    { account: '447000', label: 'État, impôts sur salaires (ITS/IRPP)', debit: 0, credit: Math.round(totals.cotisationsEmp * 0.55) },
-    { account: '421000', label: 'Personnel — rémunérations dues (net)', debit: 0, credit: totals.net },
-  ];
-  const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
-  const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
-  const balanced = totalDebit === totalCredit;
+  /**
+   * OD de paie SYSCOHADA — consolidation des écritures produites par
+   * `AccountingMapper` bulletin par bulletin (cf. lib/m3/cycle#cycleOdEntry).
+   *
+   * L'écran ne construit plus lui-même les imputations : il n'a aucun moyen de
+   * connaître le partage cotisations sociales / impôt à partir des seuls
+   * agrégats, et la version précédente le devinait avec une clé 45/55 inventée.
+   * Le moteur, lui, sépare les deux exactement — et impute au passage les
+   * retenues diverses (avances 421, oppositions 427) que l'OD omettait.
+   *
+   * La consolidation refuse un cycle multi-devises (XOF + XAF) : on récupère
+   * l'erreur pour l'afficher plutôt que de laisser tomber l'écran, mais on ne
+   * publie AUCUNE OD partielle dans ce cas.
+   */
+  const { od, error } = useMemo(() => {
+    try {
+      return { od: cycleOdEntry(variables), error: null as string | null };
+    } catch (e) {
+      return { od: null, error: e instanceof Error ? e.message : String(e) };
+    }
+  }, [variables]);
+
+  const lines = (od?.lines ?? []).map((l) => ({
+    account: l.account,
+    label: l.label,
+    debit: Number(l.debitUnits),
+    credit: Number(l.creditUnits),
+  }));
+  const totalDebit = Number(od?.totalDebitUnits ?? '0');
+  const totalCredit = Number(od?.totalCreditUnits ?? '0');
+  const balanced = od?.balanced ?? false;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -66,7 +85,11 @@ export function ComptabilitePage() {
           </table>
         </div>
         <div className="px-5 py-3">
-          <StatusPill tone={balanced ? 'ok' : 'danger'} dot={false}>{balanced ? <><CheckCircle2 size={12} className="mr-1 inline" />Écriture équilibrée</> : 'Déséquilibrée'}</StatusPill>
+          <StatusPill tone={balanced ? 'ok' : 'danger'} dot={false}>
+            {error ? `OD non produite — ${error}` : balanced
+              ? <><CheckCircle2 size={12} className="mr-1 inline" />Écriture équilibrée</>
+              : 'Déséquilibrée'}
+          </StatusPill>
         </div>
       </Card>
     </div>

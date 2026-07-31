@@ -3,8 +3,11 @@
  * pour le cockpit, le journal, le calcul et la validation.
  */
 import { EMPLOYEES, type EmployeeRecord } from '../../data/mock';
-import { computeM3Bulletin } from './engine';
+import { computeM3Bulletin, m3PayrollInput } from './engine';
 import { getRegime } from '../payroll/regimes';
+import { computePayslip } from '../payroll';
+import { AccountingMapper, type JournalEntry } from '../payroll/AccountingMapper';
+import { TENANT_CURRENCY } from '../../data/countries';
 import type { BulletinViewer, PayrollVariables, SaisieStatus } from './types';
 
 export interface CycleBulletin {
@@ -30,18 +33,71 @@ export function cycleBulletins(
 export interface CycleTotals {
   brut: number; net: number; cotisationsEmp: number; patronal: number; coutEmployeur: number;
   anomalies: number; blocking: number;
+  /**
+   * Décomposition EXACTE de `cotisationsEmp` (qui agrège cotisations sociales
+   * salariales + impôt). Les deux montants viennent du moteur, jamais d'une clé
+   * de répartition : `baseIrpp = baseCnps − totalEmployeeContribution` (engine.ts),
+   * donc `baseCnps − baseIrpp` EST le total des cotisations sociales salariales,
+   * et le solde est l'impôt. Même dérivation que `journalComptes` plus bas.
+   */
+  cotisationsSociales: number;
+  impot: number;
+  /** Retenues diverses (avances, oppositions) — absentes de `cotisationsEmp`. */
+  retenues: number;
 }
 
 export function cycleTotals(rows: CycleBulletin[]): CycleTotals {
-  return rows.reduce<CycleTotals>((t, r) => ({
-    brut: t.brut + r.bulletin.brutTotal,
-    net: t.net + r.bulletin.netAPayer,
-    cotisationsEmp: t.cotisationsEmp + r.bulletin.totalCotisationsEmp,
-    patronal: t.patronal + r.bulletin.totalPatronal,
-    coutEmployeur: t.coutEmployeur + r.bulletin.coutEmployeur,
-    anomalies: t.anomalies + r.bulletin.anomalies.length,
-    blocking: t.blocking + (r.bulletin.emissionBlocked ? 1 : 0),
-  }), { brut: 0, net: 0, cotisationsEmp: 0, patronal: 0, coutEmployeur: 0, anomalies: 0, blocking: 0 });
+  return rows.reduce<CycleTotals>((t, r) => {
+    const sociales = r.bulletin.baseCnps - r.bulletin.baseIrpp;
+    return {
+      brut: t.brut + r.bulletin.brutTotal,
+      net: t.net + r.bulletin.netAPayer,
+      cotisationsEmp: t.cotisationsEmp + r.bulletin.totalCotisationsEmp,
+      patronal: t.patronal + r.bulletin.totalPatronal,
+      coutEmployeur: t.coutEmployeur + r.bulletin.coutEmployeur,
+      anomalies: t.anomalies + r.bulletin.anomalies.length,
+      blocking: t.blocking + (r.bulletin.emissionBlocked ? 1 : 0),
+      cotisationsSociales: t.cotisationsSociales + sociales,
+      impot: t.impot + (r.bulletin.totalCotisationsEmp - sociales),
+      retenues: t.retenues + r.bulletin.totalRetenues,
+    };
+  }, {
+    brut: 0, net: 0, cotisationsEmp: 0, patronal: 0, coutEmployeur: 0, anomalies: 0, blocking: 0,
+    cotisationsSociales: 0, impot: 0, retenues: 0,
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* OD comptable du cycle                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Écritures comptables du cycle — UNE par collaborateur, produites par
+ * `AccountingMapper` (source unique du mapping SYSCOHADA, cf. AccountingPlan).
+ *
+ * On repasse par `computePayslip` plutôt que par `computeM3Bulletin` parce que
+ * ce dernier ne conserve que les agrégats d'affichage et jette l'écriture :
+ * l'entrée du calcul (`m3PayrollInput`) est strictement la même, le résultat
+ * est donc identique bulletin par bulletin.
+ */
+export function cycleJournalEntries(variables: Record<string, PayrollVariables>): JournalEntry[] {
+  return EMPLOYEES.map((emp) => {
+    const { accounting } = computePayslip(
+      m3PayrollInput(emp, variables[emp.id]),
+      getRegime(emp.countryCode),
+      `${emp.firstName} ${emp.lastName}`,
+    );
+    return accounting;
+  });
+}
+
+/**
+ * OD de paie du cycle : consolidation par compte des écritures individuelles.
+ * Équilibrée par construction (chaque écriture source l'est) et exhaustive —
+ * elle porte les retenues diverses, que le net seul ne suffit pas à décrire.
+ */
+export function cycleOdEntry(variables: Record<string, PayrollVariables>): JournalEntry {
+  return AccountingMapper.aggregate(cycleJournalEntries(variables), TENANT_CURRENCY);
 }
 
 /** Récap par rubrique pour le journal de paie collectif. */

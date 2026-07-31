@@ -11,6 +11,17 @@ export interface AccountingPlan {
   social: string; // 431 — sécurité sociale (caisses)
   incomeTax: string; // 447 — État, impôts retenus à la source
   employerTaxLiability: string; // 437 — organismes sociaux (taxes formation)
+  /**
+   * 421 — personnel, avances et acomptes. Contrepartie PAR DÉFAUT d'une retenue
+   * diverse dont la rubrique ne porte pas de compte explicite (le moteur impute
+   * 421 aux avances et 427 aux oppositions/saisies, cf. m3/engine.ts).
+   *
+   * ⚠️ Ne pas confondre avec `net` (422) : 421 est une CRÉANCE sur le salarié
+   * (on lui a déjà versé de l'argent), 422 une DETTE envers lui (net à payer).
+   * Imputer le net en 421 — ce que faisait l'OD de ComptabilitePage — mélange
+   * les deux sens et rend le compte personnel illisible.
+   */
+  deductionDefault: string;
 }
 
 export const DEFAULT_ACCOUNTING_PLAN: AccountingPlan = {
@@ -21,4 +32,5 @@ export const DEFAULT_ACCOUNTING_PLAN: AccountingPlan = {
   social: '431000',
   incomeTax: '447000',
   employerTaxLiability: '437000',
+  deductionDefault: '421000',
 };
