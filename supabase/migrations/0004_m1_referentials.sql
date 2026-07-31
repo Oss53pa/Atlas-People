@@ -4,7 +4,12 @@
 -- Additif et idempotent.
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- Identifiants employé (matricule, photo)
+
 alter table employees add column if not exists matricule text;
 alter table employees add column if not exists photo_path text;
 create unique index if not exists uq_employees_matricule on employees (tenant_id, matricule);
@@ -29,34 +34,23 @@ create index if not exists idx_modreq on modification_requests (tenant_id, statu
 
 -- ---------------------------------------------------------------------------
 -- Référentiels organisationnels — P1.15 / P1.16 / P1.18
+--
+-- departments · sites · collective_agreements · classifications ·
+-- public_holidays NE SONT PLUS DÉCLARÉES ICI.
+--
+-- Elles l'étaient en double, ici et dans 0011_m1_config_referentials, avec des
+-- colonnes incompatibles. `create table if not exists` fait gagner la première
+-- déclaration en silence : un rejeu du dépôt installait la version de ce
+-- fichier, alors que la base porte celle de 0011 (vérifié colonne par colonne —
+-- aucune colonne propre à 0004 n'existe en base : ni `active`, ni `year`, ni
+-- `date`, ni `fixed`, ni `level`, ni `reference`, ni `manager_id`).
+--
+-- Même piège sur deux index homonymes, désormais laissés à 0011 :
+--   idx_departments      ici (tenant_id)                  / 0011 (tenant_id, parent_id)
+--   idx_public_holidays  ici (tenant_id, country_code, year) / 0011 (country_code, holiday_date)
+--
+-- 0011 reste la déclaration unique de ces cinq tables.
 -- ---------------------------------------------------------------------------
-create table if not exists departments (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references tenants (id) on delete cascade,
-  name text not null,
-  code text not null,
-  parent_id uuid references departments (id),
-  manager_id uuid references employees (id),
-  country_code text,
-  active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-create index if not exists idx_departments on departments (tenant_id);
-
-create table if not exists sites (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references tenants (id) on delete cascade,
-  name text not null,
-  code text not null,
-  address text,
-  city text,
-  country_code text not null,
-  site_type text,
-  active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-create index if not exists idx_sites on sites (tenant_id);
-
 create table if not exists job_titles (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references tenants (id) on delete cascade,
@@ -68,39 +62,6 @@ create table if not exists job_titles (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_job_titles on job_titles (tenant_id);
-
-create table if not exists collective_agreements (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references tenants (id) on delete cascade,
-  name text not null,
-  country_code text not null,
-  reference text,
-  effective_from date,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists classifications (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references tenants (id) on delete cascade,
-  collective_agreement_id uuid references collective_agreements (id),
-  category text,
-  level text,
-  coefficient text,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public_holidays (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references tenants (id) on delete cascade,
-  country_code text not null,
-  year int not null,
-  date date not null,
-  label text not null,
-  fixed boolean not null default true,
-  paid boolean not null default true,
-  created_at timestamptz not null default now()
-);
-create index if not exists idx_public_holidays on public_holidays (tenant_id, country_code, year);
 
 -- ---------------------------------------------------------------------------
 -- RBAC — P1.17
@@ -129,9 +90,11 @@ create index if not exists idx_user_roles on user_roles (tenant_id, employee_id)
 -- ---------------------------------------------------------------------------
 do $$
 declare t text;
+-- Les cinq référentiels retirés plus haut sont désormais créés — et leur RLS
+-- posée — par 0011_m1_config_referentials. Les laisser ici ferait échouer la
+-- boucle au rejeu : elle s'exécuterait sur des tables pas encore créées.
 declare tabs text[] := array[
-  'modification_requests','departments','sites','job_titles','classifications',
-  'collective_agreements','public_holidays','roles','user_roles'
+  'modification_requests','job_titles','roles','user_roles'
 ];
 begin
   foreach t in array tabs loop

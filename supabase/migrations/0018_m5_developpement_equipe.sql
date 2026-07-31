@@ -11,9 +11,14 @@
 --   R8 : périmètre = cascade (supervises_in_chain, 0016). Aucun montant salarial.
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- DEV.3 — visibilité manager des souhaits (la table existe ; on garantit le flag).
 -- ---------------------------------------------------------------------------
+
 do $$
 begin
   if to_regclass('public.employee_development_wishes') is not null then

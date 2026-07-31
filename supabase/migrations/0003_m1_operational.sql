@@ -5,9 +5,14 @@
 -- Additif et idempotent (ADD COLUMN IF NOT EXISTS / DROP POLICY IF EXISTS).
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- 1. EMPLOYEES — état civil, pièce d'identité, social/fiscal, versement
 -- ---------------------------------------------------------------------------
+
 alter table employees add column if not exists civility text check (civility in ('M', 'Mme'));
 alter table employees add column if not exists birth_name text;
 alter table employees add column if not exists birth_date date;

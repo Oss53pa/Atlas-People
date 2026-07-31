@@ -7,6 +7,17 @@
 create extension if not exists "pgcrypto";
 create extension if not exists "vector"; -- pgvector pour le RAG PROPH3T (§5.1)
 
+-- Le schéma cible doit exister AVANT de le placer en tête du search_path :
+-- `set search_path` sur un schéma absent n'échoue pas, il retombe
+-- silencieusement sur le premier schéma existant de la liste (public), et tout
+-- le socle atterrissait alors dans public au lieu d'atlas_people.
+-- (0047 le crée aussi, en `if not exists` — sans effet ici.)
+create schema if not exists atlas_people;
+
+-- Placé APRÈS les `create extension` : sans clause SCHEMA, une extension
+-- s'installe dans le premier schéma du search_path.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- Types
 -- ---------------------------------------------------------------------------

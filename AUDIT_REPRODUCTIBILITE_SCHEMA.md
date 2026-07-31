@@ -56,7 +56,7 @@ C'est le même mécanisme que `0045`, resté non appliqué jusqu'à cette sessio
 migrations sont poussées une par une via `apply_migration` avec un nom saisi à la main,
 sans lien automatique avec le nom de fichier. Un fichier oublié ne produit aucun signal.
 
-## 3. 19 fichiers créeraient leurs objets dans le mauvais schéma
+## 3. 19 fichiers créeraient leurs objets dans le mauvais schéma — CORRIGÉ
 
 Ces fichiers déclarent des objets **non qualifiés** et ne portent **aucun
 `set search_path`**. Rejoués via `supabase db push`, ils créent tout dans `public`,
@@ -72,7 +72,20 @@ pas dans `atlas_people`.
 Les fichiers récents (`0032`, `0046`, `0047`+) qualifient correctement en
 `atlas_people.` ou posent la directive. Le défaut est concentré sur le socle historique.
 
-## 4. Dix tables déclarées deux fois avec des colonnes divergentes
+**Corrigé le 2026-07-31.** `set search_path = atlas_people, public, extensions;` ajouté
+en tête des 19 fichiers. Deux subtilités traitées :
+
+- Le schéma n'était créé que par `0047`, dernier de la chaîne. Or `set search_path` sur
+  un schéma inexistant **n'échoue pas** : il retombe silencieusement sur le premier
+  schéma existant de la liste, donc `public` — la directive seule n'aurait rien changé.
+  `create schema if not exists atlas_people;` ajouté dans `0001_init`.
+- Dans `0001`, la directive est placée **après** les `create extension` : sans clause
+  `SCHEMA`, une extension s'installe dans le premier schéma du search_path, ce qui
+  aurait déplacé `pgcrypto` et `vector` dans `atlas_people`.
+
+Contrôle après correction : 0 fichier déclarant des objets non qualifiés sans directive.
+
+## 4. Dix tables déclarées deux fois avec des colonnes divergentes — CORRIGÉ
 
 `create table if not exists` fait gagner la **première** déclaration en silence.
 Pour six d'entre elles, la première déclaration est la mauvaise.
@@ -94,6 +107,26 @@ Les cinq premières ne diffèrent pas par accident : `0011_m1_config_referential
 refonte des référentiels de `0004_m1_referentials`, mais elle a été écrite en
 `create table if not exists` au lieu d'un `alter table`. En base c'est la version `0011`
 qui règne — donc elle a été appliquée avant `0004`, ou `0004` n'a jamais tourné.
+
+**Corrigé le 2026-07-31**, en supprimant la déclaration perdante plutôt qu'en la
+convertissant en `alter table`. La conversion aurait produit l'**union** des deux jeux de
+colonnes ; or la base ne contient aucune colonne propre à `0004` (ni `active`, ni `year`,
+ni `date`, ni `fixed`, ni `level`, ni `reference`, ni `manager_id` — vérifié colonne par
+colonne). Seule la suppression reproduit l'état réel.
+
+| Table | Action |
+|---|---|
+| `sites`, `collective_agreements`, `departments`, `public_holidays`, `classifications` | déclarations retirées de `0004`, avec leurs index et leur entrée dans la boucle RLS ; `0011` devient la déclaration unique |
+| `manager_delegations` | retirée de `0016_mss` et de `0020` (deux modèles périmés et mutuellement incompatibles) ; `0046` devient la déclaration unique. `delegation_actions_log` part avec, sa FK et sa policy lisant des colonnes du modèle abandonné |
+| `exit_interviews` | retirée de `0019`. Ce n'était pas un simple masquage : `0010` gagnait, puis l'index et la policy de `0019` lisaient `leaver_id`/`manager_id`, absents de la version `0010` — **le rejeu échouait** |
+| `tenants` | aucun changement. Vérifié bénin : `0001` crée, le `create` de `0047` no-ope correctement, `tenant_type` arrive par le `do` block de `0047` et `owner_user_id` par l'`alter` de `0050`. Le rejeu reproduit les 9 colonnes et les types réels (`monetary_zone`, `currency_code`) |
+| `manager_preferences`, `manager_rituals` | **non corrigées** : conflit entre `0016_mss` et `0020`, deux fichiers jamais appliqués, tables absentes de la base. Aucun arbitrage possible sans décider du sort de ces fichiers (point 2) |
+
+Deux index homonymes aux définitions divergentes disparaissent au passage, `0011` faisant
+désormais foi : `idx_departments` et `idx_public_holidays`.
+
+Contrôle après correction : 10 conflits → 3, dont `tenants` (bénin, vérifié) et les deux
+tables du point 2. Plus aucun cas où le rejeu installerait une version fausse.
 
 ## 5. Divergence de prédicats RLS — corrigée le 2026-07-31
 
@@ -130,12 +163,10 @@ Dans les deux cas, la version réellement poussée différait du fichier.
    reproductibles sans les réécrire à la main.
 2. **Trancher le sort des cinq fichiers du point 2.** Soit les appliquer, soit les
    sortir de `migrations/`. Les laisser en l'état garantit qu'un rejeu crée 47 tables
-   fantômes et fait gagner les mauvaises déclarations du point 4.
-3. **Corriger le point 4** avant tout rejeu : transformer les `create table if not exists`
-   de `0011` en `alter table … add column if not exists`, ou supprimer les déclarations
-   concurrentes de `0004`.
-4. **Ajouter `set search_path = atlas_people, public, extensions;`** en tête des
-   19 fichiers du point 3.
+   fantômes. Ce choix conditionne aussi les deux derniers conflits du point 4
+   (`manager_preferences`, `manager_rituals`).
+3. ~~Corriger le point 4~~ — **fait** (2026-07-31).
+4. ~~Ajouter `set search_path`~~ — **fait** (2026-07-31).
 5. **Fermer la boucle d'application** : nommer les migrations `apply_migration` d'après
    le fichier, sans exception. Les noms divergents (`cdc_complement_rls_helpers_idempotency`
    pour `0044`, `mss_manager_delegations` pour `0046`) sont ce qui a masqué l'absence

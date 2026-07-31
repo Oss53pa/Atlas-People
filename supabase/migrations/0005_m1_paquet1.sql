@@ -4,9 +4,14 @@
 -- 18 nouvelles tables + colonnes employees + seed caisses + RLS. Additif/idempotent.
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- A — employees enrichi
 -- ---------------------------------------------------------------------------
+
 alter table employees add column if not exists usage_name text;
 alter table employees add column if not exists birth_country_code text;
 alter table employees add column if not exists religion text;            -- sensible

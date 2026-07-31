@@ -20,11 +20,16 @@
 --   R8  : périmètre = cascade (supervises_in_chain, 0016).
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ===========================================================================
 -- M8 — REPORTING & PILOTAGE
 -- ===========================================================================
 
 -- REP.8 — Dashboards personnalisés du manager (builder).
+
 create table if not exists manager_custom_dashboards (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
@@ -177,48 +182,22 @@ create table if not exists manager_notification_preferences (
 create index if not exists idx_mnp_manager on manager_notification_preferences(tenant_id, manager_id);
 
 -- PAR.2 — Délégations temporaires de responsabilité managériale.
--- max 90 jours ; délégué = manager de niveau >= (contrôle applicatif + audit) ;
--- périmètres non délégables par défaut (évaluation, période d'essai, recrutement).
-create table if not exists manager_delegations (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
-  manager_id uuid not null references employees(id),       -- titulaire (délégant)
-  delegate_id uuid not null references employees(id),      -- délégué (manager >=)
-  start_on date not null,
-  end_on date not null,
-  reason text not null check (reason in ('vacances','mission','formation','maladie','autre')),
-  scope text[] not null default '{}',       -- portées explicitement déléguées
-  message text,
-  status text not null default 'pending'
-    check (status in ('pending','accepted','active','expired','revoked','declined')),
-  -- Audit fort (M10 §audit).
-  decided_by uuid references employees(id), -- qui a accepté/refusé côté délégué
-  delegated_by uuid not null references employees(id),     -- = manager_id (traçabilité)
-  audit_hash text not null,                 -- empreinte SHA-256 de l'acte de délégation
-  created_at timestamptz default now(),
-  -- Durée bornée à 90 jours pleins.
-  constraint mdg_max_90d check (end_on >= start_on and (end_on - start_on) <= 90),
-  -- Pas d'auto-délégation.
-  constraint mdg_not_self check (delegate_id <> manager_id)
-);
-create index if not exists idx_mdg_manager on manager_delegations(tenant_id, manager_id);
-create index if not exists idx_mdg_delegate on manager_delegations(tenant_id, delegate_id);
-
--- PAR.2 — Journal des actions effectuées SOUS délégation (« délégué par vous »).
--- Chaque acte du délégué est tracé avec decided_by + delegated_by + hash chaîné.
-create table if not exists delegation_actions_log (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
-  delegation_id uuid not null references manager_delegations(id) on delete cascade,
-  action_kind text not null,                -- ex. leave_approved, expense_validated
-  target_ref text,                          -- référence de l'objet impacté
-  performed_by uuid not null references employees(id),     -- le délégué
-  on_behalf_of uuid not null references employees(id),     -- le titulaire
-  prev_hash text,                           -- chaînage SHA-256 (intégrité)
-  audit_hash text not null,
-  created_at timestamptz default now()
-);
-create index if not exists idx_dal_delegation on delegation_actions_log(tenant_id, delegation_id);
+--
+-- RETIRÉ, avec son journal delegation_actions_log qui en dépendait par clé
+-- étrangère. manager_delegations était déclarée ici dans un TROISIÈME modèle
+-- (manager_id / start_on / end_on / scope text[] / audit_hash), incompatible
+-- à la fois avec celui de 0016_mss_manager_portal et avec celui EN PRODUCTION
+-- posé par 0046_mss_manager_delegations (delegator_employee_id / valid_from /
+-- valid_until / scope jsonb), seul utilisé par src/lib/mss/supabaseLive.ts.
+--
+-- Ce fichier n'a jamais été appliqué. Comme il précède 0046, son
+-- `create table if not exists` gagnait au rejeu et transformait 0046 en no-op
+-- silencieux.
+--
+-- delegation_actions_log part avec : sa FK et sa policy lisent manager_id /
+-- delegate_id, colonnes qui n'existent pas dans le modèle de production. Le
+-- journal devra être réécrit contre le modèle 0046 si la fonctionnalité est
+-- reprise.
 
 -- PAR.3 / PAR.4 — Préférences de vue & profondeur par défaut du manager.
 create table if not exists manager_preferences (
@@ -266,8 +245,6 @@ alter table manager_resources_categories enable row level security;
 alter table manager_resources enable row level security;
 alter table manager_effectiveness_scores enable row level security;
 alter table manager_notification_preferences enable row level security;
-alter table manager_delegations enable row level security;
-alter table delegation_actions_log enable row level security;
 alter table manager_preferences enable row level security;
 alter table manager_custom_templates enable row level security;
 
@@ -366,36 +343,9 @@ create policy mnp_owner on manager_notification_preferences
   using (tenant_id in (select current_tenant_ids()) and (manager_id in (select current_employee_ids()) or is_hr_or_admin(tenant_id)))
   with check (tenant_id in (select current_tenant_ids()) and manager_id in (select current_employee_ids()));
 
--- Délégations : visibles par le titulaire, le délégué, et la RH.
-drop policy if exists mdg_parties on manager_delegations;
-create policy mdg_parties on manager_delegations
-  using (
-    tenant_id in (select current_tenant_ids())
-    and (
-      manager_id in (select current_employee_ids())
-      or delegate_id in (select current_employee_ids())
-      or is_hr_or_admin(tenant_id)
-    )
-  )
-  with check (
-    tenant_id in (select current_tenant_ids())
-    and manager_id in (select current_employee_ids())        -- seul le titulaire ouvre/révoque
-  );
-
--- Journal des actions déléguées : titulaire + délégué + RH (lecture seule applicative).
-drop policy if exists dal_parties on delegation_actions_log;
-create policy dal_parties on delegation_actions_log
-  using (
-    tenant_id in (select current_tenant_ids())
-    and exists (select 1 from manager_delegations d where d.id = delegation_id
-                and (d.manager_id in (select current_employee_ids())
-                     or d.delegate_id in (select current_employee_ids())
-                     or is_hr_or_admin(tenant_id)))
-  )
-  with check (
-    tenant_id in (select current_tenant_ids())
-    and performed_by in (select current_employee_ids())
-  );
+-- Délégations et journal des actions déléguées : policies retirées avec les
+-- tables (cf. section PAR.2 plus haut). La RLS de manager_delegations est
+-- portée par 0046_mss_manager_delegations.
 
 -- Préférences & modèles : strictement le manager (+ RH).
 drop policy if exists mp_owner on manager_preferences;

@@ -4,6 +4,10 @@
 -- mobilité géographique & expatriation, historique de carrière. 17 tables + RLS.
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 alter table employees add column if not exists highest_education_level text;
 
 -- ---------------------------------------------------------------------------

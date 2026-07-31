@@ -15,11 +15,16 @@
 --   R15 : chaque décision de lot (NDF) auditée individuellement (audit applicatif).
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ===========================================================================
 -- M6 — RECRUTEMENT & INTÉGRATION
 -- ===========================================================================
 
 -- REC.2 — Demandes de recrutement (besoins) ouvertes par le manager.
+
 create table if not exists recruitment_requests (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
@@ -135,16 +140,16 @@ create table if not exists dossier_transfers (
 create index if not exists idx_dt_leaver on dossier_transfers(tenant_id, leaver_id);
 
 -- REC.5 — Entretien de départ (synthèse ; détail RH confidentiel).
-create table if not exists exit_interviews (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
-  leaver_id uuid not null references employees(id) on delete cascade,
-  manager_id uuid not null references employees(id),
-  held_on date,
-  summary text,
-  created_at timestamptz default now()
-);
-create index if not exists idx_ei_leaver on exit_interviews(tenant_id, leaver_id);
+--
+-- RETIRÉ. exit_interviews est déjà déclarée par 0010_m1_exit, dans la version
+-- qui est EN PRODUCTION (exit_case_id / interviewer_id / conducted_at /
+-- questionnaire_responses…). 0010 précède ce fichier, donc son
+-- `create table if not exists` gagnait et la déclaration ci-dessous était
+-- ignorée — mais l'index et la policy qui suivaient, eux, lisaient
+-- `leaver_id` et `manager_id`, colonnes inexistantes dans la version 0010.
+-- Le rejeu échouait donc ici, il ne se contentait pas de masquer.
+--
+-- 0010_m1_exit est la déclaration unique d'exit_interviews.
 
 -- ===========================================================================
 -- M7 — VIE QUOTIDIENNE MANAGÉRIALE
@@ -265,7 +270,6 @@ alter table candidate_decisions enable row level security;
 alter table candidate_view_audit enable row level security;
 alter table probation_decisions enable row level security;
 alter table dossier_transfers enable row level security;
-alter table exit_interviews enable row level security;
 alter table expense_validations enable row level security;
 alter table manager_correspondence enable row level security;
 alter table engagement_surveys_aggregated enable row level security;
@@ -349,13 +353,7 @@ create policy dt_scope on dossier_transfers
   )
   with check (tenant_id in (select current_tenant_ids()) and (supervises_in_chain(leaver_id) or is_hr_or_admin(tenant_id)));
 
-drop policy if exists ei_scope on exit_interviews;
-create policy ei_scope on exit_interviews
-  using (
-    tenant_id in (select current_tenant_ids())
-    and (manager_id in (select current_employee_ids()) or supervises_in_chain(leaver_id) or is_hr_or_admin(tenant_id))
-  )
-  with check (tenant_id in (select current_tenant_ids()) and (manager_id in (select current_employee_ids()) or supervises_in_chain(leaver_id)));
+-- exit_interviews : RLS portée par 0010_m1_exit, avec la table (cf. REC.5).
 
 -- M7 — Validations NDF : manager auteur + RH/finance.
 drop policy if exists ev_manager on expense_validations;

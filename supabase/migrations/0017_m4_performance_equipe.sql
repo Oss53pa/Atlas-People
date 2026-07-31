@@ -13,10 +13,15 @@
 --         seules les synthèses agrégées (≥ 3 répondants) le sont (vue dédiée).
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- PERF.2 — Indicateurs clés (Key Results) rattachés aux objectifs (OKR).
 -- La table objectives existe (M1) ; on y ajoute la cascade + les KR.
 -- ---------------------------------------------------------------------------
+
 do $$
 begin
   if to_regclass('public.objectives') is not null then

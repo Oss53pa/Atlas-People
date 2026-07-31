@@ -13,10 +13,15 @@
 --   R12          : masse salariale agrégée uniquement (vue dédiée, jamais ligne).
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- 8.1 — Cascade managériale précalculée.
 -- depth=1 : N-1 direct ; depth=2 : N-2 ; etc. Une ligne par couple (collab, encadrant).
 -- ---------------------------------------------------------------------------
+
 create table if not exists employee_management_chain (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
@@ -35,27 +40,20 @@ comment on table employee_management_chain is
 
 -- ---------------------------------------------------------------------------
 -- 8.2 — Délégations temporaires de validations.
+--
+-- RETIRÉ. manager_delegations était déclarée ici dans un modèle
+-- (delegator_id / starts_at / ends_at / 5 booléens de portée) incompatible
+-- avec celui qui est EN PRODUCTION, posé par 0046_mss_manager_delegations
+-- (delegator_employee_id / valid_from / valid_until / scope jsonb) et utilisé
+-- par src/lib/mss/supabaseLive.ts.
+--
+-- Ce fichier n'a jamais été appliqué. Comme il précède 0046, son
+-- `create table if not exists` gagnait au rejeu et 0046 devenait un no-op
+-- silencieux : la table existait avec les mauvaises colonnes et la surface
+-- Délégations du portail manager cassait.
+--
+-- 0046 est la déclaration unique de manager_delegations.
 -- ---------------------------------------------------------------------------
-create table if not exists manager_delegations (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
-  delegator_id uuid not null references employees(id),
-  delegate_id uuid not null references employees(id),
-  starts_at timestamptz not null,
-  ends_at timestamptz not null,
-  scope_leaves boolean default true,
-  scope_overtime boolean default true,
-  scope_expenses boolean default true,
-  scope_trainings boolean default true,
-  scope_team_requests boolean default true,
-  reason text,
-  status text not null default 'pending' check (status in ('pending','accepted','active','expired','revoked')),
-  delegate_acceptance_at timestamptz,
-  created_at timestamptz default now(),
-  check (ends_at > starts_at)
-);
-create index if not exists idx_mdel_delegator on manager_delegations(tenant_id, delegator_id, status);
-create index if not exists idx_mdel_delegate on manager_delegations(tenant_id, delegate_id, status);
 
 -- ---------------------------------------------------------------------------
 -- 8.3 — Préférences manager (profondeur par défaut, vue, notifications…).
@@ -171,7 +169,6 @@ comment on function supervises_in_chain(uuid) is
 -- RLS sur les nouvelles tables.
 -- ---------------------------------------------------------------------------
 alter table employee_management_chain enable row level security;
-alter table manager_delegations enable row level security;
 alter table manager_preferences enable row level security;
 alter table manager_rituals enable row level security;
 
@@ -189,21 +186,8 @@ create policy emc_scope on employee_management_chain
   )
   with check (tenant_id in (select current_tenant_ids()) and is_hr_or_admin(tenant_id));
 
--- Délégations : le délégant et le délégué les voient ; RH/admin aussi.
-drop policy if exists mdel_parties on manager_delegations;
-create policy mdel_parties on manager_delegations
-  using (
-    tenant_id in (select current_tenant_ids())
-    and (
-      is_hr_or_admin(tenant_id)
-      or delegator_id in (select current_employee_ids())
-      or delegate_id in (select current_employee_ids())
-    )
-  )
-  with check (
-    tenant_id in (select current_tenant_ids())
-    and (delegator_id in (select current_employee_ids()) or is_hr_or_admin(tenant_id))
-  );
+-- Délégations : RLS portée par 0046_mss_manager_delegations, en même temps que
+-- la table (cf. section 8.2 retirée plus haut).
 
 -- Préférences : strictement le manager propriétaire (+ RH/admin en lecture).
 drop policy if exists mpref_owner on manager_preferences;

@@ -12,11 +12,16 @@
 -- Rôles (memberships.role) : employee | manager | hr | admin | occupational_health
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- Fonctions d'aide (security definer, stables) — réutilisées par les policies.
 -- Toutes restent contraintes par current_tenant_ids() dans les policies, donc
 -- aucune ne peut traverser la frontière d'un tenant.
 -- ---------------------------------------------------------------------------
+
 create or replace function current_employee_ids()
 returns setof uuid
 language sql stable security definer set search_path = public as $$

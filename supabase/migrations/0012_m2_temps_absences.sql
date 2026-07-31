@@ -9,9 +9,14 @@
 -- public_holidays : partagé depuis M1 (migration 0011).
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ===========================================================================
 -- α — Types de congés et d'absences (catalogue paramétrable)
 -- ===========================================================================
+
 create table if not exists leave_types (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid references tenants (id) on delete cascade,  -- NULL = commun

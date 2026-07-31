@@ -9,9 +9,14 @@
 -- 9 tables + RLS + seeds. Additif et idempotent.
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- P1.15 — Départements (hiérarchie) & sites
 -- ---------------------------------------------------------------------------
+
 create table if not exists departments (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references tenants (id) on delete cascade,

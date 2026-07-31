@@ -13,12 +13,17 @@
 -- 14 tables + colonnes employees + seed + RLS. Additif et idempotent.
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- T1/T2/T4 — Enrichissement de employees (cycle de vie & rattachement)
 -- NB : la colonne operationnelle `status` (enum employee_status) existe déjà
 -- (0001). On ajoute ici le statut technique de cycle de vie sous un nom
 -- distinct pour ne pas casser l'enum opérationnel.
 -- ---------------------------------------------------------------------------
+
 alter table employees add column if not exists lifecycle_status text not null default 'active'
   check (lifecycle_status in ('draft','pending_signature','active','suspended_disciplinary','suspended_other','transferred_intra_group','left'));
 alter table employees add column if not exists lifecycle_status_changed_at timestamptz;

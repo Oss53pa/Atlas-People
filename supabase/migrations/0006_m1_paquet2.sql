@@ -4,9 +4,14 @@
 -- financiers/prêts, clauses contractuelles). 19 tables + ALTER contracts + RLS.
 -- ============================================================================
 
+-- Objets déclarés sans qualification de schéma : sans cette directive, un
+-- rejeu du dépôt les crée dans public au lieu d'atlas_people.
+set search_path = atlas_people, public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- H — contracts enrichi
 -- ---------------------------------------------------------------------------
+
 alter table contracts add column if not exists contract_subtype text;
 alter table contracts add column if not exists detailed_motif text;
 alter table contracts add column if not exists signature_date date;
