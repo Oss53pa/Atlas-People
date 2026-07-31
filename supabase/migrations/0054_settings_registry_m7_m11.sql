@@ -6,10 +6,10 @@
 -- module (src/lib/m{7,8,10,11}/referentiels.ts). Entrées atlas globales
 -- (tenant_id NULL) — les tenants surchargent via settings_override.
 --
--- M9 Compétences est délibérément absent : ses seuils sont en dur dans
--- le JSX sans constante nommée exportée (voir CompetencesEnrichmentPages
--- / CompetencesSprint1Pages) — les seeder ici créerait des paramètres
--- fantômes non connectés au code. À faire après extraction en constantes.
+-- M9 Compétences est délibérément absent : au moment de cette migration
+-- ses seuils étaient en dur dans le JSX sans constante nommée exportée.
+-- Voir 0056_settings_registry_m9.sql pour son manifeste, ajouté après
+-- extraction en constantes (COMPETENCE_THRESHOLDS).
 -- =====================================================================
 
 insert into atlas_people.settings_registry
