@@ -7,20 +7,22 @@ confrontés aux 404 tables, 18 vues, 111 enums et 65 fonctions réellement en ba
 sur une base vierge ne produisait pas `atlas_people` — ni en contenu, ni en placement, ni
 en forme. Cinq défauts indépendants, du plus structurant au plus mineur.
 
-**État au 2026-07-31 : quatre des cinq défauts sont corrigés.** Il reste le point 1, qui
-demande un arbitrage (générer une baseline `pg_dump`). Mesures après correction :
+**État au 2026-07-31 : les cinq défauts sont corrigés.** Mesures après correction :
 
 | Indicateur | Avant | Après |
 |---|---|---|
+| Tables en base non déclarées par le dépôt | 56 / 404 | **0 / 404** |
+| Vues en base non déclarées | 8 / 18 | **0 / 18** |
+| Enums en base non déclarés | 13 / 111 | **0 / 111** |
+| Fonctions en base non déclarées | 1 / 65 | **0 / 65** |
 | Fichiers dont des tables déclarées manquent en base | 5 | **0** |
 | Fichiers créant leurs objets dans le mauvais schéma | 19 | **0** |
 | Tables déclarées deux fois avec des colonnes divergentes | 10 | **1** (`tenants`, bénin et vérifié) |
-| Tables communes dont le nombre de colonnes diverge | 8 / 348 | **0 / 348** |
-| Tables en base non déclarées par le dépôt | 56 | 56 *(point 1, ouvert)* |
+| Tables communes dont le nombre de colonnes diverge | 8 / 348 | **0 / 404** |
 
 ---
 
-## 1. 56 tables existent en base et ne sont déclarées par aucun fichier
+## 1. 56 tables existent en base et ne sont déclarées par aucun fichier — CORRIGÉ
 
 14 % du schéma est introuvable dans le dépôt. Ces tables ont été déployées directement
 via le MCP Supabase, sans jamais être écrites dans un fichier.
@@ -45,8 +47,39 @@ nulle part dans le dépôt. Rejoués seuls, ils échouent.
 
 S'ajoutent **8 vues** (`m5_recrutement_summary`, `m6_onboarding_summary`,
 `m9_pdc_progress`, `m9_anti_discrim_summary`, `m10_promotions_summary`,
-`m10_succession_status`, `m11_pif_progress`, `employee_status_overview`) et
-**13 enums** (`m9_*`, `m10_*`) dans le même cas.
+`m10_succession_status`, `m11_pif_progress`, `employee_status_overview`), **13 enums**
+(`m9_*`, `m10_*`) et **1 fonction** (`tenant_bootstrap_state`) dans le même cas.
+
+**Corrigé le 2026-07-31** par `0057_baseline_m5_m6_m9_m10_m11.sql`, reconstruit depuis
+`information_schema` et `pg_catalog` (aucun accès `pg_dump` disponible) : 13 enums,
+56 tables avec colonnes, défauts, identités `serial`, clés primaires, contraintes UNIQUE
+et CHECK, 51 clés étrangères, 34 index, 146 policies, 6 triggers, les droits, 8 vues,
+1 fonction et les commentaires. Entièrement idempotent — sur la production c'est un no-op.
+
+Trois précautions dans la génération :
+
+- les clés étrangères sont posées **après** toutes les tables, dans un bloc gardé par nom
+  de contrainte (`add constraint` n'a pas de forme `if not exists`), ce qui rend l'ordre
+  de déclaration indifférent ;
+- les colonnes `serial` sont émises comme telles et non avec leur `default nextval(...)`,
+  qui aurait référencé une séquence inexistante sur une base neuve ;
+- les 146 policies sont réduites à leurs trois formes réelles (deux boucles + 4 policies
+  nominatives) plutôt qu'énumérées une à une.
+
+**Vérification faite** : chaque nom d'objet et chaque nombre de colonnes du fichier a été
+confronté à l'inventaire live — 404/404 tables, 18/18 vues, 111/111 enums, 65/65 fonctions,
+0 dérive de colonnes. **Vérification non faite** : le fichier n'a pas été *exécuté*. Il est
+fidèle par construction (généré depuis les catalogues) et structurellement validé, mais
+seul un rejeu sur une base neuve — branche Supabase ou instance locale — prouverait qu'il
+s'exécute de bout en bout.
+
+⚠️ Les 8 vues sont reproduites **avec un défaut existant** : aucune ne porte
+`security_invoker`, donc sept d'entre elles court-circuitent la RLS des tables
+sous-jacentes et exposent les agrégats de tous les tenants (seule
+`employee_status_overview` se protège par un filtre explicite). Ce défaut n'est pas
+corrigé dans la baseline **à dessein** : `create or replace view` n'est pas neutre, et le
+corriger ici changerait la production au premier rejeu. À traiter par une migration
+dédiée, comme cela a été fait pour `m12_kpi_reporting` en `0045`.
 
 ## 2. Cinq fichiers n'ont jamais été appliqués — SORTIS DU DÉPÔT
 
@@ -186,19 +219,24 @@ Dans les deux cas, la version réellement poussée différait du fichier.
 
 ## Remédiation, par ordre de valeur
 
-1. **Figer l'état réel** — *seul point encore ouvert*. Générer un
-   `pg_dump --schema-only` d'`atlas_people` et le committer comme baseline. C'est le seul
-   moyen de rendre les 56 tables du point 1 reproductibles sans les réécrire à la main.
-   Les modules M5, M6, M9, M10 et M11 en dépendent intégralement.
+1. ~~Figer l'état réel~~ — **fait** : `0057_baseline_m5_m6_m9_m10_m11.sql`.
 2. ~~Trancher le sort des cinq fichiers du point 2~~ — **fait** : sortis du dépôt.
 3. ~~Corriger le point 4~~ — **fait**.
 4. ~~Ajouter `set search_path`~~ — **fait**.
-5. **Fermer la boucle d'application** : nommer les migrations `apply_migration` d'après
-   le fichier, sans exception. Les noms divergents (`cdc_complement_rls_helpers_idempotency`
-   pour `0044`, `mss_manager_delegations` pour `0046`) sont ce qui a masqué l'absence
-   de `0045` et de `0017`/`0018`.
+5. **Fermer la boucle d'application** — *reste à faire* : nommer les migrations
+   `apply_migration` d'après le fichier, sans exception. Les noms divergents
+   (`cdc_complement_rls_helpers_idempotency` pour `0044`, `mss_manager_delegations` pour
+   `0046`) sont ce qui a masqué l'absence de `0045` et de `0017`/`0018`. Sans cette
+   discipline, l'écart se recreusera.
 
-Une fois le point 1 traité, le dépôt reconstruira la base. Tout le reste est aligné.
+Le dépôt déclare désormais l'intégralité du schéma `atlas_people`. Deux travaux restent
+en suspens, tous deux hors du périmètre « reproductibilité » :
+
+- **Valider le rejeu par l'exécution.** Rejouer `migrations/` sur une base neuve (branche
+  Supabase ou instance locale) est la seule preuve de bout en bout. L'audit garantit que
+  le dépôt *déclare* tout ; il ne garantit pas encore qu'il *s'exécute* intégralement.
+- **`security_invoker` sur les 8 vues** de la baseline (cf. point 1), et sur les vues
+  antérieures qui présenteraient le même défaut.
 
 ## Méthode et limites
 
