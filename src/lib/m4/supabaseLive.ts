@@ -15,6 +15,20 @@ function toDbContractType(uiCode: string): string {
 
 const DEMO = '11111111-1111-1111-1111-111111111111';
 
+/**
+ * Valeurs acceptées par l'enum atlas_people.m4_departure_type
+ * (migration 0021, étendue par 0057 : invalidité / transfert / mobilité).
+ * Toute qualification de départ écrite en base passe par cette union :
+ * une valeur inventée est une erreur de compilation, pas un rejet 22P02
+ * découvert en production.
+ */
+export const M4_DEPARTURE_TYPES = [
+  'DEMISSION', 'LICEN_PERSO', 'LICEN_FAUTE', 'LICEN_ECO', 'RUPT_CONV', 'FIN_CDD',
+  'RUPT_ESSAI', 'RETRAITE', 'DECES', 'ABANDON_POSTE',
+  'INVALIDITE', 'TRANSFERT_GROUPE', 'INCOMPAT_MOBILITE',
+] as const;
+export type M4DepartureType = (typeof M4_DEPARTURE_TYPES)[number];
+
 export interface M4ContractRow {
   id: string;
   tenant_id: string;
@@ -300,7 +314,7 @@ export function useCreateDeparture() {
       notifiedAt,
     }: {
       employeeId: string;
-      type: string;
+      type: M4DepartureType;      // qualification juridique — jamais une chaîne libre
       initiative?: string;
       reason?: string;
       notifiedAt?: string;
