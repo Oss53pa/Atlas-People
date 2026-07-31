@@ -17,7 +17,7 @@ const DEMO = '11111111-1111-1111-1111-111111111111';
 
 /**
  * Valeurs acceptées par l'enum atlas_people.m4_departure_type
- * (migration 0021, étendue par 0057 : invalidité / transfert / mobilité).
+ * (migration 0021, étendue par 0062 : invalidité / transfert / mobilité).
  * Toute qualification de départ écrite en base passe par cette union :
  * une valeur inventée est une erreur de compilation, pas un rejet 22P02
  * découvert en production.
