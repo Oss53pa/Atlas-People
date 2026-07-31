@@ -49,4 +49,4 @@ alter type atlas_people.m4_departure_type add value if not exists 'INVALIDITE';
 alter type atlas_people.m4_departure_type add value if not exists 'TRANSFERT_GROUPE';
 alter type atlas_people.m4_departure_type add value if not exists 'INCOMPAT_MOBILITE';
 
--- Fin migration 0062 — qualification des départs invalidité / transfert / mobilité.
+-- Fin migration 0064 — qualification des départs invalidité / transfert / mobilité.
