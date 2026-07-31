@@ -8,7 +8,7 @@
 --
 -- M9 Compétences est délibérément absent : au moment de cette migration
 -- ses seuils étaient en dur dans le JSX sans constante nommée exportée.
--- Voir 0056_settings_registry_m9.sql pour son manifeste, ajouté après
+-- Voir 0057_settings_registry_m9.sql pour son manifeste, ajouté après
 -- extraction en constantes (COMPETENCE_THRESHOLDS).
 -- =====================================================================
 
