@@ -117,8 +117,6 @@ function navCore(): NavGroup[] {
       modules: [M.perf, M.bonus, M.okr, M.eval, M.competences, M.carrieres, M.formation] },
     { bloc: 'D', label: 'Protéger',
       modules: [M.conformite] },
-    { bloc: 'self', label: 'Mon espace',
-      modules: [M.mss, M.ess] },
   ];
 }
 
@@ -137,7 +135,7 @@ function navConseil(): NavGroup[] {
     { bloc: 'cabinet', label: 'Cabinet',
       modules: [M.prefact, M.rapportCab] },
     { bloc: 'portails', label: 'Portails',
-      modules: [M.ifClient, M.mss, M.ess] },
+      modules: [M.ifClient] },
   ];
 }
 
@@ -150,7 +148,7 @@ function navPayroll(): NavGroup[] {
     { bloc: 'cabinet', label: 'Cabinet',
       modules: [M.prefact, M.rapportCab] },
     { bloc: 'portails', label: 'Portails',
-      modules: [M.ifClient, M.mss, M.ess] },
+      modules: [M.ifClient] },
   ];
 }
 
@@ -160,8 +158,6 @@ function nav360(): NavGroup[] {
       modules: [M.cockpit, M.collabs, M.temps, M.paie, M.actes, M.frais, M.recrut, M.eval, M.competences, M.formation, M.conformite] },
     { bloc: 'clients', label: 'Mes clients',
       modules: [M.clients, M.prefact, M.rapportCab, M.ifClient] },
-    { bloc: 'portails', label: 'Portails',
-      modules: [M.mss, M.ess] },
   ];
 }
 
@@ -176,7 +172,7 @@ function navPlacement(): NavGroup[] {
     { bloc: 'cabinet', label: 'Cabinet',
       modules: [M.prefact, M.rapportAge] },
     { bloc: 'portails', label: 'Portails',
-      modules: [M.ifClient, M.mss, M.ess] },
+      modules: [M.ifClient] },
   ];
 }
 

@@ -978,11 +978,48 @@ function SecRow({ icon: Icon, label, value, tone }: SecRowProps) {
  * InviteModal — créer une invitation et envoyer l'email
  * ────────────────────────────────────────────────────────────────── */
 
-const INVITE_ROLES: { value: string; label: string }[] = [
-  { value: 'employee',    label: 'Collaborateur (ESS uniquement)' },
-  { value: 'manager',     label: 'Manager (MSS + ESS)' },
-  { value: 'hr',          label: 'DRH / Agent RH (Back-office)' },
-  { value: 'admin',       label: 'Administrateur (accès complet)' },
+interface InviteRoleDef {
+  value: string;
+  label: string;
+  description: string;
+  icon: typeof Users;
+  spaces: string[];
+  color: string;
+}
+
+const INVITE_ROLES: InviteRoleDef[] = [
+  {
+    value: 'employee',
+    label: 'Collaborateur',
+    description: 'Accès à son espace personnel uniquement — bulletins, congés, profil.',
+    icon: Users,
+    spaces: ['Mon espace'],
+    color: 'text-emerald-600',
+  },
+  {
+    value: 'manager',
+    label: 'Manager',
+    description: 'Gère son équipe (N-1) + accès à son espace personnel collaborateur.',
+    icon: Briefcase,
+    spaces: ['Mon équipe', 'Mon espace'],
+    color: 'text-blue-600',
+  },
+  {
+    value: 'hr',
+    label: 'Agent RH / Paie',
+    description: 'Accès back-office : dossiers collaborateurs, paie, temps, conformité.',
+    icon: Shield,
+    spaces: ['Administration RH'],
+    color: 'text-violet-600',
+  },
+  {
+    value: 'admin',
+    label: 'Administrateur',
+    description: 'Accès complet + peut inviter tous les profils et configurer le workspace.',
+    icon: Key,
+    spaces: ['Administration RH', 'Mon équipe', 'Mon espace'],
+    color: 'text-amber-600',
+  },
 ];
 
 interface InviteModalProps {
@@ -1084,18 +1121,42 @@ function InviteModal({ onClose, onSuccess }: InviteModalProps) {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Rôle
+              <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Profil
               </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-medium text-slate-900 focus:border-teal-500 focus:outline-none"
-              >
-                {INVITE_ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
+              <div className="grid grid-cols-2 gap-2">
+                {INVITE_ROLES.map((r) => {
+                  const RIcon = r.icon;
+                  const active = role === r.value;
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setRole(r.value)}
+                      className={cn(
+                        'rounded-xl border-2 p-3 text-left transition-all',
+                        active
+                          ? 'border-teal-400 bg-teal-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300',
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <RIcon size={14} className={active ? 'text-teal-600' : r.color} />
+                        <span className={cn('text-[12px] font-bold', active ? 'text-teal-800' : 'text-slate-800')}>{r.label}</span>
+                      </div>
+                      <p className="mt-1 text-[10px] font-medium leading-snug text-slate-500">{r.description}</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {r.spaces.map((sp) => (
+                          <span key={sp} className={cn(
+                            'rounded-md px-1.5 py-0.5 text-[9px] font-bold',
+                            active ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500',
+                          )}>{sp}</span>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {error && (

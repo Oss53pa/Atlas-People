@@ -21,6 +21,7 @@ import {
 import { cn } from '../lib/cn';
 
 const NAV_ITEMS = [
+  { label: 'Formules', to: '/landing#formules' },
   { label: 'Modules', to: '/landing#modules' },
   { label: 'Tarifs', to: '/landing#tarifs' },
   { label: 'Blog', to: '/landing#blog' },
@@ -127,10 +128,10 @@ interface Step {
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 const STEPS: Step[] = [
-  { num: '01', title: 'Setup tenant',         description: 'Création du tenant en 24 h depuis Atlas Studio. Choix du régime OHADA, devise FCFA/XOF/XAF, configuration des modules activés.', icon: Settings2 },
-  { num: '02', title: 'Import collaborateurs', description: 'Wizard d\'import en masse : CSV / Excel / connecteur SIRH existant. Validation déterministe des données contractuelles.',         icon: Users },
-  { num: '03', title: 'Formez les équipes',    description: 'Onboarding admin (DRH) en 2h · formation agents HR en 4h · self-service collaborateur intuitif sans formation.',                  icon: GraduationCap },
-  { num: '04', title: 'Optimisez en continu',  description: 'Cockpit DRH unifié + PROPH3T narrative IA souveraine · alertes proactives · audit SHA-256 légalement opposable.',                  icon: Compass },
+  { num: '01', title: 'Choisissez votre formule',    description: 'Visitez le catalogue Atlas Studio, comparez les 5 produits (Core, Conseil, Payroll, 360, Placement) et choisissez celui qui correspond à votre structure.', icon: Compass },
+  { num: '02', title: 'Souscrivez sur Atlas Studio', description: 'Créez votre compte sur Atlas Studio, sélectionnez votre formule dans le catalogue et finalisez l\'achat. Votre espace Atlas People est provisionné sous 24 h.', icon: Settings2 },
+  { num: '03', title: 'Accès admin · créez vos profils', description: 'Vous recevez un accès administrateur. Depuis votre tableau de bord, invitez collaborateurs, managers, agents RH et responsables paie selon les postes.', icon: Users },
+  { num: '04', title: 'Gérez et optimisez',          description: 'Chaque utilisateur accède à son espace dédié : Mon espace (ESS), Mon équipe (Manager) ou Administration RH (back-office). Cockpit DRH unifié en temps réel.', icon: GraduationCap },
 ];
 
 interface Testimonial {
@@ -242,6 +243,8 @@ const FAQ: FaqItem[] = [
 
 interface TenantPersona {
   icon: React.ComponentType<{ size?: number; className?: string }>;
+  productName: string;
+  catalogKey: string;
   label: string;
   sub: string;
   description: string;
@@ -251,68 +254,87 @@ interface TenantPersona {
   accentBg: string;
   accentText: string;
   accentBorder: string;
+  accentBtn: string;
 }
 
+const ATLAS_STUDIO_CATALOG = 'https://atlas-studio.org/catalog';
+
+/* Ordre officiel : Core → Conseil → Payroll → 360 → Placement */
 const TENANT_PERSONAS: TenantPersona[] = [
   {
     icon: Building2,
+    productName: 'Atlas People Core',
+    catalogKey: 'atlas-people-core',
     label: 'Entreprise',
     sub: 'PME · ETI · Groupe multi-filiales',
     description: 'Vous gérez directement vos propres collaborateurs. Accès complet aux 14 modules RH, paie déterministe, ESS mobile.',
-    mode: 'Mode Entreprise',
+    mode: 'Entreprise',
     modeColor: 'bg-amber-100 text-amber-700',
     tags: ['Auto-gestion RH', '14 modules', 'Multi-pays OHADA'],
     accentBg: 'bg-amber-50',
     accentText: 'text-amber-700',
     accentBorder: 'border-amber-200',
+    accentBtn: 'bg-amber-deep text-white hover:opacity-90',
   },
   {
     icon: Briefcase,
+    productName: 'Atlas People Conseil',
+    catalogKey: 'atlas-people-conseil',
     label: 'Cabinet RH & Conseil',
     sub: 'Externalisation RH complète',
     description: 'Votre cabinet prend en charge la gestion RH et administrative complète pour des entreprises clientes.',
-    mode: 'Mode Cabinet complet',
+    mode: 'Cabinet complet',
     modeColor: 'bg-teal-100 text-teal-700',
     tags: ['Multi-clients', 'RH + Paie tiers', 'Reporting cabinet'],
     accentBg: 'bg-teal-50',
     accentText: 'text-teal-700',
     accentBorder: 'border-teal-200',
+    accentBtn: 'bg-teal-600 text-white hover:opacity-90',
   },
   {
     icon: Wallet,
+    productName: 'Atlas Payroll',
+    catalogKey: 'atlas-payroll',
     label: 'Bureau de paie',
     sub: 'Externalisation paie & admin',
     description: 'Votre bureau traite la paie pour des entreprises clientes. Bulletins en lot, DSN consolidée, 14 régimes OHADA.',
-    mode: 'Mode Cabinet paie',
+    mode: 'Cabinet paie',
     modeColor: 'bg-blue-100 text-blue-700',
     tags: ['Paie multi-clients', 'Bulletins en lot', 'DSN consolidée'],
     accentBg: 'bg-blue-50',
     accentText: 'text-blue-700',
     accentBorder: 'border-blue-200',
-  },
-  {
-    icon: Users,
-    label: 'Agence de mise à disposition',
-    sub: 'Intérim · staffing · prêt de main-d\'œuvre',
-    description: 'Vous êtes l\'employeur légal de travailleurs placés chez des entreprises clientes. RH, paie et conformité centralisées.',
-    mode: 'Mode Agence',
-    modeColor: 'bg-rose-100 text-rose-700',
-    tags: ['Employeur légal', 'Travailleurs placés', 'Multi-sites clients'],
-    accentBg: 'bg-rose-50',
-    accentText: 'text-rose-700',
-    accentBorder: 'border-rose-200',
+    accentBtn: 'bg-blue-600 text-white hover:opacity-90',
   },
   {
     icon: LayoutGrid,
+    productName: 'Atlas People 360',
+    catalogKey: 'atlas-people-360',
     label: 'Structure mixte',
     sub: 'RH interne + clients tiers',
     description: 'Vous gérez vos propres salariés ET des entreprises clientes. Deux périmètres distincts, un seul workspace Atlas People.',
-    mode: 'Mode Cabinet mixte',
+    mode: 'Cabinet mixte',
     modeColor: 'bg-violet-100 text-violet-700',
     tags: ['RH interne', 'Multi-clients', 'Double périmètre'],
     accentBg: 'bg-violet-50',
     accentText: 'text-violet-700',
     accentBorder: 'border-violet-200',
+    accentBtn: 'bg-violet-600 text-white hover:opacity-90',
+  },
+  {
+    icon: Users,
+    productName: 'Atlas People Placement',
+    catalogKey: 'atlas-people-placement',
+    label: 'Agence de mise à disposition',
+    sub: 'Intérim · staffing · prêt de main-d\'œuvre',
+    description: 'Vous êtes l\'employeur légal de travailleurs placés chez des entreprises clientes. RH, paie et conformité centralisées.',
+    mode: 'Agence MAD',
+    modeColor: 'bg-rose-100 text-rose-700',
+    tags: ['Employeur légal', 'Travailleurs placés', 'Multi-sites clients'],
+    accentBg: 'bg-rose-50',
+    accentText: 'text-rose-700',
+    accentBorder: 'border-rose-200',
+    accentBtn: 'bg-rose-600 text-white hover:opacity-90',
   },
 ];
 
@@ -498,17 +520,17 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ─────────────────────── Pour qui ? ─────────────────────── */}
-      <section id="pour-qui" className="scroll-mt-20 bg-surface2/30">
+      {/* ─────────────────────── Nos formules ─────────────────────── */}
+      <section id="formules" className="scroll-mt-20 bg-surface2/30">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="mb-12 text-center">
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-deep">Conçu pour tous les acteurs RH</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-deep">5 produits · un seul éditeur OHADA</p>
             <h2 className="mt-2 font-display text-[38px] leading-tight tracking-tight text-ink sm:text-[46px]">
-              Pour qui est Atlas People ?
+              Choisissez votre formule
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-[14px] font-medium leading-relaxed text-ink-500">
-              Un seul SIRH, cinq modes de workspace — chaque organisation choisit le mode qui correspond à sa structure.
-              Le mode se configure en un clic depuis le panneau Admin.
+              Chaque produit Atlas People est taillé pour un modèle d'organisation précis.
+              Souscrivez sur Atlas Studio — votre accès admin est prêt en 24 h.
             </p>
           </div>
 
@@ -516,48 +538,64 @@ export function LandingPage() {
             {TENANT_PERSONAS.map((p) => {
               const Icon = p.icon;
               return (
-                <div key={p.label} className={cn(
-                  'rounded-2xl border p-5 transition-shadow hover:shadow-md',
+                <div key={p.catalogKey} className={cn(
+                  'flex flex-col rounded-2xl border-2 p-5 transition-shadow hover:shadow-md',
                   p.accentBorder, p.accentBg,
                 )}>
-                  <span className={cn(
-                    'inline-flex h-11 w-11 items-center justify-center rounded-xl bg-surface shadow-sm ring-1 ring-line',
-                    p.accentText,
-                  )}>
-                    <Icon size={20} />
-                  </span>
-                  <h3 className="mt-4 text-[16px] font-bold text-ink">{p.label}</h3>
-                  <p className="mt-0.5 text-[11px] font-semibold text-ink-400">{p.sub}</p>
-                  <p className="mt-2 text-[13px] font-medium leading-relaxed text-ink-500">{p.description}</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-bold', p.modeColor)}>
-                      {p.mode}
+                  {/* Icône + nom produit */}
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface shadow-sm ring-1 ring-line',
+                      p.accentText,
+                    )}>
+                      <Icon size={20} />
                     </span>
+                    <div>
+                      <p className={cn('text-[10px] font-bold uppercase tracking-[0.15em]', p.accentText)}>{p.mode}</p>
+                      <h3 className="text-[16px] font-bold leading-tight text-ink">{p.productName}</h3>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-[11px] font-semibold text-ink-400">{p.label} · {p.sub}</p>
+                  <p className="mt-2 flex-1 text-[13px] font-medium leading-relaxed text-ink-500">{p.description}</p>
+
+                  <div className="mt-3 flex flex-wrap gap-1.5">
                     {p.tags.map((t) => (
                       <span key={t} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-ink-500 ring-1 ring-line">
                         {t}
                       </span>
                     ))}
                   </div>
+
+                  <a
+                    href={`${ATLAS_STUDIO_CATALOG}?product=${p.catalogKey}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      'mt-4 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition-opacity',
+                      p.accentBtn,
+                    )}
+                  >
+                    Acheter <ArrowUpRight size={14} />
+                  </a>
                 </div>
               );
             })}
 
-            {/* Carte CTA */}
+            {/* Carte CTA — déjà abonné */}
             <div className="flex flex-col items-start justify-between rounded-2xl border border-ink/10 bg-ink p-5 text-surface">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber">Changer de mode</p>
-                <h3 className="mt-2 text-[16px] font-bold">Vous changez de structure ?</h3>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber">Déjà abonné ?</p>
+                <h3 className="mt-2 text-[16px] font-bold">Accédez à votre espace</h3>
                 <p className="mt-2 text-[13px] font-medium leading-relaxed text-surface/70">
-                  Le mode se modifie à tout moment depuis <strong className="text-surface">Admin → Entreprise → Mode de fonctionnement</strong>.
-                  Aucune migration de données.
+                  Votre accès admin Atlas People vous permet de créer les comptes de vos collaborateurs, managers et agents RH en quelques minutes.
                 </p>
               </div>
               <Link
-                to="/admin?tab=tenant"
+                to="/"
                 className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-amber px-4 py-2.5 text-[13px] font-bold text-night transition-shadow hover:shadow-lg"
               >
-                <Settings2 size={14} /> Configurer le mode <ArrowRight size={13} />
+                <ArrowRight size={14} /> Accéder à l'application
               </Link>
             </div>
           </div>
