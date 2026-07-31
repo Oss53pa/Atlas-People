@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 import { CompetencesSubNav } from '../../components/competences/CompetencesSubNav';
 import { useSignPDC, isBackendConfigured } from '../../lib/m9/supabaseLive';
+import { COMPETENCE_THRESHOLDS } from '../../lib/m9/referentiels';
 import { employeeName, SKILLS } from '../../data/mock';
 import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
@@ -550,11 +551,11 @@ export function TalentsMobilitePage() {
       <Card>
         <CardHeader title="Politique mobilité interne Atlas" subtitle="Cadre déterministe — éviter contournement matching" action={<AlertTriangle size={16} className="text-amber-deep" />} />
         <ul className="space-y-1.5 text-[11px] font-medium text-ink-700">
-          <li>• <strong>Seuil match minimum 40 %</strong> pour qu'une candidature soit recevable.</li>
-          <li>• <strong>Match ≥ 80 %</strong> : décision DRH + manager d'accueil suffit.</li>
-          <li>• <strong>Match 60-79 %</strong> : exige PDC d'accompagnement signé ADVIST.</li>
-          <li>• <strong>Match &lt; 60 %</strong> : exige validation Comex + clause retour 6 mois.</li>
-          <li>• <strong>Patron P10</strong> : toute mobilité accordée &lt; 40 % déclenche alerte audit auto.</li>
+          <li>• <strong>Seuil match minimum {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_MIN_PCT} %</strong> pour qu'une candidature soit recevable.</li>
+          <li>• <strong>Match ≥ {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_AUTO_VALIDATE_PCT} %</strong> : décision DRH + manager d'accueil suffit.</li>
+          <li>• <strong>Match {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_PDC_MIN_PCT}-{COMPETENCE_THRESHOLDS.MOBILITY_MATCH_PDC_MAX_PCT} %</strong> : exige PDC d'accompagnement signé ADVIST.</li>
+          <li>• <strong>Match &lt; {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_PDC_MIN_PCT} %</strong> : exige validation Comex + clause retour {COMPETENCE_THRESHOLDS.MOBILITY_RETURN_CLAUSE_MONTHS} mois.</li>
+          <li>• <strong>Patron P10</strong> : toute mobilité accordée &lt; {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_MIN_PCT} % déclenche alerte audit auto.</li>
         </ul>
       </Card>
     </div>
