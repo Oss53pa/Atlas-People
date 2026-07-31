@@ -237,6 +237,10 @@ export function CalibrationEvalPage() {
     { lvl: 2, name: 'Calibration direction',  who: 'Directeur + tous managers + RRH',        when: 'S47 · fin nov.', duration: '3-4 h workshop', enjeu: 'Cohérence inter-équipes' },
     { lvl: 3, name: 'Calibration entreprise', who: 'DG + Comex + DRH + Chargé Performance',  when: 'S48 · début déc.', duration: '4-6 h workshop', enjeu: 'Cohérence globale + équité' },
   ];
+  // Cible de répartition des classes finales ABCDE (note composite 0-100, cf. classe
+  // calculée dans NotationFinalePage ci-dessous). À distinguer de CALIBRATION_DISTRIBUTION
+  // (src/lib/m8/referentiels.ts), qui cible la grille 9-box performance × potentiel —
+  // deux axes de calibration légitimement différents, non interchangeables.
   const distribution = [
     { class: 'A — Exceptionnel',          target: 10, color: 'emerald-500' },
     { class: 'B — Au-dessus attentes',    target: 25, color: 'emerald-400' },
