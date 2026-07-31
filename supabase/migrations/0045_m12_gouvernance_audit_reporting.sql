@@ -42,15 +42,21 @@ create index if not exists m12_mal_patient_idx on m12_medical_access_log (patien
 create index if not exists m12_mal_accessor_idx on m12_medical_access_log (accessor_id);
 
 -- RLS : INSERT uniquement — pas de UPDATE/DELETE (table SAINTE)
+-- Forme des prédicats alignée sur ce qui est RÉELLEMENT en base pour les
+-- tables M12 (cf. pg_policy sur m12_work_incidents / m12_risks) :
+--   • `in (select …)` et non `= any (…)` : current_tenant_ids() renvoie
+--     SETOF uuid, et `= any` exige un tableau → 0A000 « set-returning
+--     functions are not allowed in WHERE ».
+--   • is_hr_or_admin(tenant_id) : la surcharge sans argument n'existe pas.
 alter table m12_medical_access_log enable row level security;
 drop policy if exists medical_log_insert on m12_medical_access_log;
 create policy medical_log_insert on m12_medical_access_log
-  for insert with check (tenant_id = any (current_tenant_ids()));
+  for insert with check (tenant_id in (select atlas_people.current_tenant_ids()));
 drop policy if exists medical_log_select on m12_medical_access_log;
 create policy medical_log_select on m12_medical_access_log
   for select using (
-    tenant_id = any (current_tenant_ids())
-    and is_hr_or_admin()
+    tenant_id in (select atlas_people.current_tenant_ids())
+    and atlas_people.is_hr_or_admin(tenant_id)
   );
 -- Aucune policy UPDATE/DELETE → bloquées par RLS (règle R9 secret médical)
 
@@ -259,18 +265,24 @@ begin
     execute format('alter table %I enable row level security', t);
     execute format($f$drop policy if exists tenant_read on %I$f$, t);
     execute format($f$create policy tenant_read on %I for select
-      using (tenant_id = any (current_tenant_ids()))$f$, t);
+      using (tenant_id in (select atlas_people.current_tenant_ids()))$f$, t);
     execute format($f$drop policy if exists tenant_write on %I$f$, t);
     execute format($f$create policy tenant_write on %I
-      for all using (tenant_id = any (current_tenant_ids()) and is_hr_or_admin())
-      with check (tenant_id = any (current_tenant_ids()) and is_hr_or_admin())$f$, t);
+      for all using (atlas_people.is_hr_or_admin(tenant_id)
+                     and tenant_id in (select atlas_people.current_tenant_ids()))
+      with check (atlas_people.is_hr_or_admin(tenant_id)
+                  and tenant_id in (select atlas_people.current_tenant_ids()))$f$, t);
   end loop;
 end $$;
 
 -- ---------------------------------------------------------------------------
 -- 9. Vue reporting complémentaire (TF/TG)
+--    security_invoker : sans lui la vue s'exécute avec les droits du
+--    propriétaire et court-circuite la RLS de m12_work_incidents → fuite des
+--    agrégats AT/MP de tous les tenants. Même idiome qu'en 0002 et 0041.
 -- ---------------------------------------------------------------------------
-create or replace view m12_kpi_reporting as
+create or replace view m12_kpi_reporting
+with (security_invoker = true) as
 select
   wi.tenant_id,
   date_trunc('month', wi.occurred_at) as mois,
@@ -283,3 +295,39 @@ from m12_work_incidents wi
 group by wi.tenant_id, date_trunc('month', wi.occurred_at);
 
 comment on view m12_kpi_reporting is 'KPI mensuel AT/MP M12 — utilisé par /conformite/reporting';
+
+-- ---------------------------------------------------------------------------
+-- 10. GRANTS — privilèges de table (la RLS ne sert à rien sans eux)
+--     Le schéma atlas_people porte bien un `alter default privileges`
+--     (tables → authenticated=arwd, anon=r ; séquences → authenticated=rU),
+--     donc les tables créées ici héritent automatiquement. Les grants
+--     ci-dessous sont redondants en prod et rendent la migration rejouable
+--     telle quelle sur une branche ou un environnement neuf dépourvu de ces
+--     default ACL. Même idiome explicite qu'en 0046.
+-- ---------------------------------------------------------------------------
+do $$
+declare t text;
+begin
+  foreach t in array array[
+    'm12_medical_access_log',
+    'm12_gouvernance_comites', 'm12_gouvernance_comites_reunions',
+    'm12_gouvernance_politique_tenant', 'm12_gouvernance_politique_versions',
+    'm12_gouvernance_escalades_config', 'm12_gouvernance_escalades_historique',
+    'm12_suspicious_patterns', 'm12_kpi_snapshots'
+  ]
+  loop
+    execute format(
+      'grant select, insert, update, delete on %I to authenticated, service_role', t);
+  end loop;
+end $$;
+
+-- bigserial ⇒ l'INSERT consomme la séquence : USAGE requis en plus du grant table.
+grant usage, select on sequence m12_medical_access_log_id_seq to authenticated, service_role;
+
+grant select on m12_kpi_reporting to authenticated, service_role;
+
+-- Table SAINTE : le default ACL du schéma donne SELECT à anon sur toute
+-- nouvelle table. La RLS le bloque déjà (aucune policy ne matche sans
+-- auth.uid()), mais sur le journal d'accès au dossier médical on retire le
+-- privilège lui-même — défense en profondeur, règle R9 secret médical.
+revoke all on m12_medical_access_log from anon;
