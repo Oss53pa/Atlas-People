@@ -421,11 +421,14 @@ begin
   loop
     execute format('alter table %I enable row level security', t);
     execute format($f$drop policy if exists tenant_read on %I$f$, t);
-    execute format($f$create policy tenant_read on %I for select using (tenant_id = any (current_tenant_ids()))$f$, t);
+    execute format($f$create policy tenant_read on %I for select
+      using (tenant_id in (select atlas_people.current_tenant_ids()))$f$, t);
     execute format($f$drop policy if exists tenant_write on %I$f$, t);
     execute format($f$create policy tenant_write on %I
-      for all using (tenant_id = any (current_tenant_ids()) and is_hr_or_admin())
-      with check (tenant_id = any (current_tenant_ids()) and is_hr_or_admin())$f$, t);
+      for all using (atlas_people.is_hr_or_admin(tenant_id)
+                     and tenant_id in (select atlas_people.current_tenant_ids()))
+      with check (atlas_people.is_hr_or_admin(tenant_id)
+                  and tenant_id in (select atlas_people.current_tenant_ids()))$f$, t);
   end loop;
 end $$;
 
@@ -434,13 +437,15 @@ alter table m12_medical_visits enable row level security;
 drop policy if exists tenant_read on m12_medical_visits;
 create policy tenant_read on m12_medical_visits
   for select using (
-    tenant_id = any (current_tenant_ids())
-    and (is_hr_or_admin() or auth.uid() = employee_id)
+    tenant_id in (select atlas_people.current_tenant_ids())
+    and (atlas_people.is_hr_or_admin(tenant_id) or auth.uid() = employee_id)
   );
 drop policy if exists tenant_write on m12_medical_visits;
 create policy tenant_write on m12_medical_visits
-  for all using (tenant_id = any (current_tenant_ids()) and is_hr_or_admin())
-  with check (tenant_id = any (current_tenant_ids()) and is_hr_or_admin());
+  for all using (atlas_people.is_hr_or_admin(tenant_id)
+                 and tenant_id in (select atlas_people.current_tenant_ids()))
+  with check (atlas_people.is_hr_or_admin(tenant_id)
+              and tenant_id in (select atlas_people.current_tenant_ids()));
 
 -- ---------------------------------------------------------------------------
 -- 13. TRIGGERS — updated_at

@@ -273,11 +273,14 @@ begin
   loop
     execute format('alter table %I enable row level security', t);
     execute format($f$drop policy if exists tenant_read on %I$f$, t);
-    execute format($f$create policy tenant_read on %I for select using (tenant_id = any (current_tenant_ids()))$f$, t);
+    execute format($f$create policy tenant_read on %I for select
+      using (tenant_id in (select atlas_people.current_tenant_ids()))$f$, t);
     execute format($f$drop policy if exists tenant_write on %I$f$, t);
     execute format($f$create policy tenant_write on %I
-      for all using (tenant_id = any (current_tenant_ids()) and is_hr_or_admin())
-      with check (tenant_id = any (current_tenant_ids()) and is_hr_or_admin())$f$, t);
+      for all using (atlas_people.is_hr_or_admin(tenant_id)
+                     and tenant_id in (select atlas_people.current_tenant_ids()))
+      with check (atlas_people.is_hr_or_admin(tenant_id)
+                  and tenant_id in (select atlas_people.current_tenant_ids()))$f$, t);
   end loop;
 end $$;
 
@@ -285,8 +288,8 @@ end $$;
 drop policy if exists owner_read on m7_objectives;
 create policy owner_read on m7_objectives
   for select using (
-    tenant_id = any (current_tenant_ids())
-    and (is_hr_or_admin() or auth.uid() = owner_id)
+    tenant_id in (select atlas_people.current_tenant_ids())
+    and (atlas_people.is_hr_or_admin(tenant_id) or auth.uid() = owner_id)
   );
 
 -- ---------------------------------------------------------------------------
