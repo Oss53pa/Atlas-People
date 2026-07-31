@@ -28,7 +28,7 @@ export const REGIME_CI: Regime = {
       base: 'capped',
       ceiling: 70_000,
       employeeBps: 0,
-      employerBps: 525, // 5,75 % (PF) — illustratif
+      employerBps: 575, // 5,75 % (5 % PF + 0,75 % maternité) — CNPS CI
       accounts: { employer: '664200' },
     },
     {
@@ -64,6 +64,6 @@ export const REGIME_CI: Regime = {
   },
   employerTaxes: [
     { code: 'FDFP_TA', label: "FDFP — Taxe d'apprentissage", bps: 40, account: '637100' },
-    { code: 'FDFP_FC', label: 'FDFP — Formation continue', bps: 60, account: '637200' },
+    { code: 'FDFP_FC', label: 'FDFP — Formation continue', bps: 120, account: '637200' }, // 1,2 % — FDFP CI
   ],
 };
