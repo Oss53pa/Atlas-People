@@ -36,7 +36,7 @@ import { ComplianceGuard } from '../lib/compliance/ComplianceGuard';
 import { countryByCode } from '../data/countries';
 import { useDirectory } from '../store/useDirectory';
 import { useUpdateEmployee, useOffboardEmployee, isBackendConfigured } from '../lib/m1/supabaseLive';
-import { useCreateDeparture } from '../lib/m4/supabaseLive';
+import { useCreateDeparture, type M4DepartureType, type M4DepartureInitiative } from '../lib/m4/supabaseLive';
 import { useEvents } from '../store/useEvents';
 import {
   employeeName,
@@ -54,7 +54,7 @@ interface Motive {
   severance?: boolean; cddPremium?: boolean; retirement?: boolean;
   dismissal?: boolean; redirectM12?: boolean; requiresM12?: boolean; isDeath?: boolean; transfer?: boolean;
 }
-const MOTIVES: Motive[] = [
+const MOTIVES = [
   { code: 'resignation', label: 'Démission', initiator: 'Employé' },
   { code: 'mutual', label: 'Rupture conventionnelle', initiator: 'Mutuel', severance: true },
   { code: 'cdd_end', label: 'Fin de CDD', initiator: 'Système', cddPremium: true },
@@ -70,9 +70,18 @@ const MOTIVES: Motive[] = [
   { code: 'intra_group', label: 'Transfert intra-groupe', initiator: 'Mutuel', transfer: true },
   { code: 'job_abandonment', label: 'Abandon de poste', initiator: 'Employeur', requiresM12: true },
   { code: 'incompatible_after_mobility', label: 'Incompatibilité après mobilité', initiator: 'Mutuel' },
-];
+] as const satisfies readonly Motive[];
 
-const MOTIVE_TO_M4_TYPE: Record<string, string> = {
+type MotiveCode = (typeof MOTIVES)[number]['code'];
+
+/**
+ * Qualification juridique du motif -> enum atlas_people.m4_departure_type.
+ * `Record<MotiveCode, …>` rend la table EXHAUSTIVE : ajouter un motif à
+ * MOTIVES sans lui donner de qualification ne compile pas. C'est le seul
+ * garde-fou fiable — m4_departures.type est la seule trace de qualification
+ * que ce parcours persiste, une valeur devinée y devient un fait juridique.
+ */
+const MOTIVE_TO_M4_TYPE: Record<MotiveCode, M4DepartureType> = {
   resignation: 'DEMISSION',
   mutual: 'RUPT_CONV',
   cdd_end: 'FIN_CDD',
@@ -84,7 +93,35 @@ const MOTIVE_TO_M4_TYPE: Record<string, string> = {
   retirement: 'RETRAITE',
   forced_retirement: 'RETRAITE',
   death: 'DECES',
+  disability: 'INVALIDITE',
+  intra_group: 'TRANSFERT_GROUPE',
   job_abandonment: 'ABANDON_POSTE',
+  incompatible_after_mobility: 'INCOMPAT_MOBILITE',
+};
+
+/**
+ * Fait générateur de la rupture -> CHECK m4_departures.initiative.
+ * Table explicite, et non plus déduite du libellé d'affichage `initiator` :
+ * cette déduction rangeait dans « commun accord » tout ce qui n'était ni
+ * « Employé » ni « Employeur », donc le terme d'un CDD, un décès et une
+ * invalidité — trois ruptures que personne n'a décidées.
+ */
+const MOTIVE_TO_INITIATIVE: Record<MotiveCode, M4DepartureInitiative> = {
+  resignation: 'salarie',
+  mutual: 'mutuelle',
+  cdd_end: 'terme',                       // le contrat s'éteint à son terme
+  trial_employer: 'employeur',
+  trial_employee: 'salarie',
+  economic: 'employeur',
+  personal_non_disc: 'employeur',
+  dismissal_for_cause: 'employeur',
+  retirement: 'salarie',
+  forced_retirement: 'employeur',
+  death: 'force_majeure',
+  disability: 'inaptitude',               // constat médical (M12), pas une volonté
+  intra_group: 'mutuelle',
+  job_abandonment: 'employeur',
+  incompatible_after_mobility: 'mutuelle',
 };
 
 const PHASES = [
@@ -139,7 +176,7 @@ export function ExitDossierPage() {
 
   const [departureId, setDepartureId] = useState<string | null>(null);
   const [section, setSection] = useState('overview');
-  const [motiveCode, setMotiveCode] = useState('resignation');
+  const [motiveCode, setMotiveCode] = useState<MotiveCode>('resignation');
   const [subMotive, setSubMotive] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('2026-07-31');
   const [noticeDispensed, setNoticeDispensed] = useState(false);
@@ -164,7 +201,10 @@ export function ExitDossierPage() {
   const name = employeeName(employee);
   const fmt = (n: number) => Money.of(Math.round(n), cur).format();
   const protectedUntil = employeeProtectedUntil(employee);
-  const motive = MOTIVES.find((m) => m.code === motiveCode)!;
+  const motive: Motive = MOTIVES.find((m) => m.code === motiveCode)!;
+  // Qualification juridique du motif retenu. Absente => le dossier ne s'ouvre pas.
+  const m4Type: M4DepartureType | undefined = MOTIVE_TO_M4_TYPE[motiveCode];
+  const m4Initiative: M4DepartureInitiative | undefined = MOTIVE_TO_INITIATIVE[motiveCode];
   const reference = `EXIT-2026-${String(parseInt(employee.id.replace(/\D/g, ''), 10) || 1).padStart(4, '0')}`;
 
   const hire = new Date(employee.hireDate);
@@ -223,6 +263,7 @@ export function ExitDossierPage() {
   type Check = { status: 'ok' | 'warn' | 'block'; label: string; detail: string; basis?: string };
   const checks: Check[] = useMemo(() => {
     const out: Check[] = [];
+    if (!m4Type || !m4Initiative) out.push({ status: 'block', label: 'Qualification juridique indisponible', detail: `Le motif « ${motive.label} » n'a pas de qualification correspondante dans m4_departures (${!m4Type ? 'type' : 'initiative'}). Le dossier ne peut pas être ouvert : la qualification enregistrée est la seule trace du motif, elle ne peut pas être approchée.` });
     if (motive.redirectM12) out.push({ status: 'block', label: 'Procédure disciplinaire requise', detail: 'Un licenciement pour faute relève du module disciplinaire (M12) : convocation, entretien préalable, délais légaux et voies de recours.', basis: `Code du travail ${employee.countryCode}` });
     if (motive.requiresM12) out.push({ status: 'block', label: 'Mise en demeure préalable requise', detail: "L'abandon de poste nécessite une procédure de mise en demeure formelle (M12) avant d'initier la sortie." });
     if (protectedUntil && motive.dismissal) out.push({ status: 'block', label: 'Salarié protégé', detail: `Mandat actif jusqu'au ${new Date(`${protectedUntil}T00:00:00`).toLocaleDateString('fr-FR')} — autorisation préalable de l'inspection du travail obligatoire.` });
@@ -236,7 +277,7 @@ export function ExitDossierPage() {
     out.push({ status: 'ok', label: 'Versement du STC dans les délais', detail: 'Le solde de tout compte est versé sous les délais légaux suivant la date d’effet.' });
     out.push({ status: stc.net >= 0 ? 'ok' : 'warn', label: 'Cohérence du solde', detail: stc.net >= 0 ? 'Solde net positif.' : 'Solde net négatif après débits — à clarifier avec l’employé.' });
     return out;
-  }, [motive, protectedUntil, employee.countryCode, seniorityMonths, seniorityYears, noticeDays, noticeDispensed, compensationPaid, stc.net]);
+  }, [motive, m4Type, m4Initiative, protectedUntil, employee.countryCode, seniorityMonths, seniorityYears, noticeDays, noticeDispensed, compensationPaid, stc.net]);
 
   const blocking = checks.some((c) => c.status === 'block');
   const phaseIdx = PHASES.findIndex((p) => p.key === phase);
@@ -263,15 +304,22 @@ export function ExitDossierPage() {
   const advance = () => {
     if (motive.redirectM12 || motive.requiresM12) return;
     if (phase === 'initiation') {
+      // Une qualification juridique ne se devine pas : sans correspondance
+      // explicite, on bloque le dossier plutôt que d'écrire un motif faux.
+      if (!m4Type || !m4Initiative) {
+        toast({ variant: 'error', title: 'Motif non qualifié', description: `« ${motive.label} » n'a pas de qualification correspondante dans m4_departures (${!m4Type ? 'type' : 'initiative'}). Le dossier de sortie ne peut pas être ouvert tant que ce motif n'est pas qualifié.` });
+        return;
+      }
       setPhase('notification');
-      // Création du dossier départ dans m4_departures (non-bloquant)
+      // Création du dossier départ dans m4_departures
       if (isBackendConfigured && employee && !departureId) {
         void createDeparture.mutateAsync({
           employeeId: employee.id,
-          type: MOTIVE_TO_M4_TYPE[motiveCode] ?? 'DEMISSION',
-          initiative: motive.initiator === 'Employé' ? 'salarie' : motive.initiator === 'Employeur' ? 'employeur' : 'mutuelle',
+          type: m4Type,
+          initiative: m4Initiative,
           reason: subMotive || undefined,
-        }).then(({ id: depId }) => setDepartureId(depId)).catch(() => { /* non-bloquant */ });
+        }).then(({ id: depId }) => setDepartureId(depId))
+          .catch((e) => toast({ variant: 'error', title: 'Dossier de départ non enregistré', description: e instanceof Error ? e.message : 'Erreur inconnue.' }));
       }
       return;
     }
@@ -284,7 +332,7 @@ export function ExitDossierPage() {
 
   const advanceLabel = (): string => {
     switch (phase) {
-      case 'initiation': return "Notifier l'employé";
+      case 'initiation': return m4Type && m4Initiative ? "Notifier l'employé" : 'Motif non qualifié';
       case 'notification': return 'Démarrer le préavis';
       case 'notice_period': return 'Passer aux préparatifs';
       case 'pre_effect': return blocking ? 'Conformité bloquante' : "Acter la sortie (date d'effet)";
@@ -293,7 +341,7 @@ export function ExitDossierPage() {
       default: return 'Clôturé';
     }
   };
-  const advanceDisabled = motive.redirectM12 || motive.requiresM12 || (phase === 'pre_effect' && blocking) || phase === 'archived';
+  const advanceDisabled = !m4Type || !m4Initiative || motive.redirectM12 || motive.requiresM12 || (phase === 'pre_effect' && blocking) || phase === 'archived';
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -385,7 +433,7 @@ export function ExitDossierPage() {
                 <CardHeader title="Motif & qualification" subtitle="Vocabulaire neutre — les droits de l'employé sont préservés" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField label="Motif de la sortie" required>
-                    <Select value={motiveCode} onChange={(e) => setMotiveCode(e.target.value)}>
+                    <Select value={motiveCode} onChange={(e) => { const next = MOTIVES.find((m) => m.code === e.target.value)?.code; if (next) setMotiveCode(next); }}>
                       {MOTIVES.map((m) => <option key={m.code} value={m.code}>{m.label}</option>)}
                     </Select>
                   </FormField>

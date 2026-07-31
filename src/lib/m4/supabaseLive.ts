@@ -15,6 +15,31 @@ function toDbContractType(uiCode: string): string {
 
 const DEMO = '11111111-1111-1111-1111-111111111111';
 
+/**
+ * Valeurs acceptées par l'enum atlas_people.m4_departure_type
+ * (migration 0021, étendue par 0062 : invalidité / transfert / mobilité).
+ * Toute qualification de départ écrite en base passe par cette union :
+ * une valeur inventée est une erreur de compilation, pas un rejet 22P02
+ * découvert en production.
+ */
+export const M4_DEPARTURE_TYPES = [
+  'DEMISSION', 'LICEN_PERSO', 'LICEN_FAUTE', 'LICEN_ECO', 'RUPT_CONV', 'FIN_CDD',
+  'RUPT_ESSAI', 'RETRAITE', 'DECES', 'ABANDON_POSTE',
+  'INVALIDITE', 'TRANSFERT_GROUPE', 'INCOMPAT_MOBILITE',
+] as const;
+export type M4DepartureType = (typeof M4_DEPARTURE_TYPES)[number];
+
+/**
+ * Valeurs acceptées par le CHECK atlas_people.m4_departures_initiative_check
+ * (migration 0021, étendue par 0063 : terme / inaptitude).
+ * Décrit le fait générateur de la rupture, pas seulement « qui a signé » :
+ * un terme de CDD et un constat d'inaptitude ne sont l'initiative de personne.
+ */
+export const M4_DEPARTURE_INITIATIVES = [
+  'salarie', 'employeur', 'mutuelle', 'force_majeure', 'terme', 'inaptitude',
+] as const;
+export type M4DepartureInitiative = (typeof M4_DEPARTURE_INITIATIVES)[number];
+
 export interface M4ContractRow {
   id: string;
   tenant_id: string;
@@ -37,7 +62,7 @@ export interface M4DepartureRow {
   employee_id: string;
   ref: string | null;
   type: string | null;            // enum m4_departure_type (DEMISSION, LICEN_*, FIN_CDD…)
-  initiative: string | null;      // salarie | employeur | mutuelle | force_majeure
+  initiative: string | null;      // salarie | employeur | mutuelle | force_majeure | terme | inaptitude
   notified_at: string | null;
   notice_end: string | null;
   end_date: string | null;
@@ -300,8 +325,8 @@ export function useCreateDeparture() {
       notifiedAt,
     }: {
       employeeId: string;
-      type: string;
-      initiative?: string;
+      type: M4DepartureType;      // qualification juridique — jamais une chaîne libre
+      initiative?: M4DepartureInitiative;
       reason?: string;
       notifiedAt?: string;
     }) => {
