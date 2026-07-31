@@ -29,6 +29,17 @@ export const M4_DEPARTURE_TYPES = [
 ] as const;
 export type M4DepartureType = (typeof M4_DEPARTURE_TYPES)[number];
 
+/**
+ * Valeurs acceptées par le CHECK atlas_people.m4_departures_initiative_check
+ * (migration 0021, étendue par 0063 : terme / inaptitude).
+ * Décrit le fait générateur de la rupture, pas seulement « qui a signé » :
+ * un terme de CDD et un constat d'inaptitude ne sont l'initiative de personne.
+ */
+export const M4_DEPARTURE_INITIATIVES = [
+  'salarie', 'employeur', 'mutuelle', 'force_majeure', 'terme', 'inaptitude',
+] as const;
+export type M4DepartureInitiative = (typeof M4_DEPARTURE_INITIATIVES)[number];
+
 export interface M4ContractRow {
   id: string;
   tenant_id: string;
@@ -51,7 +62,7 @@ export interface M4DepartureRow {
   employee_id: string;
   ref: string | null;
   type: string | null;            // enum m4_departure_type (DEMISSION, LICEN_*, FIN_CDD…)
-  initiative: string | null;      // salarie | employeur | mutuelle | force_majeure
+  initiative: string | null;      // salarie | employeur | mutuelle | force_majeure | terme | inaptitude
   notified_at: string | null;
   notice_end: string | null;
   end_date: string | null;
@@ -315,7 +326,7 @@ export function useCreateDeparture() {
     }: {
       employeeId: string;
       type: M4DepartureType;      // qualification juridique — jamais une chaîne libre
-      initiative?: string;
+      initiative?: M4DepartureInitiative;
       reason?: string;
       notifiedAt?: string;
     }) => {

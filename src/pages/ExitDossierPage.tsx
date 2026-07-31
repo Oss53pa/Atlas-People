@@ -36,7 +36,7 @@ import { ComplianceGuard } from '../lib/compliance/ComplianceGuard';
 import { countryByCode } from '../data/countries';
 import { useDirectory } from '../store/useDirectory';
 import { useUpdateEmployee, useOffboardEmployee, isBackendConfigured } from '../lib/m1/supabaseLive';
-import { useCreateDeparture, type M4DepartureType } from '../lib/m4/supabaseLive';
+import { useCreateDeparture, type M4DepartureType, type M4DepartureInitiative } from '../lib/m4/supabaseLive';
 import { useEvents } from '../store/useEvents';
 import {
   employeeName,
@@ -97,6 +97,31 @@ const MOTIVE_TO_M4_TYPE: Record<MotiveCode, M4DepartureType> = {
   intra_group: 'TRANSFERT_GROUPE',
   job_abandonment: 'ABANDON_POSTE',
   incompatible_after_mobility: 'INCOMPAT_MOBILITE',
+};
+
+/**
+ * Fait générateur de la rupture -> CHECK m4_departures.initiative.
+ * Table explicite, et non plus déduite du libellé d'affichage `initiator` :
+ * cette déduction rangeait dans « commun accord » tout ce qui n'était ni
+ * « Employé » ni « Employeur », donc le terme d'un CDD, un décès et une
+ * invalidité — trois ruptures que personne n'a décidées.
+ */
+const MOTIVE_TO_INITIATIVE: Record<MotiveCode, M4DepartureInitiative> = {
+  resignation: 'salarie',
+  mutual: 'mutuelle',
+  cdd_end: 'terme',                       // le contrat s'éteint à son terme
+  trial_employer: 'employeur',
+  trial_employee: 'salarie',
+  economic: 'employeur',
+  personal_non_disc: 'employeur',
+  dismissal_for_cause: 'employeur',
+  retirement: 'salarie',
+  forced_retirement: 'employeur',
+  death: 'force_majeure',
+  disability: 'inaptitude',               // constat médical (M12), pas une volonté
+  intra_group: 'mutuelle',
+  job_abandonment: 'employeur',
+  incompatible_after_mobility: 'mutuelle',
 };
 
 const PHASES = [
@@ -179,6 +204,7 @@ export function ExitDossierPage() {
   const motive: Motive = MOTIVES.find((m) => m.code === motiveCode)!;
   // Qualification juridique du motif retenu. Absente => le dossier ne s'ouvre pas.
   const m4Type: M4DepartureType | undefined = MOTIVE_TO_M4_TYPE[motiveCode];
+  const m4Initiative: M4DepartureInitiative | undefined = MOTIVE_TO_INITIATIVE[motiveCode];
   const reference = `EXIT-2026-${String(parseInt(employee.id.replace(/\D/g, ''), 10) || 1).padStart(4, '0')}`;
 
   const hire = new Date(employee.hireDate);
@@ -237,7 +263,7 @@ export function ExitDossierPage() {
   type Check = { status: 'ok' | 'warn' | 'block'; label: string; detail: string; basis?: string };
   const checks: Check[] = useMemo(() => {
     const out: Check[] = [];
-    if (!m4Type) out.push({ status: 'block', label: 'Qualification juridique indisponible', detail: `Le motif « ${motive.label} » n'a pas de qualification correspondante dans m4_departures.type. Le dossier ne peut pas être ouvert : la qualification enregistrée est la seule trace du motif, elle ne peut pas être approchée.` });
+    if (!m4Type || !m4Initiative) out.push({ status: 'block', label: 'Qualification juridique indisponible', detail: `Le motif « ${motive.label} » n'a pas de qualification correspondante dans m4_departures (${!m4Type ? 'type' : 'initiative'}). Le dossier ne peut pas être ouvert : la qualification enregistrée est la seule trace du motif, elle ne peut pas être approchée.` });
     if (motive.redirectM12) out.push({ status: 'block', label: 'Procédure disciplinaire requise', detail: 'Un licenciement pour faute relève du module disciplinaire (M12) : convocation, entretien préalable, délais légaux et voies de recours.', basis: `Code du travail ${employee.countryCode}` });
     if (motive.requiresM12) out.push({ status: 'block', label: 'Mise en demeure préalable requise', detail: "L'abandon de poste nécessite une procédure de mise en demeure formelle (M12) avant d'initier la sortie." });
     if (protectedUntil && motive.dismissal) out.push({ status: 'block', label: 'Salarié protégé', detail: `Mandat actif jusqu'au ${new Date(`${protectedUntil}T00:00:00`).toLocaleDateString('fr-FR')} — autorisation préalable de l'inspection du travail obligatoire.` });
@@ -251,7 +277,7 @@ export function ExitDossierPage() {
     out.push({ status: 'ok', label: 'Versement du STC dans les délais', detail: 'Le solde de tout compte est versé sous les délais légaux suivant la date d’effet.' });
     out.push({ status: stc.net >= 0 ? 'ok' : 'warn', label: 'Cohérence du solde', detail: stc.net >= 0 ? 'Solde net positif.' : 'Solde net négatif après débits — à clarifier avec l’employé.' });
     return out;
-  }, [motive, m4Type, protectedUntil, employee.countryCode, seniorityMonths, seniorityYears, noticeDays, noticeDispensed, compensationPaid, stc.net]);
+  }, [motive, m4Type, m4Initiative, protectedUntil, employee.countryCode, seniorityMonths, seniorityYears, noticeDays, noticeDispensed, compensationPaid, stc.net]);
 
   const blocking = checks.some((c) => c.status === 'block');
   const phaseIdx = PHASES.findIndex((p) => p.key === phase);
@@ -280,8 +306,8 @@ export function ExitDossierPage() {
     if (phase === 'initiation') {
       // Une qualification juridique ne se devine pas : sans correspondance
       // explicite, on bloque le dossier plutôt que d'écrire un motif faux.
-      if (!m4Type) {
-        toast({ variant: 'error', title: 'Motif non qualifié', description: `« ${motive.label} » n'a pas de qualification correspondante dans m4_departures.type. Le dossier de sortie ne peut pas être ouvert tant que ce motif n'est pas qualifié.` });
+      if (!m4Type || !m4Initiative) {
+        toast({ variant: 'error', title: 'Motif non qualifié', description: `« ${motive.label} » n'a pas de qualification correspondante dans m4_departures (${!m4Type ? 'type' : 'initiative'}). Le dossier de sortie ne peut pas être ouvert tant que ce motif n'est pas qualifié.` });
         return;
       }
       setPhase('notification');
@@ -290,7 +316,7 @@ export function ExitDossierPage() {
         void createDeparture.mutateAsync({
           employeeId: employee.id,
           type: m4Type,
-          initiative: motive.initiator === 'Employé' ? 'salarie' : motive.initiator === 'Employeur' ? 'employeur' : 'mutuelle',
+          initiative: m4Initiative,
           reason: subMotive || undefined,
         }).then(({ id: depId }) => setDepartureId(depId))
           .catch((e) => toast({ variant: 'error', title: 'Dossier de départ non enregistré', description: e instanceof Error ? e.message : 'Erreur inconnue.' }));
@@ -306,7 +332,7 @@ export function ExitDossierPage() {
 
   const advanceLabel = (): string => {
     switch (phase) {
-      case 'initiation': return m4Type ? "Notifier l'employé" : 'Motif non qualifié';
+      case 'initiation': return m4Type && m4Initiative ? "Notifier l'employé" : 'Motif non qualifié';
       case 'notification': return 'Démarrer le préavis';
       case 'notice_period': return 'Passer aux préparatifs';
       case 'pre_effect': return blocking ? 'Conformité bloquante' : "Acter la sortie (date d'effet)";
@@ -315,7 +341,7 @@ export function ExitDossierPage() {
       default: return 'Clôturé';
     }
   };
-  const advanceDisabled = !m4Type || motive.redirectM12 || motive.requiresM12 || (phase === 'pre_effect' && blocking) || phase === 'archived';
+  const advanceDisabled = !m4Type || !m4Initiative || motive.redirectM12 || motive.requiresM12 || (phase === 'pre_effect' && blocking) || phase === 'archived';
 
   return (
     <div className="animate-fade-up space-y-5">
