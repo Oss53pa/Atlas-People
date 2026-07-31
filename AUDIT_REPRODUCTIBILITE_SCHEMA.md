@@ -3,9 +3,20 @@
 Projet Supabase `vgtmljfayiysuvrcmunt` · audit du 2026-07-31 · 56 fichiers de migration
 confrontés aux 404 tables, 18 vues, 111 enums et 65 fonctions réellement en base.
 
-**Verdict : le dépôt ne reconstruit pas la base.** Rejouer `supabase/migrations/` sur une
-base vierge ne produit pas `atlas_people` — ni en contenu, ni en placement, ni en forme.
-Cinq défauts indépendants, du plus structurant au plus mineur.
+**Verdict initial : le dépôt ne reconstruit pas la base.** Rejouer `supabase/migrations/`
+sur une base vierge ne produisait pas `atlas_people` — ni en contenu, ni en placement, ni
+en forme. Cinq défauts indépendants, du plus structurant au plus mineur.
+
+**État au 2026-07-31 : quatre des cinq défauts sont corrigés.** Il reste le point 1, qui
+demande un arbitrage (générer une baseline `pg_dump`). Mesures après correction :
+
+| Indicateur | Avant | Après |
+|---|---|---|
+| Fichiers dont des tables déclarées manquent en base | 5 | **0** |
+| Fichiers créant leurs objets dans le mauvais schéma | 19 | **0** |
+| Tables déclarées deux fois avec des colonnes divergentes | 10 | **1** (`tenants`, bénin et vérifié) |
+| Tables communes dont le nombre de colonnes diverge | 8 / 348 | **0 / 348** |
+| Tables en base non déclarées par le dépôt | 56 | 56 *(point 1, ouvert)* |
 
 ---
 
@@ -37,7 +48,7 @@ S'ajoutent **8 vues** (`m5_recrutement_summary`, `m6_onboarding_summary`,
 `m10_succession_status`, `m11_pif_progress`, `employee_status_overview`) et
 **13 enums** (`m9_*`, `m10_*`) dans le même cas.
 
-## 2. Cinq fichiers n'ont jamais été appliqués (ou quasiment pas)
+## 2. Cinq fichiers n'ont jamais été appliqués — SORTIS DU DÉPÔT
 
 | Fichier | Tables déclarées présentes en base |
 |---|---|
@@ -55,6 +66,23 @@ n'existe non plus (`team_360_synthesis`, `team_payroll_mass`, `supervises_in_cha
 C'est le même mécanisme que `0045`, resté non appliqué jusqu'à cette session : les
 migrations sont poussées une par une via `apply_migration` avec un nom saisi à la main,
 sans lien automatique avec le nom de fichier. Un fichier oublié ne produit aucun signal.
+
+**Supprimés le 2026-07-31**, après vérification que rien en base n'en dépend :
+
+- Les 45 tables qu'ils déclaraient sont toutes absentes de la base.
+- Leurs 6 fonctions (`recompute_management_chain`, `trg_recompute_chain`,
+  `current_manager_depth`, `supervises_in_chain`, `team_payroll_mass`,
+  `team_360_synthesis`) : aucune n'existe en base.
+- Le trigger `employees_chain_recompute` sur `employees` : absent de la base.
+- Les trois `alter table objectives add column` de `0017` (`parent_objective_id`,
+  `cascade_from_manager_id`, `ai_suggested`) : aucune de ces colonnes n'existe en base.
+- L'`alter table employee_development_wishes` de `0018` : la table elle-même n'existe pas.
+- `0016_mss` se contentait de *supprimer* les policies `self_reviewer_team_or_hr`
+  (evaluations) et `self_team_or_hr` — la base porte toujours les versions d'origine,
+  déclarées par `0015_rls_role_aware`, qui reste.
+
+Aucune référence orpheline après suppression, ni dans `supabase/migrations/`, ni dans
+`src/`. Le dossier passe de 56 à 51 fichiers.
 
 ## 3. 19 fichiers créeraient leurs objets dans le mauvais schéma — CORRIGÉ
 
@@ -158,19 +186,19 @@ Dans les deux cas, la version réellement poussée différait du fichier.
 
 ## Remédiation, par ordre de valeur
 
-1. **Figer l'état réel.** Générer un `pg_dump --schema-only` d'`atlas_people` et le
-   committer comme baseline. C'est le seul moyen de rendre les 56 tables du point 1
-   reproductibles sans les réécrire à la main.
-2. **Trancher le sort des cinq fichiers du point 2.** Soit les appliquer, soit les
-   sortir de `migrations/`. Les laisser en l'état garantit qu'un rejeu crée 47 tables
-   fantômes. Ce choix conditionne aussi les deux derniers conflits du point 4
-   (`manager_preferences`, `manager_rituals`).
-3. ~~Corriger le point 4~~ — **fait** (2026-07-31).
-4. ~~Ajouter `set search_path`~~ — **fait** (2026-07-31).
+1. **Figer l'état réel** — *seul point encore ouvert*. Générer un
+   `pg_dump --schema-only` d'`atlas_people` et le committer comme baseline. C'est le seul
+   moyen de rendre les 56 tables du point 1 reproductibles sans les réécrire à la main.
+   Les modules M5, M6, M9, M10 et M11 en dépendent intégralement.
+2. ~~Trancher le sort des cinq fichiers du point 2~~ — **fait** : sortis du dépôt.
+3. ~~Corriger le point 4~~ — **fait**.
+4. ~~Ajouter `set search_path`~~ — **fait**.
 5. **Fermer la boucle d'application** : nommer les migrations `apply_migration` d'après
    le fichier, sans exception. Les noms divergents (`cdc_complement_rls_helpers_idempotency`
    pour `0044`, `mss_manager_delegations` pour `0046`) sont ce qui a masqué l'absence
    de `0045` et de `0017`/`0018`.
+
+Une fois le point 1 traité, le dépôt reconstruira la base. Tout le reste est aligné.
 
 ## Méthode et limites
 
