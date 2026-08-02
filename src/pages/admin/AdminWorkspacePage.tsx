@@ -29,6 +29,10 @@ import { cn } from '../../lib/cn';
 import { supabase, isBackendConfigured } from '../../lib/supabase';
 import { useAuthStore } from '../../lib/auth';
 import { getTenantOwner, setMemberActive, type TenantOwner } from '../../lib/admin/membersLive';
+import {
+  fetchCountryZones, fetchTenantGeography, setTenantCountries, humanizeCountriesError,
+  type CountryZone, type TenantGeography,
+} from '../../lib/admin/tenantSettings';
 import type { TenantType } from '../../store/useAppStore';
 
 type AdminTab = 'apps' | 'tenant' | 'users' | 'settings' | 'security';
@@ -742,10 +746,181 @@ function TenantModeSelector() {
   );
 }
 
+/**
+ * Pays du workspace — et donc zone monétaire et devise.
+ *
+ * Le provisionnement déduit ces valeurs du pays connu à la création du
+ * compte (migration 0066), que le portail ne renseigne pas toujours. Sans
+ * cet écran, un client CEMAC restait bloqué en XOF pour toujours : rien
+ * dans l'application n'écrivait `tenants.countries`, `zone` ni `currency`.
+ *
+ * Les règles sont tenues par la base, pas ici : `set_tenant_countries`
+ * refuse un mélange UEMOA/CEMAC et tout changement de devise sur un
+ * workspace qui a déjà des bulletins. L'écran anticipe le premier refus
+ * pour éviter un aller-retour inutile, mais ne se substitue à aucun.
+ */
+function TenantCountriesSelector() {
+  const tenantId = useAuthStore((s) => s.tenantId);
+  const [zones, setZones] = useState<CountryZone[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [geo, setGeo] = useState<TenantGeography | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!tenantId || !isBackendConfigured) { setLoading(false); return; }
+    let alive = true;
+    void (async () => {
+      try {
+        const [z, g] = await Promise.all([fetchCountryZones(), fetchTenantGeography(tenantId)]);
+        if (!alive) return;
+        setZones(z);
+        setGeo(g);
+        setSelected(g?.countries ?? []);
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : 'Chargement impossible.');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [tenantId]);
+
+  // Zone impliquée par la sélection courante : sert à griser l'autre zone
+  // plutôt qu'à laisser l'utilisateur construire une sélection que la base
+  // refusera.
+  const pickedZone = zones.find((z) => selected.includes(z.code))?.zone ?? null;
+  const dirty =
+    selected.length > 0 &&
+    (selected.length !== (geo?.countries.length ?? 0) ||
+      selected.some((c) => !geo?.countries.includes(c)));
+
+  const toggle = (code: string) => {
+    setSaved(false); setError(null);
+    setSelected((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+  };
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false);
+    try {
+      const next = await setTenantCountries(selected);
+      setGeo(next);
+      setSelected(next.countries);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3500);
+    } catch (e) {
+      setError(humanizeCountriesError(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const byZone = (zone: 'UEMOA' | 'CEMAC') => zones.filter((z) => z.zone === zone);
+
+  return (
+    <PanelCard
+      title="Pays du workspace"
+      subtitle="Détermine la zone monétaire et la devise de toute la paie"
+      icon={Globe}
+    >
+      {loading ? (
+        <p className="text-[12px] font-medium text-slate-500">Chargement…</p>
+      ) : zones.length === 0 ? (
+        <p className="text-[12px] font-medium text-slate-500">
+          Référentiel des pays indisponible.
+        </p>
+      ) : (
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+              {geo?.zone ?? '—'}
+            </span>
+            <span className="mono rounded-lg bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-800">
+              {geo?.currency ?? '—'}
+            </span>
+            <span className="text-[11px] font-medium text-slate-500">
+              zone et devise déduites des pays sélectionnés
+            </span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(['UEMOA', 'CEMAC'] as const).map((zone) => {
+              const blocked = pickedZone !== null && pickedZone !== zone;
+              return (
+                <div key={zone}>
+                  <p className={cn(
+                    'mb-2 text-[11px] font-bold uppercase tracking-wider',
+                    blocked ? 'text-slate-400' : 'text-slate-600',
+                  )}>
+                    {zone} · {zone === 'UEMOA' ? 'XOF' : 'XAF'}
+                    {blocked && ' — indisponible (zone déjà engagée)'}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {byZone(zone).map((c) => {
+                      const active = selected.includes(c.code);
+                      return (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => toggle(c.code)}
+                          disabled={saving || (blocked && !active)}
+                          title={`${c.name} · ${c.socialFund}`}
+                          className={cn(
+                            'rounded-xl border px-2.5 py-1.5 text-[12px] font-semibold transition-colors',
+                            active
+                              ? 'border-teal-400 bg-teal-50 text-teal-800'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                            (blocked && !active) && 'cursor-not-allowed opacity-40 hover:border-slate-200',
+                          )}
+                        >
+                          {active && <Check size={11} className="mr-1 inline align-[-1px]" />}
+                          {c.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={!dirty || saving}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-[12px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {saving ? 'Enregistrement…' : 'Enregistrer les pays'}
+            </button>
+            <p className="text-[11px] font-medium text-slate-500">
+              XOF (UEMOA) et XAF (CEMAC) ne se mélangent jamais dans un calcul.
+            </p>
+          </div>
+
+          {saved && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-[12px] font-semibold text-emerald-700">
+              <CheckCircle2 size={14} /> Pays enregistrés.
+            </div>
+          )}
+          {error && (
+            <div className="mt-3 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
+              <AlertCircle size={14} className="mt-0.5 shrink-0" /> {error}
+            </div>
+          )}
+        </>
+      )}
+    </PanelCard>
+  );
+}
+
 function TenantPanel() {
   return (
     <div className="space-y-4">
       <TenantModeSelector />
+      <TenantCountriesSelector />
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <PanelCard title="Identité de l'entreprise" subtitle="Données SYSCOHADA · OHADA · pour bulletins, contrats, déclarations" icon={Building2}>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -5,8 +5,9 @@
  *   1. Atlas Studio → edge function `app-token` → JWT signé HS256 (JWT_SECRET partagé)
  *   2. Redirection vers https://atlas-people.atlas-studio.org/auth?token=JWT
  *   3. Frontend appelle cette edge function avec le token
- *   4. On vérifie la signature, on crée/retrouve l'utilisateur, on génère un
- *      magic-link Supabase et on le retourne au frontend.
+ *   4. On vérifie la signature, on crée/retrouve l'utilisateur, on provisionne
+ *      son workspace Atlas People, on génère un magic-link Supabase et on le
+ *      retourne au frontend.
  *   5. Frontend redirige sur ce magic-link → Supabase pose la session → /accueil
  *
  * Secret requis : JWT_SECRET (secret natif du projet Supabase — partagé avec app-token)
@@ -98,6 +99,10 @@ Deno.serve(async (req) => {
 
     const email = payload.email as string | undefined;
     const fullName = (payload.fullName as string | undefined) ?? '';
+    // Optionnels : le portail ne les émet pas tous aujourd'hui. Ils
+    // alimentent le nom et le pays du workspace quand ils sont présents.
+    const company = (payload.company ?? payload.companyName) as string | undefined;
+    const country = (payload.country ?? payload.countryCode) as string | undefined;
     if (!email || !email.includes('@')) {
       return respond({ error: 'Email manquant dans le token SSO' }, 400);
     }
@@ -118,7 +123,28 @@ Deno.serve(async (req) => {
       console.warn('atlas-sso createUser warn:', createErr.message);
     }
 
-    // 4. Générer un magic-link Supabase one-time (valable ~10 min)
+    // 4. Provisionner le workspace AVANT que le magic-link ne pose la
+    //    session, pour que l'application s'ouvre déjà rattachée.
+    //    La RPC est idempotente (une appartenance existante prime) et
+    //    refuse quand une invitation attend l'adresse — dans ce cas le
+    //    frontend affichera l'écran d'amorçage, ce qui est le bon
+    //    comportement. Un échec ici n'empêche donc pas la connexion : le
+    //    provisionnement frontend (resolveTenant) reprend la main.
+    //    Adressage par email : `createUser` ne renvoie pas d'identifiant
+    //    quand le compte existe déjà, et l'admin API ne sait pas chercher
+    //    par email sans parcourir toute la table.
+    const { error: provErr } = await svc
+      .schema('atlas_people')
+      .rpc('provision_workspace_for_email', {
+        p_email: email,
+        p_name: company ?? fullName ?? null,
+        p_country: country ?? null,
+      });
+    if (provErr && !provErr.message?.includes('INVITATION_PENDING')) {
+      console.warn('atlas-sso provisioning warn:', provErr.message);
+    }
+
+    // 5. Générer un magic-link Supabase one-time (valable ~10 min)
     const { data: linkData, error: linkErr } = await svc.auth.admin.generateLink({
       type: 'magiclink',
       email,
