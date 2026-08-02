@@ -161,6 +161,48 @@ async function loadTenantType(tenantId: string): Promise<void> {
   }
 }
 
+interface ResolvedMembership {
+  tenantId: string;
+  role: AppRole;
+}
+
+/** Lit l'appartenance la plus ancienne de l'utilisateur, ou null. */
+async function readMembership(userId: string): Promise<ResolvedMembership | null> {
+  if (!supabase) return null;
+  const { data } = await supabase
+    .schema('atlas_people')
+    .from('tenant_memberships')
+    .select('tenant_id, role')
+    .eq('user_id', userId)
+    .order('added_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return { tenantId: data.tenant_id as string, role: data.role as AppRole };
+}
+
+/**
+ * Crée le workspace du client courant s'il n'en a aucun (cf. migration 0065).
+ * Un workspace par client : tenant neuf, appelant admin et propriétaire
+ * fondateur, référentiels de paie clonés depuis le tenant modèle.
+ *
+ * Retourne null sans faire de bruit si la base refuse — notamment
+ * INVITATION_PENDING, qui signifie que l'utilisateur est attendu dans un
+ * workspace existant et doit passer par son jeton d'invitation.
+ */
+async function provisionWorkspace(): Promise<ResolvedMembership | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .schema('atlas_people')
+    .rpc('provision_own_workspace', { p_name: null });
+  if (error) return null;
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { tenant_id: string; role: string }
+    | undefined;
+  if (!row?.tenant_id) return null;
+  return { tenantId: row.tenant_id, role: row.role as AppRole };
+}
+
 /** Traduit les exceptions de la RPC d'amorçage en messages lisibles. */
 function humanizeBootstrapError(message: string): string {
   if (message.includes('BOOTSTRAP_FORBIDDEN')) {
@@ -225,33 +267,28 @@ function initAuthListener() {
   async function resolveTenant(userId: string) {
     if (!supabase) return;
     try {
-      const { data } = await supabase
-        .schema('atlas_people')
-        .from('tenant_memberships')
-        .select('tenant_id, role')
-        .eq('user_id', userId)
-        .order('added_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      let membership = await readMembership(userId);
 
-      if (data) {
-        useAuthStore.getState()._setTenantRole(data.tenant_id as string, data.role as AppRole);
-        // Charge le mode de fonctionnement du tenant
-        const { data: tenantRow } = await supabase
-          .schema('atlas_people')
-          .from('tenants')
-          .select('tenant_type')
-          .eq('id', data.tenant_id)
-          .maybeSingle();
-        if (tenantRow?.tenant_type) {
-          useAuthStore.getState()._setTenantType(tenantRow.tenant_type as TenantType);
-        }
+      // Aucune appartenance : on provisionne le workspace du client.
+      // Atlas People partage son projet d'authentification avec les autres
+      // applications Atlas Studio ; rien ne peut donc créer l'appartenance à
+      // l'inscription (cf. migration 0065). Elle se crée ici, à la première
+      // ouverture de l'application — l'intention d'entrer dans Atlas People.
+      // La RPC est idempotente et refuse si une invitation attend cette
+      // adresse ; dans ce cas TenantBootstrapPage reprend la main.
+      if (!membership && isBackendConfigured) {
+        membership = await provisionWorkspace();
+      }
+
+      if (membership) {
+        useAuthStore.getState()._setTenantRole(membership.tenantId, membership.role);
+        await loadTenantType(membership.tenantId);
       } else if (!isBackendConfigured) {
         // Demo mode uniquement — jamais sur un backend réel
         useAuthStore.getState()._setTenantRole(DEMO_TENANT, 'hr');
       }
-      // Backend configuré + pas de membership → tenantId reste null, et
-      // TenantBootstrapPage prend le relais (invitation ou amorçage).
+      // Backend configuré, pas de membership et provisionnement refusé →
+      // tenantId reste null, TenantBootstrapPage prend le relais.
     } finally {
       useAuthStore.getState()._setTenantResolved(true);
     }
