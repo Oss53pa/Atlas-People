@@ -17,7 +17,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, ArrowLeft, Sparkles, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { useAuth, useAuthStore, isBackendConfigured, requestProductWorkspace } from '../lib/auth';
+import { useAuth, useAuthStore, isBackendConfigured, requestProductWorkspace, findProductWorkspace } from '../lib/auth';
 import { PRODUCT_META } from '../app/nav';
 import { tenantTypeFromSlug } from '../app/products';
 import { Button } from '../components/ui/Button';
@@ -35,8 +35,10 @@ const DEMO_PERSONAS = [
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, sendMagicLink, resetPassword, acceptInvitation, isAuthenticated, loading } = useAuth();
+  const { signIn, sendMagicLink, resetPassword, acceptInvitation, isAuthenticated, loading,
+          workspaces, tenantId, tenantResolved } = useAuth();
   const setTenantType = useAuthStore((s) => s._setTenantType);
+  const switchWorkspace = useAuthStore((s) => s.switchWorkspace);
 
   // Produit visé depuis la landing (`?produit=payroll`), null si accès direct.
   const product = useMemo(
@@ -81,9 +83,28 @@ export function LoginPage() {
   // et ne doit pas être surchargé depuis l'URL.
   useEffect(() => {
     if (!isAuthenticated || loading) return;
-    if (!isBackendConfigured && product) setTenantType(product);
+
+    if (!isBackendConfigured) {
+      if (product) setTenantType(product);
+      navigate(from, { replace: true });
+      return;
+    }
+
+    // Session déjà ouverte : la résolution du workspace a eu lieu au
+    // démarrage de l'application, donc AVANT ce clic. Mémoriser la formule
+    // ne suffit pas — plus personne ne la relira. On bascule activement.
+    if (product) {
+      if (!tenantResolved) return; // les workspaces ne sont pas encore chargés
+      const target = findProductWorkspace(workspaces, product);
+      if (target && target.tenantId !== tenantId) {
+        void switchWorkspace(target.tenantId); // recharge sur l'accueil du produit
+        return;
+      }
+    }
+
     navigate(from, { replace: true });
-  }, [isAuthenticated, loading, navigate, from, product, setTenantType]);
+  }, [isAuthenticated, loading, navigate, from, product, setTenantType,
+      tenantResolved, workspaces, tenantId, switchWorkspace]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
