@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, AlertTriangle, XCircle, Target, ShieldAlert, Clock } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { CheckCircle2, AlertTriangle, XCircle, Target, ShieldAlert, Clock, Database, FlaskConical } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -7,6 +8,7 @@ import { CompetencesSubNav } from '../../components/competences/CompetencesSubNa
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import { COMP_ECHELLE, COMP_TODAY, COMP_READINESS, computeAllReadiness, computeReadiness } from '../../lib/comp/mock';
+import { fetchReadinessLive } from '../../lib/comp/live';
 import type { Readiness } from '../../engine/competences';
 
 const VERDICT_META: Record<Readiness, { label: string; tone: 'ok' | 'amber' | 'danger'; icon: typeof CheckCircle2 }> = {
@@ -19,10 +21,19 @@ const STATUT_TONE = { acquis: 'ok', en_cours: 'amber', perime: 'danger' } as con
 
 export function ReadinessPage() {
   const [employeId, setEmployeId] = useState('e5');
-  const all = useMemo(() => computeAllReadiness(), []);
+  // Lecture live (comp_readiness → attentes + triangulation) ; repli démo.
+  const { data: liveReadiness } = useQuery({
+    queryKey: ['comp-readiness-live'],
+    queryFn: () => fetchReadinessLive(),
+    staleTime: 60_000,
+  });
+  const source = liveReadiness ?? COMP_READINESS;
+  const isLive = !!liveReadiness;
+
+  const all = useMemo(() => computeAllReadiness(source), [source]);
   const selected = useMemo(
-    () => computeReadiness(COMP_READINESS.find((e) => e.employeId === employeId) ?? COMP_READINESS[0]),
-    [employeId],
+    () => computeReadiness(source.find((e) => e.employeId === employeId) ?? source[0]),
+    [employeId, source],
   );
   const emp = employeeById(selected.employeId);
   const verdict = VERDICT_META[selected.readiness.verdict];
@@ -38,9 +49,15 @@ export function ReadinessPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Readiness — accès au poste suivant</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-ink">Readiness — accès au poste suivant</h1>
+            <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+              isLive ? 'bg-ok/15 text-ok' : 'bg-info/15 text-info')}>
+              {isLive ? <Database size={11} /> : <FlaskConical size={11} />} {isLive ? 'Données live' : 'Démo'}
+            </span>
+          </div>
           <p className="text-sm font-medium text-ink-500">
-            Triangulation employé / manager / RH → niveau retenu (R4) · écart vs poste cible · au {COMP_TODAY}
+            Triangulation employé / manager / RH → niveau retenu (R4) · écart vs poste cible{isLive ? ' · comp_* live' : ` · au ${COMP_TODAY}`}
           </p>
         </div>
       </div>
@@ -54,7 +71,7 @@ export function ReadinessPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Collaborateur :</span>
-        {COMP_READINESS.map((e) => {
+        {source.map((e) => {
           const m = employeeById(e.employeId);
           return (
             <button key={e.employeId} onClick={() => setEmployeId(e.employeId)}

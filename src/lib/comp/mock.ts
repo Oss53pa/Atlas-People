@@ -119,6 +119,6 @@ export function computeReadiness(emp: MockReadinessEmploye, echelle = COMP_ECHEL
   };
 }
 
-export function computeAllReadiness(): ReadinessCalc[] {
-  return COMP_READINESS.map((e) => computeReadiness(e));
+export function computeAllReadiness(employes: MockReadinessEmploye[] = COMP_READINESS): ReadinessCalc[] {
+  return employes.map((e) => computeReadiness(e));
 }
