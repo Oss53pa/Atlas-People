@@ -303,8 +303,8 @@ export function computeEmploye(emp: MockEmploye, config = PERF_CONFIG): EmployeC
   };
 }
 
-export function computeAllEmployes(config = PERF_CONFIG): EmployeCalc[] {
-  return PERF_EMPLOYES.map((e) => computeEmploye(e, config));
+export function computeAllEmployes(config = PERF_CONFIG, employes: MockEmploye[] = PERF_EMPLOYES): EmployeCalc[] {
+  return employes.map((e) => computeEmploye(e, config));
 }
 
 export interface DepartementCalc {
@@ -316,15 +316,15 @@ export interface DepartementCalc {
 }
 
 /** Remontée consolidée par département (couche validée = officielle, R4). */
-export function computeDepartements(config = PERF_CONFIG): DepartementCalc[] {
-  const all = computeAllEmployes(config);
+export function computeDepartements(config = PERF_CONFIG, employes: MockEmploye[] = PERF_EMPLOYES): DepartementCalc[] {
+  const all = computeAllEmployes(config, employes);
   const byDept = new Map<string, EmployeCalc[]>();
   for (const e of all) {
     byDept.set(e.departement, [...(byDept.get(e.departement) ?? []), e]);
   }
   return [...byDept.entries()].map(([departement, membres]) => ({
     departement,
-    poids: DEPT_POIDS[departement] ?? 0,
+    poids: DEPT_POIDS[departement] ?? 100,
     pctValide: remonteeDepartement(
       membres.map((m) => ({ poidsContribution: m.poidsContribution, pctEmployeValide: m.scoreValide })),
     ),
@@ -336,8 +336,8 @@ export function computeDepartements(config = PERF_CONFIG): DepartementCalc[] {
 }
 
 /** Atteinte globale entreprise (§6.6), couche validée. */
-export function computeGlobal(config = PERF_CONFIG): { pctValide: number; pctAuto: number } {
-  const depts = computeDepartements(config);
+export function computeGlobal(config = PERF_CONFIG, employes: MockEmploye[] = PERF_EMPLOYES): { pctValide: number; pctAuto: number } {
+  const depts = computeDepartements(config, employes);
   return {
     pctValide: remonteeGlobale(depts.map((d) => ({ poidsDepartement: d.poids, pctDepartement: d.pctValide }))),
     pctAuto: remonteeGlobale(depts.map((d) => ({ poidsDepartement: d.poids, pctDepartement: d.pctAuto }))),
@@ -345,8 +345,8 @@ export function computeGlobal(config = PERF_CONFIG): { pctValide: number; pctAut
 }
 
 /** Liste des arbitrages ouverts (écart > seuil), tous employés (§7.3). */
-export function computeArbitrages(config = PERF_CONFIG): { employeId: string; objectif: MockObjectif; ecart: number }[] {
-  return computeAllEmployes(config).flatMap((e) =>
+export function computeArbitrages(config = PERF_CONFIG, employes: MockEmploye[] = PERF_EMPLOYES): { employeId: string; objectif: MockObjectif; ecart: number }[] {
+  return computeAllEmployes(config, employes).flatMap((e) =>
     e.objectifs.filter((o) => o.arbitrage).map((o) => ({ employeId: e.employeId, objectif: o.objectif, ecart: o.ecart })),
   );
 }

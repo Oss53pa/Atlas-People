@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Gauge, Building2, Users, ShieldAlert, TrendingUp, AlertTriangle,
-  Scale, Layers, UserCircle2, CheckCircle2, Clock, Coins,
+  Scale, Layers, UserCircle2, CheckCircle2, Clock, Coins, Database, FlaskConical,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
@@ -17,6 +18,7 @@ import {
   type EmployeCalc, type ObjectifCalc,
 } from '../../lib/perf/mock';
 import { usePersistPerfSnapshot, useValidatePerfSnapshot } from '../../lib/perf/supabaseLive';
+import { fetchPerfEmployesLive } from '../../lib/perf/live';
 import { isBackendConfigured } from '../../lib/supabase';
 
 const PERF_YEAR = 2026;
@@ -96,18 +98,27 @@ export function CockpitPerformancePage() {
   const [employeId, setEmployeId] = useState('e5');
   const [managerId, setManagerId] = useState('e2');
 
-  const all = useMemo(() => computeAllEmployes(), []);
-  const depts = useMemo(() => computeDepartements(), []);
-  const global = useMemo(() => computeGlobal(), []);
-  const arbitrages = useMemo(() => computeArbitrages(), []);
+  // Lecture live des tables perf_* → recalcul par le moteur ; repli mock.
+  const { data: liveEmployes } = useQuery({
+    queryKey: ['perf-live-employes'],
+    queryFn: () => fetchPerfEmployesLive(),
+    staleTime: 60_000,
+  });
+  const source = liveEmployes ?? PERF_EMPLOYES;
+  const isLive = !!liveEmployes;
+
+  const all = useMemo(() => computeAllEmployes(PERF_CONFIG, source), [source]);
+  const depts = useMemo(() => computeDepartements(PERF_CONFIG, source), [source]);
+  const global = useMemo(() => computeGlobal(PERF_CONFIG, source), [source]);
+  const arbitrages = useMemo(() => computeArbitrages(PERF_CONFIG, source), [source]);
   const retardsTotal = all.reduce((s, e) => s + e.actionsEnRetard.length, 0);
 
   const selectedEmp = useMemo(
-    () => computeEmploye(PERF_EMPLOYES.find((e) => e.employeId === employeId) ?? PERF_EMPLOYES[0]),
-    [employeId],
+    () => computeEmploye(source.find((e) => e.employeId === employeId) ?? source[0]),
+    [employeId, source],
   );
   const team = all.filter((e) => e.managerId === managerId);
-  const managers = [...new Set(PERF_EMPLOYES.map((e) => e.managerId).filter(Boolean))] as string[];
+  const managers = [...new Set(source.map((e) => e.managerId).filter(Boolean))] as string[];
 
   const { toast } = useToast();
   const persistPerf = usePersistPerfSnapshot();
@@ -145,9 +156,16 @@ export function CockpitPerformancePage() {
     <div className="animate-fade-up space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Performance — Cockpit</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-ink">Performance — Cockpit</h1>
+            <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+              isLive ? 'bg-ok/15 text-ok' : 'bg-info/15 text-info')}>
+              {isLive ? <Database size={11} /> : <FlaskConical size={11} />} {isLive ? 'Données live' : 'Démo'}
+            </span>
+          </div>
           <p className="text-sm font-medium text-ink-500">
-            Campagne <b className="text-amber-deep">2026 · S1</b> en clôture · au {PERF_TODAY} · couche officielle = <b>validée manager</b> (R4)
+            Campagne <b className="text-amber-deep">2026 · S1</b> · au {PERF_TODAY} · couche officielle = <b>validée manager</b> (R4)
+            {isLive ? ' · calculé sur perf_* live' : ' · jeu de démonstration'}
           </p>
         </div>
         <div className="flex gap-1 rounded-xl border border-line bg-surface2/40 p-1">
@@ -302,7 +320,7 @@ export function CockpitPerformancePage() {
         <>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Collaborateur :</span>
-            {PERF_EMPLOYES.map((e) => {
+            {source.map((e) => {
               const emp = employeeById(e.employeId);
               return (
                 <button key={e.employeId} onClick={() => setEmployeId(e.employeId)}
