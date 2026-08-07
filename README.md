@@ -89,6 +89,33 @@ composant par composant :
 Palettes choisies via calcul WCAG (blanc / canvas / surface2 + tuiles `/10-15`),
 puis vérifiées par un scan axe dédié (0 violation stable) — pas « à l'œil ».
 
+## Sécurité — recette RLS multi-rôles
+
+`supabase/tests/rls_multirole.sql` : **recette automatisée** qui impersone chaque
+rôle et vérifie que les policies RLS appliquent la charte de confidentialité,
+tier par tier. **20 contrôles**, exécutés sur la base réelle, **zéro persistance**
+(fixtures créées puis annulées par `RAISE` final — un `RLS_RECETTE_PASS` est le
+signal de succès).
+
+| Domaine | Table | Règle vérifiée |
+|---|---|---|
+| Tier 1 | `payroll_runs` | RH/admin **uniquement** (manager & employé bloqués) |
+| Tier 2 | `family_members` | SELF + RH, **jamais** le manager |
+| Tier 3 | `time_entries` | SELF + manager **N-1** + RH (collègue hors équipe bloqué) |
+| Tier 5 | `disciplinary_actions` | SELF + RH, **jamais** le manager |
+| Fiche | `employees` | lecture SELF + N-1 + RH · écriture **RH/admin only** |
+| Isolation | tous | aucun rôle ne franchit la frontière tenant (2 sens) |
+| Écriture | — | employé ≠ modifie sa fiche · employé ≠ crée un payroll · manager ≠ crée une donnée famille du N-1 |
+
+Mécanique : `request.jwt.claims.sub` + `SET ROLE authenticated` → `auth.uid()`
+reflète l'utilisateur, la RLS s'applique via les helpers SECURITY DEFINER
+(`current_tenant_ids`, `current_employee_ids`, `is_hr_or_admin`, `is_manager_of`).
+
+```bash
+psql "$DATABASE_URL" -f supabase/tests/rls_multirole.sql
+# succès attendu : ERROR ... RLS_RECETTE_PASS: 20 controles OK. Rollback intentionnel.
+```
+
 ## Structure (extrait)
 
 ```
@@ -97,5 +124,6 @@ src/lib/{perf,comp,bonus}/                    couche live Supabase + mocks
 src/pages/                                    UI par module (M1…M13)
 supabase/migrations/                          schéma versionné (RLS, RPC, triggers)
 supabase/functions/                           Edge Functions (Deno)
+supabase/tests/                               recette RLS multi-rôles (SQL)
 e2e/                                          tests Playwright
 ```
