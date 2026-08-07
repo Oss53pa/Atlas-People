@@ -82,7 +82,7 @@ export function TeamExpenseValidationsPage() {
     setRefuseMotif('');
   };
 
-  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const allSelected = pending.length > 0 && pending.every((r) => selected.has(r.id));
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(pending.map((r) => r.id)));
 

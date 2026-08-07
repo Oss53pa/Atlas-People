@@ -123,7 +123,7 @@ function useM6Raw(tenantId?: string) {
       const pulses: PulseFeedback[] = ((pl.data ?? []) as Record<string, unknown>[]).map((p): PulseFeedback => {
         const m = ((p.jalon_kind as string) ?? 'J7') as PulseFeedback['milestone'];
         const overall = PULSE_OVERALL[(p.score as string) ?? 'neutral'] ?? 3.2;
-        const qs = (PULSE_QUESTIONS as Record<string, string[]>)[m] ?? [];
+        const qs = (PULSE_QUESTIONS as Record<string, readonly string[]>)[m] ?? [];
         return {
           id: p.id as string,
           journeyId: p.arrivant_id as string,

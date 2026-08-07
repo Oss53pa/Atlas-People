@@ -8,7 +8,7 @@ import { TeamSubNav } from '../../components/mss/TeamSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useManagerScope } from '../../store/useManagerScope';
 import { useDirectory } from '../../store/useDirectory';
-import { scopedTeam, managementChain, reportsOf, DEPTH_LABEL, useManagerId } from '../../lib/mss/scope';
+import { scopedTeam, reportsOf, DEPTH_LABEL, useManagerId } from '../../lib/mss/scope';
 import { employeeLeaveBalance, employeeName, matricule } from '../../data/mock';
 import { isBackendConfigured, useTeamDirectory, useTeamLeaveBalances, dirName } from '../../lib/mss/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';

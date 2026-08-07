@@ -1,14 +1,17 @@
 import { cn } from '../../lib/cn';
 
-type Tone = 'ok' | 'warn' | 'danger' | 'info' | 'neutral' | 'amber';
+type Tone = 'ok' | 'warn' | 'danger' | 'info' | 'neutral' | 'amber' | 'success' | 'green' | 'gray';
 
 const tones: Record<Tone, string> = {
   ok: 'bg-ok/10 text-ok border-ok/20',
+  success: 'bg-ok/10 text-ok border-ok/20',
+  green: 'bg-ok/10 text-ok border-ok/20',
   warn: 'bg-warn/12 text-warn border-warn/25',
   danger: 'bg-danger/10 text-danger border-danger/20',
   info: 'bg-info/10 text-info border-info/20',
   amber: 'bg-amber/12 text-amber-deep border-amber/30',
   neutral: 'bg-ink/[0.04] text-ink-500 border-line',
+  gray: 'bg-ink/[0.04] text-ink-500 border-line',
 };
 
 export function StatusPill({

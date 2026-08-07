@@ -175,7 +175,7 @@ function analyzeWhatIf(d: WhatIfScenarioCtx): NarrativeBlock[] {
       tone: 'warn',
       title: 'Plan de départs significatif',
       body: [
-        `${d.removalsCount} suppressions de poste — équivalent ${Math.round((d.removalsCount / 14) * 100)} % de l\'effectif Atlas.`,
+        `${d.removalsCount} suppressions de poste — équivalent ${Math.round((d.removalsCount / 14) * 100)} % de l'effectif Atlas.`,
         'Au-delà de 2 départs concomitants, la procédure OHADA exige une consultation des représentants du personnel.',
       ],
       recommendations: [
@@ -302,7 +302,7 @@ function analyzeCockpitAlerts(d: CockpitAlertsCtx): NarrativeBlock[] {
   if (d.rpsBurnoutPct >= 20) {
     blocks.push({
       tone: 'danger',
-      title: `Risque burnout ${d.rpsBurnoutPct}% — cellule d\'écoute requise`,
+      title: `Risque burnout ${d.rpsBurnoutPct}% — cellule d'écoute requise`,
       body: ['Le seuil d\'alerte Atlas (20 %) est franchi. Déclencher la cellule d\'écoute externe et conduire des entretiens individuels.'],
       recommendations: [
         'Activer M12 Conformité > RPS > Cellule d\'écoute.',
@@ -388,7 +388,7 @@ function analyzeOkrCascade(d: OkrCascadeCtx): NarrativeBlock[] {
   if (completionRate > 80) {
     blocks.push({
       tone: 'warn',
-      title: `${Math.round(completionRate)}% d\'OKR terminés — ambition possiblement insuffisante`,
+      title: `${Math.round(completionRate)}% d'OKR terminés — ambition possiblement insuffisante`,
       body: ['John Doerr : "If you hit 100%, you weren\'t ambitious enough." Un taux d\'achèvement > 80 % suggère du sandbagging.'],
       recommendations: ['Au prochain cycle : augmenter les cibles de 30 %.'],
     });
@@ -397,7 +397,7 @@ function analyzeOkrCascade(d: OkrCascadeCtx): NarrativeBlock[] {
   if (atRiskPct > 30) {
     blocks.push({
       tone: 'danger',
-      title: `${Math.round(atRiskPct)} % d\'OKR à risque — alerte systémique`,
+      title: `${Math.round(atRiskPct)} % d'OKR à risque — alerte systémique`,
       body: ['Plus d\'un tiers du portefeuille est en danger. Problème de méthodologie ou de capacity planning.'],
       recommendations: ['Refonte du plan OKR avec le Sponsor exécutif.'],
     });

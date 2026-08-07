@@ -27,6 +27,9 @@ import { TENANT_CURRENCY } from '../data/countries';
 import { useAuth } from '../lib/auth';
 import { cn } from '../lib/cn';
 
+const asClaimStatus = (s: string): ExpenseClaim['status'] =>
+  s === 'approved' || s === 'refused' ? s : 'pending';
+
 const BENEFITS = [
   { employeeId: 'e1', kind: 'Voiture de fonction', monthlyValue: 120_000 },
   { employeeId: 'e14', kind: 'Logement', monthlyValue: 200_000 },
@@ -62,7 +65,7 @@ export function NotesFraisPage() {
         category: c.category,
         amount: c.amount,
         date: c.created_at.slice(0, 10),
-        status: c.status,
+        status: asClaimStatus(c.status),
         hasReceipt: c.receipt_url !== null,
       }));
     }

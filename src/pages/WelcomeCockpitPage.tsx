@@ -16,9 +16,10 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Home, Users, Briefcase, Route as RouteIcon, GraduationCap,
-  AlertTriangle, Sparkles, ArrowUpRight, Calendar, ExternalLink, LogIn,
+  AlertTriangle, Sparkles, Calendar, ExternalLink, LogIn,
   Inbox,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { Money } from '../lib/money';
 import { computePayslip, getRegime } from '../lib/payroll';
@@ -36,7 +37,7 @@ const fmtCompact = (n: number): string => {
 interface QuickAccess {
   to: string;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   tone: 'amber' | 'emerald' | 'rose' | 'blue' | 'violet' | 'indigo';
 }
 

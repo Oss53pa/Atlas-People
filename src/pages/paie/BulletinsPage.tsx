@@ -31,7 +31,7 @@ export function BulletinsPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>(undefined);
   const { data: liveCycles } = usePayrollCycles(tenantId ?? undefined);
-  const { data: liveBulletins, isLoading: loadingBulletins } = usePayrollBulletins(tenantId ?? undefined, selectedCycleId);
+  const { data: liveBulletins } = usePayrollBulletins(tenantId ?? undefined, selectedCycleId);
   const roster = useRoster();
 
   const list = useMemo(() => {

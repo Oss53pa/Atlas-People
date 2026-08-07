@@ -10,7 +10,7 @@
  *               + body.print-payslip → 1 page garantie.
  *   Aperçu    : PayslipModal affiche la page A4 à une échelle adaptée à l'écran.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { Money } from '../../lib/money';
 import type { PayslipComputation } from '../../lib/payroll';

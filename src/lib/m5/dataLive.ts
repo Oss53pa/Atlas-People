@@ -21,6 +21,12 @@ import type { JobPosting, Candidate, Application, Interview, Offer, Referral } f
 const DEMO = '11111111-1111-1111-1111-111111111111';
 const day = (v: unknown) => (v == null ? undefined : String(v).slice(0, 10));
 
+const SIGNATURE_WORKFLOWS: readonly NonNullable<Offer['signatureWorkflow']>[] = [
+  'advist_pending', 'advist_signed_both', 'advist_employee_pending',
+];
+const signatureWorkflow = (v: unknown): Offer['signatureWorkflow'] =>
+  SIGNATURE_WORKFLOWS.find((s) => s === v);
+
 interface M5Raw {
   jobs: JobPosting[];
   candidates: Candidate[];
@@ -135,7 +141,7 @@ function useM5Raw(tenantId?: string) {
           declinedAt: day(o.declined_at),
           declinedReason: (o.declined_reason as string) ?? undefined,
           validUntil: day(o.valid_until) ?? '',
-          signatureWorkflow: (o.signature_workflow as string) ?? undefined,
+          signatureWorkflow: signatureWorkflow(o.signature_workflow),
         })),
         referrals: ((refs.data ?? []) as Record<string, unknown>[]).map((r): Referral => ({
           id: r.id as string,

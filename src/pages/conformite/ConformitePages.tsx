@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ShieldCheck, AlertTriangle, Brain, Activity, BookOpen, Landmark,
+  ShieldCheck, AlertTriangle, Brain, Activity, Landmark,
   Stethoscope, BadgeCheck, FileSearch, ShieldAlert, Archive, Settings,
   CheckCircle2, Clock, TrendingUp, ArrowUpRight, Download, Heart, Eye,
   XCircle, Wifi, Users, Calendar, BarChart3, Siren,

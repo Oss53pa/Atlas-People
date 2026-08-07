@@ -59,7 +59,8 @@ export function ValidationPaiePage() {
               setN2(true);
               // Persist validation dans la DB si backend configuré
               if (isBackendConfigured && tenantId && liveCycleEnCours) {
-                try { await validateCycleMut.mutateAsync({ cycleId: liveCycleEnCours.id, tenantId }); } catch {}
+                try { await validateCycleMut.mutateAsync({ cycleId: liveCycleEnCours.id, tenantId }); }
+                catch { /* validation live optionnelle : on poursuit en mode démo */ }
               }
               toast({ variant: 'success', title: 'Signature finale', description: 'Cycle validé — prêt pour diffusion.' });
             }}>

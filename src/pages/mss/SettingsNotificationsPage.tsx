@@ -28,7 +28,7 @@ export function SettingsNotificationsPage() {
 
   const toggle = (ev: string, ch: Channel) => setMatrix((m) => {
     const next = new Set(m[ev]);
-    next.has(ch) ? next.delete(ch) : next.add(ch);
+    if (next.has(ch)) next.delete(ch); else next.add(ch);
     return { ...m, [ev]: next };
   });
   const all = (on: boolean) => setMatrix(() => Object.fromEntries(NOTIF_EVENTS.map((e) => [e.key, on ? new Set<Channel>(CHANNELS.map((c) => c.key)) : new Set<Channel>()])));

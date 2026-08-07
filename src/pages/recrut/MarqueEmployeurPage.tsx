@@ -43,7 +43,7 @@ export function MarqueEmployeurPage() {
       </Card>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <StatCard label="Visiteurs / mois" value={k.visitorsMonth.toLocaleString('fr-FR')} unit="site carrière" icon={Eye} delta={{ value: `+${k.visitorsDelta}%`, trend: 'up' }} />
+        <StatCard label="Visiteurs / mois" value={k.visitorsMonth.toLocaleString('fr-FR')} unit="site carrière" icon={Eye} delta={k.visitorsDelta} />
         <StatCard label="Conversion" value={`${k.conversionRate} %`} unit="visiteur → candidature" icon={TrendingUp} tone="amber" />
         <StatCard label="Note Glassdoor" value={`${k.glassdoorScore}`} unit="/ 5" icon={Star} />
         <StatCard label="Taux acceptation" value={`${k.acceptanceRate} %`} unit="offres" icon={TrendingUp} />

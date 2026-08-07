@@ -35,7 +35,7 @@ export async function initSentry(): Promise<void> {
       release: RELEASE,
       tracesSampleRate: ENV === 'production' ? 0.1 : 0,
       // Données personnelles : on ne capture pas les corps de requête
-      beforeSend(event) {
+      beforeSend(event: { request?: { data?: unknown } }) {
         if (event.request?.data) delete event.request.data;
         return event;
       },

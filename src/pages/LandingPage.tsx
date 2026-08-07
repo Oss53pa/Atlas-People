@@ -18,6 +18,7 @@ import {
   Lock, FileCheck2, Server, Quote, MapPin, Phone, Linkedin, Twitter,
   Github, Newspaper, Heart, Globe2, Settings2, Compass,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 
 const NAV_ITEMS = [
@@ -43,7 +44,7 @@ interface ModuleCard {
   code: string;
   label: string;
   tagline: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
 }
 
 const MODULES: ModuleCard[] = [
@@ -125,7 +126,7 @@ interface Step {
   num: string;
   title: string;
   description: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
 }
 const STEPS: Step[] = [
   { num: '01', title: 'Choisissez votre formule',    description: 'Visitez le catalogue Atlas Studio, comparez les 5 produits (Core, Conseil, Payroll, 360, Placement) et choisissez celui qui correspond à votre structure.', icon: Compass },
@@ -161,7 +162,7 @@ const TESTIMONIALS: Testimonial[] = [
 ];
 
 interface SecurityBadge {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   title: string;
   detail: string;
 }
@@ -205,7 +206,7 @@ const BLOG_POSTS: BlogPost[] = [
   },
 ];
 
-interface ValueItem { icon: React.ComponentType<{ size?: number; className?: string }>; title: string; description: string }
+interface ValueItem { icon: LucideIcon; title: string; description: string }
 const VALUES: ValueItem[] = [
   { icon: Heart,    title: 'Pensé pour l\'Afrique',    description: 'Pas un logiciel européen adapté : un SIRH natif OHADA conçu avec et pour les DRH africains.' },
   { icon: Lock,     title: 'Souveraineté des données', description: 'Infrastructure en Afrique, IA locale Ollama, RGPD + CDP. Vos données vous appartiennent.' },
@@ -242,7 +243,7 @@ const FAQ: FaqItem[] = [
 ];
 
 interface TenantPersona {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   productName: string;
   catalogKey: string;
   label: string;

@@ -10,6 +10,7 @@ import {
   Sparkles, TrendingUp, TrendingDown, AlertTriangle, Clock, CheckCircle2,
   ArrowUpRight, Route, Network, Activity, Brain, Crown, Heart, Printer,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatusPill } from '../components/ui/StatusPill';
 import { Avatar } from '../components/ui/Avatar';
@@ -32,7 +33,6 @@ import { COMPLIANCE_THRESHOLDS } from '../lib/m12/referentiels';
 import { TRAINING_THRESHOLDS } from '../lib/m11/referentiels';
 import { cn } from '../lib/cn';
 
-const fmt = (n: number): string => new Intl.NumberFormat('fr-FR').format(Math.round(n));
 const fmtCompact = (n: number): string => {
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1).replace('.0', '')} Mds`;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace('.0', '')} M`;
@@ -49,7 +49,7 @@ interface KpiTile {
   link?: string;
 }
 
-function KpiTileView({ tile, icon: Icon }: { tile: KpiTile; icon: React.ComponentType<{ size: number; className?: string }> }) {
+function KpiTileView({ tile, icon: Icon }: { tile: KpiTile; icon: LucideIcon }) {
   const toneCls = tile.tone === 'success' ? 'border-emerald-300/40 bg-emerald-50/30' :
                   tile.tone === 'warn' ? 'border-amber-300/40 bg-amber-50/30' :
                   tile.tone === 'danger' ? 'border-rose-300/40 bg-rose-50/30' :
@@ -79,9 +79,9 @@ function KpiTileView({ tile, icon: Icon }: { tile: KpiTile; icon: React.Componen
 interface SectionBlock {
   title: string;
   subtitle: string;
-  icon: React.ComponentType<{ size: number; className?: string }>;
+  icon: LucideIcon;
   cta: { to: string; label: string };
-  tiles: { tile: KpiTile; icon: React.ComponentType<{ size: number; className?: string }> }[];
+  tiles: { tile: KpiTile; icon: LucideIcon }[];
   alert?: string;
 }
 
@@ -282,7 +282,7 @@ export function UnifiedCockpitDRHPage() {
   ];
 
   const [mainTab, setMainTab] = useState<'synthese' | 'modules' | 'talents'>('synthese');
-  const compositeScore = Math.round((k12.conformityScoreGlobal + k7.avgProgress + Math.round(k11.tauxAcces * 100) + k10.benchStrengthPct + Math.min(100, k8.topTalents != null ? 70 + k8.topTalents : 70)) / 5);
+  const compositeScore = Math.round((k12.conformityScoreGlobal + k7.avgProgress + Math.round(k11.tauxAcces * 100) + k10.benchStrengthPct + Math.min(100, 70)) / 5);
 
   const MAIN_TABS = [
     { key: 'synthese' as const, label: 'Synthèse', badge: consolidatedAlerts.length > 0 ? String(consolidatedAlerts.length) : undefined },

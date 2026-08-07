@@ -22,9 +22,9 @@ import {
   Wallet, FileSignature, Gauge, GraduationCap, Route as RouteIcon,
   ShieldCheck, AlertTriangle, User,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { StatusPill } from '../../components/ui/StatusPill';
 import { cn } from '../../lib/cn';
 
 type FolderKey = 'paie' | 'admin' | 'evaluations' | 'formation' | 'carrieres' | 'conformite' | 'disciplinaire' | 'personnel';
@@ -32,7 +32,7 @@ type FolderKey = 'paie' | 'admin' | 'evaluations' | 'formation' | 'carrieres' | 
 interface DocFolder {
   key: FolderKey;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   description: string;
   module: string;
   tone: string;

@@ -118,7 +118,7 @@ export function ImportEmployeesWizard() {
     const a = document.createElement('a'); a.href = url; a.download = 'modele-import-collaborateurs.csv'; a.click();
     URL.revokeObjectURL(url);
   };
-  const toggleExclude = (i: number) => setExcluded((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
+  const toggleExclude = (i: number) => setExcluded((s) => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n; });
 
   const execute = async () => {
     if (isBackendConfigured) {

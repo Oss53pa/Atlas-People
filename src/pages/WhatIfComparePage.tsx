@@ -20,7 +20,6 @@ import { useWhatIfScenarios, type WhatIfScenario } from '../store/useWhatIfScena
 import { ProphtetPanel } from '../components/ProphtetPanel';
 import { cn } from '../lib/cn';
 
-const fmt = (n: number): string => new Intl.NumberFormat('fr-FR').format(Math.round(n));
 const fmtCompact = (n: number): string => {
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)} Mds`;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)} M`;
@@ -80,7 +79,7 @@ function totalsFor(roster: EmployeeRecord[]): Totals {
       fiscalParts: e.fiscalParts,
       otherDeductions: e.otherDeductions,
     }, regime, employeeName(e));
-    base = base.add(Money.fromJSON({ units: BigInt(e.baseSalary), currency: TENANT_CURRENCY }));
+    base = base.add(Money.fromJSON({ units: BigInt(e.baseSalary).toString(), currency: TENANT_CURRENCY }));
     net = net.add(Money.fromJSON({ units: result.netToPayUnits, currency: TENANT_CURRENCY }));
     employerCost = employerCost.add(Money.fromJSON({ units: result.employerCostUnits, currency: TENANT_CURRENCY }));
   }

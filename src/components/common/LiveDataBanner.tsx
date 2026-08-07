@@ -8,12 +8,13 @@
  */
 import { Link } from 'react-router-dom';
 import { Activity, ArrowUpRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { StatusPill } from '../ui/StatusPill';
 import { cn } from '../../lib/cn';
 
 export interface LiveDataStat {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   label: string;
   value: string;
   sub: string;

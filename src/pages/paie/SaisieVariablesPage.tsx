@@ -361,9 +361,8 @@ export function SaisieVariablesPage() {
             <Button variant="outline" size="sm" className="flex-1" disabled={bulletin.emissionBlocked} onClick={async () => {
               markReady(selectedId);
               if (isBackendConfigured && tenantId && activeLiveCycle) {
-                const emp = employeeById(selectedId);
                 const dbEmpId = `e1000001-0000-0000-0000-${String(parseInt(selectedId.slice(1), 10)).padStart(12,'0')}`;
-                try { await upsertInput.mutateAsync({ tenantId, cycleId: activeLiveCycle.id, employeeId: dbEmpId, status: 'ready' }); } catch {}
+                try { await upsertInput.mutateAsync({ tenantId, cycleId: activeLiveCycle.id, employeeId: dbEmpId, status: 'ready' }); } catch { /* best-effort sync, ignore */ }
               }
               toast({ variant: 'success', title: 'Marqué saisi', description: employeeName(emp) });
             }}>
@@ -373,7 +372,7 @@ export function SaisieVariablesPage() {
               lock(selectedId);
               if (isBackendConfigured && tenantId && activeLiveCycle) {
                 const dbEmpId = `e1000001-0000-0000-0000-${String(parseInt(selectedId.slice(1), 10)).padStart(12,'0')}`;
-                try { await upsertInput.mutateAsync({ tenantId, cycleId: activeLiveCycle.id, employeeId: dbEmpId, status: 'locked' }); } catch {}
+                try { await upsertInput.mutateAsync({ tenantId, cycleId: activeLiveCycle.id, employeeId: dbEmpId, status: 'locked' }); } catch { /* best-effort sync, ignore */ }
               }
               toast({ variant: 'success', title: 'Verrouillé', description: employeeName(emp) });
             }}>

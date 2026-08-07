@@ -3,11 +3,10 @@
  * 5 pages : Career Frameworks dual-track · Parcours individuels · Succession enrichi
  * · Mentorat & Sponsorship · Expatriation.
  */
-import { useState } from 'react';
 import {
-  Network, Crown, Award, Users, Heart, Globe, Sparkles, ArrowRight,
+  Network, Crown, Award, Heart, Globe, Sparkles, ArrowRight,
   ArrowUpRight, AlertTriangle, CheckCircle2, ArrowRightLeft, FileSignature,
-  TrendingUp, Calendar, MapPin, Shield, Compass,
+  TrendingUp, MapPin, Shield, Compass,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';

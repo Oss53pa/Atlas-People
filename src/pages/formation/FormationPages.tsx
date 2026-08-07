@@ -6,8 +6,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  GraduationCap, BookOpen, ClipboardList, CalendarDays, UserCheck, Gauge,
-  Award, Coins, Network, Landmark, BarChart3, Settings,
+  BookOpen, ClipboardList, CalendarDays, UserCheck, Gauge,
+  Award, Coins, Network, Landmark, 
   ArrowUpRight, AlertTriangle, CheckCircle2, Filter, Search,
   Sparkles, TrendingUp, Clock, Users as UsersIcon, Layers, Video, Building2,
   Download,

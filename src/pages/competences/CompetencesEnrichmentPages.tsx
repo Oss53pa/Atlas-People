@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from 'react';
 import {
-  Grid3x3, BookOpen, AlertTriangle, ShieldAlert, Sparkles, Briefcase, Settings,
+  AlertTriangle, ShieldAlert, Sparkles, Briefcase, 
   Search, Filter, TrendingUp, TrendingDown, CheckCircle2, Eye, Users,
   Award, Network,
 } from 'lucide-react';

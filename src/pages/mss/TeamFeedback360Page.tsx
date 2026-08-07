@@ -11,7 +11,7 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { member360 } from '../../lib/mss/perf';
-import { employeeName, type EmployeeRecord } from '../../data/mock';
+import { employeeName } from '../../data/mock';
 import { isBackendConfigured, useTeamDirectory, dirName } from '../../lib/mss/supabaseLive';
 import { useSessionContext } from '../../lib/useSession';
 

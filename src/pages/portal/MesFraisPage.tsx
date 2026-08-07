@@ -50,7 +50,6 @@ export function MesFraisPage() {
   const { toast } = useToast();
   const { data: ctx } = useSessionContext();
   const SELF_ID = ctx?.employeeId ?? 'e2';
-  const SELF_CUR = employeeCurrency(employeeById(SELF_ID) ?? employeeById('e2')!);
   const { data: liveClaims } = useMyExpenseClaims(ctx?.tenantId, ctx?.employeeId);
   const submitClaim = useSubmitExpenseClaim();
   const hasLive = isBackendConfigured && !!liveClaims && liveClaims.length > 0;

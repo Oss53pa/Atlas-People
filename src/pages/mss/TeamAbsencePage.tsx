@@ -32,7 +32,7 @@ export function TeamAbsencePage() {
   const { data: ctx } = useSessionContext();
   const { data: liveDir } = useTeamDirectory(ctx?.tenantId);
   const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
-  const liveTeam = liveDir ?? [];
+  const liveTeam = useMemo(() => liveDir ?? [], [liveDir]);
 
   const [memberId, setMemberId] = useState('');
   const [code, setCode] = useState('PERM');
@@ -54,7 +54,7 @@ export function TeamAbsencePage() {
 
   const memberCountryCode = mockMember?.countryCode ?? 'CI';
   const counted = start <= end ? countLeaveDays(start, end, type.countUnit, { countryCode: memberCountryCode }) : 0;
-  const managerLabel = ctx?.email?.split('@')[0] ?? 'Manager';
+  const managerLabel = 'Manager';
 
   const submit = () => {
     const empLabel = hasLive ? (liveMember ? dirName(liveMember) : memberId) : (mockMember ? employeeName(mockMember) : memberId);

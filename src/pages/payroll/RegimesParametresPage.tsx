@@ -11,8 +11,8 @@
  */
 import { useState, useEffect } from 'react';
 import {
-  Globe, Plus, Trash2, Save, ChevronDown, ChevronRight, Info,
-  CheckCircle, AlertTriangle, RefreshCw, Settings2, Lock,
+  Globe, Plus, Trash2, Save, Info,
+  CheckCircle, RefreshCw, 
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -548,7 +548,7 @@ export function RegimesParametresPage() {
                   <EmptyState label="Aucune taxe patronale" onAdd={addEmpTax} />
                 ) : (
                   <div className="space-y-2">
-                    {currentRegime.employerTaxes.map((t, i) => (
+                    {currentRegime.employerTaxes.map((t) => (
                       <div key={t._id} className="flex items-end gap-2 rounded-xl border border-line/60 bg-canvas p-3">
                         <FormField label="Code" value={t.code} onChange={(v) => updateEmpTax(t._id, { code: v })} className="w-24" />
                         <FormField label="Libellé" value={t.label} onChange={(v) => updateEmpTax(t._id, { label: v })} className="flex-1" />

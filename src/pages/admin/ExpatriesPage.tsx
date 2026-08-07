@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Globe2, AlertTriangle, Plane, Briefcase, ArrowUpRight, Plus, Wifi } from 'lucide-react';
+import { Globe2, AlertTriangle, Plane, Briefcase, ArrowUpRight, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
