@@ -33,3 +33,9 @@ dist-ssr
 
 # Artefacts du CLI Supabase (etat de liaison local, non partageable)
 supabase/.temp/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
