@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight, ArrowUpRight, Zap, Play, Sparkles, Moon,
-  Users, CalendarClock, Wallet, ReceiptText, Briefcase, Building2,
+  Users, CalendarClock, Wallet, ReceiptText, Briefcase,
   Rocket, Target, Gauge, Network, Route as RouteIcon, GraduationCap,
   ShieldCheck, LayoutGrid, Check, ChevronDown, Mail,
   Lock, FileCheck2, Server, Quote, MapPin, Phone, Linkedin, Twitter,
@@ -20,8 +20,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
-import { loginPathForProduct } from '../app/products';
-import type { TenantType } from '../store/useAppStore';
+import { PRODUCTS, loginPathForProduct, productPath } from '../app/products';
 
 const NAV_ITEMS = [
   { label: 'Formules', to: '/landing#formules' },
@@ -244,102 +243,6 @@ const FAQ: FaqItem[] = [
   },
 ];
 
-interface TenantPersona {
-  icon: LucideIcon;
-  productName: string;
-  /** Mode de workspace correspondant — pilote le lien de connexion au produit. */
-  tenantType: TenantType;
-  label: string;
-  sub: string;
-  description: string;
-  mode: string;
-  modeColor: string;
-  tags: string[];
-  accentBg: string;
-  accentText: string;
-  accentBorder: string;
-  accentBtn: string;
-}
-
-/* Ordre officiel : Core → Conseil → Payroll → 360 → Placement */
-const TENANT_PERSONAS: TenantPersona[] = [
-  {
-    icon: Building2,
-    productName: 'Atlas People Core',
-    tenantType: 'entreprise',
-    label: 'Entreprise',
-    sub: 'PME · ETI · Groupe multi-filiales',
-    description: 'Vous gérez directement vos propres collaborateurs. Accès complet aux 14 modules RH, paie déterministe, ESS mobile.',
-    mode: 'Entreprise',
-    modeColor: 'bg-amber-100 text-amber-700',
-    tags: ['Auto-gestion RH', '14 modules', 'Multi-pays OHADA'],
-    accentBg: 'bg-amber-50',
-    accentText: 'text-amber-700',
-    accentBorder: 'border-amber-200',
-    accentBtn: 'bg-amber-deep text-white hover:opacity-90',
-  },
-  {
-    icon: Briefcase,
-    productName: 'Atlas People Conseil',
-    tenantType: 'cabinet_complet',
-    label: 'Cabinet RH & Conseil',
-    sub: 'Externalisation RH complète',
-    description: 'Votre cabinet prend en charge la gestion RH et administrative complète pour des entreprises clientes.',
-    mode: 'Cabinet complet',
-    modeColor: 'bg-teal-100 text-teal-700',
-    tags: ['Multi-clients', 'RH + Paie tiers', 'Reporting cabinet'],
-    accentBg: 'bg-teal-50',
-    accentText: 'text-teal-700',
-    accentBorder: 'border-teal-200',
-    accentBtn: 'bg-teal-600 text-white hover:opacity-90',
-  },
-  {
-    icon: Wallet,
-    productName: 'Atlas Payroll',
-    tenantType: 'cabinet_paie',
-    label: 'Bureau de paie',
-    sub: 'Externalisation paie & admin',
-    description: 'Votre bureau traite la paie pour des entreprises clientes. Bulletins en lot, DSN consolidée, 14 régimes OHADA.',
-    mode: 'Cabinet paie',
-    modeColor: 'bg-blue-100 text-blue-700',
-    tags: ['Paie multi-clients', 'Bulletins en lot', 'DSN consolidée'],
-    accentBg: 'bg-blue-50',
-    accentText: 'text-blue-700',
-    accentBorder: 'border-blue-200',
-    accentBtn: 'bg-blue-600 text-white hover:opacity-90',
-  },
-  {
-    icon: LayoutGrid,
-    productName: 'Atlas People 360',
-    tenantType: 'cabinet_mixte',
-    label: 'Structure mixte',
-    sub: 'RH interne + clients tiers',
-    description: 'Vous gérez vos propres salariés ET des entreprises clientes. Deux périmètres distincts, un seul workspace Atlas People.',
-    mode: 'Cabinet mixte',
-    modeColor: 'bg-violet-100 text-violet-700',
-    tags: ['RH interne', 'Multi-clients', 'Double périmètre'],
-    accentBg: 'bg-violet-50',
-    accentText: 'text-violet-700',
-    accentBorder: 'border-violet-200',
-    accentBtn: 'bg-violet-600 text-white hover:opacity-90',
-  },
-  {
-    icon: Users,
-    productName: 'Atlas People Placement',
-    tenantType: 'cabinet_agence',
-    label: 'Agence de mise à disposition',
-    sub: 'Intérim · staffing · prêt de main-d\'œuvre',
-    description: 'Vous êtes l\'employeur légal de travailleurs placés chez des entreprises clientes. RH, paie et conformité centralisées.',
-    mode: 'Agence MAD',
-    modeColor: 'bg-rose-100 text-rose-700',
-    tags: ['Employeur légal', 'Travailleurs placés', 'Multi-sites clients'],
-    accentBg: 'bg-rose-50',
-    accentText: 'text-rose-700',
-    accentBorder: 'border-rose-200',
-    accentBtn: 'bg-rose-600 text-white hover:opacity-90',
-  },
-];
-
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-surface text-ink">
@@ -532,15 +435,15 @@ export function LandingPage() {
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-[14px] font-medium leading-relaxed text-ink-500">
               Chaque produit Atlas People est taillé pour un modèle d'organisation précis.
-              Déjà abonné ? Connectez-vous directement au vôtre. Sinon, votre accès admin est prêt en 24 h.
+              Ouvrez la fiche d'une formule pour tout savoir — puis connectez-vous si vous avez déjà un compte actif, ou souscrivez.
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {TENANT_PERSONAS.map((p) => {
+            {PRODUCTS.map((p) => {
               const Icon = p.icon;
               return (
-                <div key={p.tenantType} className={cn(
+                <div key={p.slug} className={cn(
                   'flex flex-col rounded-2xl border-2 p-5 transition-shadow hover:shadow-md',
                   p.accentBorder, p.accentBg,
                 )}>
@@ -570,20 +473,30 @@ export function LandingPage() {
                   </div>
 
                   <Link
-                    to={loginPathForProduct(p.tenantType)}
+                    to={productPath(p)}
                     className={cn(
                       'mt-4 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition-opacity',
                       p.accentBtn,
                     )}
                   >
-                    <LogIn size={14} /> Se connecter
+                    Découvrir la formule <ArrowUpRight size={14} />
                   </Link>
-                  <a
-                    href="#contact"
-                    className="mt-2 inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-ink-500 transition-colors hover:text-amber-deep"
-                  >
-                    Souscrire à ce produit <ArrowUpRight size={12} />
-                  </a>
+
+                  {/* Les deux issues, directement depuis la carte */}
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Link
+                      to={loginPathForProduct(p.tenantType)}
+                      className="inline-flex items-center justify-center gap-1 rounded-xl border border-line bg-surface px-2 py-2 text-[11px] font-bold text-ink transition-colors hover:border-amber-deep/40 hover:text-amber-deep"
+                    >
+                      <LogIn size={12} /> Se connecter
+                    </Link>
+                    <Link
+                      to={`${productPath(p)}#souscrire`}
+                      className="inline-flex items-center justify-center gap-1 rounded-xl border border-line bg-surface px-2 py-2 text-[11px] font-bold text-ink transition-colors hover:border-amber-deep/40 hover:text-amber-deep"
+                    >
+                      <Zap size={12} /> Souscrire
+                    </Link>
+                  </div>
                 </div>
               );
             })}

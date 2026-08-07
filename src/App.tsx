@@ -41,6 +41,7 @@ const LoginPage               = lz(() => import('./pages/LoginPage'),           
 const CockpitPage            = lz(() => import('./pages/CockpitPage'),            'CockpitPage');
 const UnifiedCockpitDRHPage  = lz(() => import('./pages/UnifiedCockpitPage'),     'UnifiedCockpitDRHPage');
 const LandingPage            = lz(() => import('./pages/LandingPage'),            'LandingPage');
+const ProductLandingPage     = lz(() => import('./pages/ProductLandingPage'),     'ProductLandingPage');
 const WelcomeCockpitPage     = lz(() => import('./pages/WelcomeCockpitPage'),     'WelcomeCockpitPage');
 const AdminWorkspacePage     = lz(() => import('./pages/admin/AdminWorkspacePage'),'AdminWorkspacePage');
 const BackOfficeQueuePage       = lz(() => import('./pages/backoffice/BackOfficeQueuePage'),   'BackOfficeQueuePage');
@@ -417,6 +418,9 @@ function App() {
       <Route path="/auth/invitation" element={<InvitationRedirect />} />
       <Route path="/auth" element={<Suspense fallback={<PageLoader />}><SSOAuthPage /></Suspense>} />
       <Route path="/landing" element={<Suspense fallback={<PageLoader />}><LandingPage /></Suspense>} />
+      {/* Sous-landing publique par formule : connexion (compte actif) ou souscription */}
+      <Route path="/produits" element={<Navigate to="/landing#formules" replace />} />
+      <Route path="/produits/:slug" element={<Suspense fallback={<PageLoader />}><ProductLandingPage /></Suspense>} />
       <Route path="/accueil" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><WelcomeCockpitPage /></Suspense></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute requireRole="super_admin"><Suspense fallback={<PageLoader />}><AdminWorkspacePage /></Suspense></ProtectedRoute>} />
 
