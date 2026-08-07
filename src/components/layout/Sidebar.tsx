@@ -39,7 +39,7 @@ export function Sidebar() {
               </svg>
             </div>
             <div className="leading-tight">
-              <Brand name={product.name} className={cn('block text-[15px] font-bold', product.accentClass)} />
+              <Brand name={product.name as 'Atlas People' | 'Atlas Studio' | 'Proph3t'} className={cn('block text-[15px] font-bold', product.accentClass)} />
               <p className="text-[10px] font-semibold text-ink-400">{product.sub}</p>
             </div>
           </div>

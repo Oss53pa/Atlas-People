@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import { Home, CalendarDays, Fingerprint, CalendarRange, Clock, Megaphone } from 'lucide-react';
 import { useDelegation } from '../../store/useDelegation';
-import { cn } from '../../lib/cn';
 import { useSessionContext } from '../../lib/useSession';
+import { cn } from '../../lib/cn';
 
 const BASE_ITEMS = [
   { to: '/me/time', label: 'Accueil', icon: Home, end: true },
@@ -15,6 +15,8 @@ const BASE_ITEMS = [
 /** Sous-navigation de la section Temps (ESS). La Délégation n'apparaît que pour
  *  les employés titulaires d'un mandat (règle dure E2.7). */
 export function TimeSubNav() {
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const hasMandate = useDelegation((s) => s.hasMandate(SELF_ID));
   const items = hasMandate
     ? [...BASE_ITEMS, { to: '/me/time/delegation', label: 'Délégation', icon: Megaphone, end: false }]

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Search, Plus, List, Network, Inbox, MoreVertical, Eye, FileSignature, LogOut,
-  ArrowUp, ArrowDown, Clock, ShieldAlert, AlertTriangle, X, Upload, Settings, Wifi,
+  ArrowUp, ArrowDown, Clock, ShieldAlert, AlertTriangle, X, Upload, Settings, 
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { SectionHeader } from '../components/ui/SectionHeader';
@@ -15,7 +15,7 @@ import { DEPARTMENTS, employeeName, employeeAlerts, employeeProtectedUntil, type
 import { useDirectory } from '../store/useDirectory';
 import { useRequests } from '../store/useRequests';
 import { cn } from '../lib/cn';
-import { useEmployees, useEmployeeStats, isBackendConfigured } from '../lib/m1/supabaseLive';
+import { useEmployees, isBackendConfigured } from '../lib/m1/supabaseLive';
 import { useAuth } from '../lib/auth';
 
 const STATUS: Record<EmployeeRecord['status'], { label: string; tone: 'ok' | 'info' | 'warn' | 'danger' }> = {
@@ -42,7 +42,6 @@ export function CollaborateursPage() {
   const mockEmployees = useDirectory((s) => s.employees);
   const pendingRequests = useRequests((s) => s.requests.filter((r) => r.status === 'pending').length);
   const { tenantId } = useAuth();
-  const { data: liveStats } = useEmployeeStats(tenantId ?? undefined);
   const { data: liveEmps } = useEmployees(tenantId ?? undefined);
 
   // Live-first : si backend actif et données DB disponibles, les convertir en EmployeeRecord

@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import {
   Activity, Route, FileSignature, Coins, Monitor, ShieldAlert, ArrowUpRight,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { StatusPill } from '../ui/StatusPill';
 import { cn } from '../../lib/cn';
@@ -77,7 +78,7 @@ export function M11LiveBanner() {
 }
 
 interface LiveStatProps {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   label: string;
   value: string;
   sub: string;

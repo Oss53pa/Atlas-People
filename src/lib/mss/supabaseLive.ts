@@ -162,7 +162,7 @@ export function useTeamExpenseClaims(tenantId = DEMO, status = 'submitted') {
 export function useDecideExpenseClaim() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ claimId, decision, tenantId, motif }: { claimId: string; decision: 'manager_approved' | 'refused'; tenantId: string; motif?: string }) => {
+    mutationFn: async ({ claimId, decision, tenantId }: { claimId: string; decision: 'manager_approved' | 'refused'; tenantId: string; motif?: string }) => {
       const sb = getSupabaseOrThrow();
       const ctx = await resolveSessionContext();
       const { data, error } = await sb.schema('atlas_people').from('expense_claims')

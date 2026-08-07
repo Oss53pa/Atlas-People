@@ -11,7 +11,7 @@
  * qui redirige directement sans auth.
  */
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Sparkles, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth, isBackendConfigured } from '../lib/auth';
 import { Button } from '../components/ui/Button';

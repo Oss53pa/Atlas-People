@@ -13,8 +13,6 @@ import { useM3Live, isBackendConfigured } from '../../lib/m3/supabaseLive';
 import { useRoster } from '../../lib/m1/roster';
 import { useAuth } from '../../lib/auth';
 
-const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n));
-
 const PHASES = [
   { key: 'preparation', label: 'Préparation' },
   { key: 'calculation', label: 'Calcul' },
@@ -23,7 +21,6 @@ const PHASES = [
   { key: 'payment', label: 'Virements' },
   { key: 'closed', label: 'Clôture' },
 ];
-const kfmt = (n: number) => `${(Math.round(n) / 1_000_000).toFixed(1)} M`;
 
 export function CockpitPaiePage() {
   const { cycle, variables, statuses, prevNet } = usePayrollCycle();

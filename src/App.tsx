@@ -181,7 +181,6 @@ const ReportingEvalPage     = lz(() => import('./pages/eval/OtherEvalPages'),   
 const ParametresEvalPage    = lz(() => import('./pages/eval/OtherEvalPages'),        'ParametresEvalPage');
 const CycleAnnuelEvalPage   = lz(() => import('./pages/eval/EvalEnrichmentPages'),   'CycleAnnuelEvalPage');
 const GrilleEvaluationPage  = lz(() => import('./pages/eval/EvalEnrichmentPages'),   'GrilleEvaluationPage');
-const CalibrationEvalPage   = lz(() => import('./pages/eval/EvalEnrichmentPages'),   'CalibrationEvalPage');
 const NotationFinalePage    = lz(() => import('./pages/eval/EvalEnrichmentPages'),   'NotationFinalePage');
 const EquiteEvalPage        = lz(() => import('./pages/eval/EvalEnrichmentPages'),   'EquiteEvalPage');
 const AuditEvalPage         = lz(() => import('./pages/eval/EvalEnrichmentPages'),   'AuditEvalPage');

@@ -64,7 +64,7 @@ export function SettingsDelegationsPage() {
   const tooLong = duration > MAX_DELEGATION_DAYS;
   const invalid = duration <= 0 || tooLong || (hasLive && !delegateId);
 
-  const toggleScope = (k: string) => setScope((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const toggleScope = (k: string) => setScope((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
   const submit = async () => {
     if (hasLive && ctx?.tenantId) {

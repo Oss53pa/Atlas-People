@@ -14,7 +14,6 @@ import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { usePayrollCycle } from '../../store/usePayrollCycle';
 import { usePayrollCycles, useCreatePayrollCycle, isBackendConfigured } from '../../lib/m3/supabaseLive';
 import { useAuth } from '../../lib/auth';
-import { cn } from '../../lib/cn';
 
 const STATUS_LABEL: Record<string, { label: string; tone: 'amber' | 'ok' | 'neutral' | 'warn' }> = {
   open:        { label: 'Ouvert', tone: 'amber' },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, X, MessageCircle, Stethoscope, Plane, Megaphone, GraduationCap, Paperclip, AlertTriangle, CheckCheck, ShieldCheck, Wifi } from 'lucide-react';
+import { Check, X, MessageCircle, Stethoscope, Plane, Megaphone, GraduationCap, Paperclip, AlertTriangle, CheckCheck, ShieldCheck } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -97,7 +97,7 @@ export function TeamApprovalsPage() {
 
   // Sélection limitée aux demandes en attente actuellement affichées.
   const selectablePending = shown.filter((r) => r.status === 'pending');
-  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const allSelected = selectablePending.length > 0 && selectablePending.every((r) => selected.has(r.id));
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(selectablePending.map((r) => r.id)));
 

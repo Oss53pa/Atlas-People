@@ -20,15 +20,23 @@ const PALETTE: Record<string, string> = {
   ok: '#1B9E6B',
 };
 
-function CustomTooltip({ active, payload, label, formatter }: any) {
+interface TooltipEntry { dataKey?: string | number; name?: string; value?: number; color?: string }
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+  formatter?: (value: number, name?: string) => React.ReactNode;
+}
+
+function CustomTooltip({ active, payload, label, formatter }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-line bg-surface/95 px-3 py-2 shadow-float backdrop-blur">
       <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-ink-400">{label}</p>
-      {payload.map((p: any) => (
+      {payload.map((p: TooltipEntry) => (
         <div key={p.dataKey} className="flex items-center gap-2 text-xs font-semibold text-ink">
           <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
-          {p.name}: <span className="mono">{formatter ? formatter(p.value) : p.value}</span>
+          {p.name}: <span className="mono">{formatter ? formatter(p.value ?? 0) : p.value}</span>
         </div>
       ))}
     </div>

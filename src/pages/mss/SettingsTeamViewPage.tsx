@@ -35,7 +35,7 @@ export function SettingsTeamViewPage() {
   const [planning, setPlanning] = useState('week');
   const [cols, setCols] = useState<Set<string>>(new Set(TEAM_VIEW_COLUMNS.filter((c) => c.on).map((c) => c.key)));
 
-  const toggle = (k: string) => setCols((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const toggle = (k: string) => setCols((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const save = () => toast({ variant: 'success', title: 'Vue enregistrée', description: 'Votre vue équipe par défaut est mise à jour.' });
 
   return (

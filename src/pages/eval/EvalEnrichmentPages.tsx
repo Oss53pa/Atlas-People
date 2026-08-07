@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import {
   Calendar, Layers, Scale, Award, Shield, ShieldAlert, AlertCircle,
-  CheckCircle2, TrendingUp, TrendingDown, Users, Sparkles, Lock,
+  CheckCircle2, TrendingUp, Users, Sparkles, Lock,
   ArrowRight, Eye, Heart,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';

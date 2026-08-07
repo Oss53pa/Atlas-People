@@ -139,7 +139,7 @@ export function LoadModal({ open, onClose, tenantId, onLoad }: LoadModalProps) {
       toast({ variant: 'error', title: 'Chargement impossible', description: e instanceof Error ? e.message : String(e) });
     } finally { setLoading(false); }
   };
-  useEffect(() => { if (open) reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [open]);
+  useEffect(() => { if (open) reload();   }, [open]);
 
   const handleLoad = (d: ReportDoc) => {
     if (!d.content) { toast({ variant: 'error', title: 'Document vide', description: 'Aucun contenu à charger.' }); return; }

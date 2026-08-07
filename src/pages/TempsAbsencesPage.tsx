@@ -27,14 +27,13 @@ import { StatCard } from '../components/ui/StatCard';
 import { Avatar } from '../components/ui/Avatar';
 import { ProgressBar } from '../components/charts/ProgressBar';
 import { Money } from '../lib/money';
-import { workingDaysBetween } from '../lib/time/workingDays';
 import { timeRulesFor } from '../lib/time/leaveRules';
 import { computeOvertime } from '../lib/time/overtime';
 import { holidaysFor } from '../lib/time/holidays';
 import { ComplianceGuard } from '../lib/compliance/ComplianceGuard';
-import { LEAVE_CATALOG, CATEGORY_LABEL, leaveTypeByCode, type LeaveCategory } from '../lib/m2/leaveTypes';
+import { CATEGORY_LABEL, leaveTypeByCode } from '../lib/m2/leaveTypes';
 import { computeSelfLeaveBalance } from '../lib/m2/selfBalance';
-import { buildFleetDecompte, monthBounds, type MonthDecompte } from '../lib/m2/timesheet';
+import { buildFleetDecompte, monthBounds } from '../lib/m2/timesheet';
 import { useAppStore } from '../store/useAppStore';
 import { useAuth } from '../lib/auth';
 import {
@@ -97,10 +96,10 @@ export function TempsAbsencesPage() {
       </div>
 
       {tab === 'synthese' && <SyntheseTab country={activeCountry} roster={roster} month={month} />}
-      {tab === 'conges' && <CongesTab country={activeCountry} roster={roster} />}
+      {tab === 'conges' && <CongesTab roster={roster} />}
       {tab === 'pointage' && <PointageTab country={activeCountry} roster={roster} month={month} />}
       {tab === 'hsup' && <HeuresSupTab country={activeCountry} roster={roster} />}
-      {tab === 'compteurs' && <CompteursTab country={activeCountry} roster={roster} />}
+      {tab === 'compteurs' && <CompteursTab roster={roster} />}
       {tab === 'calendrier' && <CalendrierTab country={activeCountry} roster={roster} month={month} />}
     </div>
   );
@@ -261,7 +260,7 @@ function SyntheseTab({ country, roster, month }: { country: string; roster: type
 // ============================================================
 //  Onglet Congés — console de traitement RH (moteur M2 riche)
 // ============================================================
-function CongesTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
+function CongesTab({ roster }: { roster: typeof EMPLOYEES }) {
   const m2 = useM2Live();
   const requests = m2.requests;
   const storeDecide = useTimeOff((s) => s.decide);
@@ -634,7 +633,7 @@ function HeuresSupTab({ country, roster }: { country: string; roster: typeof EMP
 const HS_MONTH_LIMIT = 20;
 const fmtH = (n: number) => `${Math.round(n * 10) / 10}h`;
 
-function CompteursTab({ country, roster }: { country: string; roster: typeof EMPLOYEES }) {
+function CompteursTab({ roster }: { roster: typeof EMPLOYEES }) {
   const { requests, overtime: records } = useM2Live();
 
   const rows = roster.map((e, i) => {

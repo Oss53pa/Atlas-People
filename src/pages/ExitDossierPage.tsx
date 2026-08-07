@@ -46,6 +46,7 @@ import {
   employeeLoans,
   employeeAdvances,
   employeeProtectedUntil,
+  type EmployeeRecord,
 } from '../data/mock';
 import { cn } from '../lib/cn';
 
@@ -151,9 +152,25 @@ const ITEM_ICON: Record<string, typeof Car> = { vehicle: Car, housing: Home, pho
 
 export function ExitDossierPage() {
   const { id } = useParams();
+  const employee = useDirectory((s) => (id ? s.employees.find((e) => e.id === id) : undefined));
+
+  if (!employee) {
+    return (
+      <div className="animate-fade-up">
+        <Link to="/collaborateurs" className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500 hover:text-ink">
+          <ArrowLeft size={15} /> Collaborateurs
+        </Link>
+        <Card><div className="p-6 text-center text-sm font-medium text-ink-400">Collaborateur introuvable.</div></Card>
+      </div>
+    );
+  }
+  return <ExitDossierBody employee={employee} />;
+}
+
+// Corps du dossier : hooks inconditionnels (employé garanti non-null) — règles des Hooks.
+function ExitDossierBody({ employee }: { employee: EmployeeRecord }) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const employee = useDirectory((s) => (id ? s.employees.find((e) => e.id === id) : undefined));
   const updateEmployee = useDirectory((s) => s.updateEmployee);
   const updateLive = useUpdateEmployee();
   const offboardLive = useOffboardEmployee();
@@ -183,17 +200,6 @@ export function ExitDossierPage() {
   const [compensationPaid, setCompensationPaid] = useState(true);
   const [nonCompeteMaintained, setNonCompeteMaintained] = useState(false);
   const [phase, setPhase] = useState('initiation');
-
-  if (!employee) {
-    return (
-      <div className="animate-fade-up">
-        <Link to="/collaborateurs" className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500 hover:text-ink">
-          <ArrowLeft size={15} /> Collaborateurs
-        </Link>
-        <Card><div className="p-6 text-center text-sm font-medium text-ink-400">Collaborateur introuvable.</div></Card>
-      </div>
-    );
-  }
 
   const country = countryByCode(employee.countryCode);
   const cur = country.currency as Currency;

@@ -2,9 +2,9 @@
  * M9 COMPÉTENCES — Sprint 1 selon spec officielle COMPETENCES SUITE.zip.
  * 5 pages : Auto-éval · Manager-éval · PDC · Talents/Mobilité · Audit M9.
  */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
-  Shield, ClipboardCheck, ClipboardList, TrendingUp, ArrowRightLeft,
+  Shield, ClipboardCheck, TrendingUp, ArrowRightLeft,
   Lock, ShieldAlert, AlertCircle, AlertTriangle, CheckCircle2, Sparkles,
   FileSignature, Target, Eye, Award, ArrowRight, Wifi,
 } from 'lucide-react';

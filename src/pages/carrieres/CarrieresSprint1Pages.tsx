@@ -3,7 +3,7 @@
  * 6 pages : Job Architecture · Talent Review · Talent Pools · Promotions
  * · Alumni & Boomerang · Audit M10.
  */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   Building2, Grid3x3, Sparkles, Award, TrendingUp, Users, ArrowUpRight,
   Crown, Heart, Network, Lock, Shield, ShieldAlert, AlertCircle,

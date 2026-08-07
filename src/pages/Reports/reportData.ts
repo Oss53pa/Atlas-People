@@ -210,7 +210,7 @@ export const QUICK_TEMPLATES: Record<string, (data?: ReportData) => Block[]> = {
     { id: uid(), type: 'table', source: 'certifications_expiring' },
   ],
 
-  parite_genre: (data?: ReportData) => [
+  parite_genre: () => [
     { id: uid(), type: 'h1', text: 'Rapport Parité & Diversité', inToc: true },
     { id: uid(), type: 'paragraph', text: 'Audit annuel sur les axes de non-discrimination : genre, âge, ancienneté, origine.' },
     { id: uid(), type: 'h2', text: 'Indicateurs de parité' },

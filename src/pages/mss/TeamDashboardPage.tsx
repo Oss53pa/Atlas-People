@@ -44,7 +44,9 @@ export function TeamDashboardPage() {
   const { data: liveStats } = useMssTeamStats(tenantId ?? undefined);
   const { data: livePending } = usePendingApprovals(tenantId ?? undefined);
 
-  const pending = isBackendConfigured && livePending ? livePending : requests.filter((r) => r.status === 'pending');
+  const pending = isBackendConfigured && livePending
+    ? livePending.map((r) => ({ id: r.id, employeeId: r.employee_id, code: r.leave_type_code, start: r.start_date, end: r.end_date, countedDays: r.counted_days }))
+    : requests.filter((r) => r.status === 'pending').map((r) => ({ id: r.id, employeeId: r.employeeId, code: r.code, start: r.start, end: r.end, countedDays: r.countedDays }));
   const onLeaveToday = requests.filter((r) => r.status === 'approved' && r.start <= TODAY && r.end >= TODAY);
   const onLeaveIds = new Set(onLeaveToday.map((r) => r.employeeId));
   const upcoming = requests.filter((r) => r.status === 'approved' && r.start > TODAY && r.start <= isoAdd(TODAY, 7));

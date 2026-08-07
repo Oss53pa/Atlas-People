@@ -144,13 +144,13 @@ export class Money {
   format(): string {
     const negative = this.units < 0n;
     const digits = (negative ? -this.units : this.units).toString();
-    const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
     return `${negative ? '-' : ''}${grouped}`;
   }
 
   /** Format complet avec libellé de devise (FCFA). */
   formatWithCurrency(): string {
-    return `${this.format()} ${CURRENCY_LABEL[this.currency]}`;
+    return `${this.format()}\u202f${CURRENCY_LABEL[this.currency]}`;
   }
 
   toJSON(): { units: string; currency: Currency } {
