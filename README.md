@@ -60,16 +60,29 @@ Audit automatisé **axe-core** (WCAG 2.1 A + AA) intégré aux e2e (`e2e/a11y.sp
 sur 6 écrans clés (Cockpit, Performance, Bonus, Readiness, Collaborateurs, Paie).
 
 - **Gate CI bloquant** : **0 violation `critical`** (bloqueurs clavier / lecteur d'écran).
-- **Backlog non bloquant** (rapporté en annotations/pièces jointes) :
-  - `color-contrast` (serious) — dette de **design system** : plusieurs textes
-    secondaires (`ink-400/500`, `amber-deep`) sous le ratio AA. À traiter par une
-    passe sur les tokens de couleur Tailwind.
-  - `nested-interactive` (serious) — table Collaborateurs : lignes cliquables
-    contenant des boutons. À restructurer (lien sur le nom plutôt que ligne-bouton).
+### Passe contraste — état
+
+- ✅ **`ink-400` assombri** `#928D81 → #6E6A5F` : tout le texte secondaire en
+  couleur *solide* passe désormais AA (≥ 4.5:1 sur `white`/`canvas`/`surface2`).
+  Aucun impact marque, non utilisé sur fond sombre.
+- 📋 **Reste (backlog design, non bloquant)** — mesuré via axe :
+  1. **Texte gris à opacité réduite** (labels `uppercase`, sous-nav) : la couleur
+     *effective* est éclaircie par une opacité (~0.5–0.6) appliquée quelque part
+     dans le rendu → le token seul ne suffit pas. Fix : rendre ces textes
+     **opaques** (retirer l'opacité) ou monter d'un cran d'encre.
+  2. **Pastilles sémantiques** (`ok/warn/info/danger` en petit texte sur tuile
+     teintée) : `warn` surtout (2.6:1). Fix : nuances *-deep* dédiées au texte,
+     distinctes des remplissages (`bg-*`).
+  3. **`amber-deep` en petit texte** (3.24:1) : nécessite une **décision design**
+     (accent marque vs AA) → assombrir vers `#8F5810` (5:1) ou réserver l'amber
+     au texte large/gras (≥ 3:1 déjà OK).
+  4. **`nested-interactive`** (table Collaborateurs) : lignes cliquables contenant
+     des boutons → restructurer (lien sur le nom, actions hors de la ligne-bouton).
 
 Ces points sont **mesurés et suivis** ; ils ne bloquent pas la CI tant que la
-passe design/markup dédiée n'est pas faite, mais aucune régression `critical`
-ne peut passer.
+passe design/markup dédiée n'est pas validée, mais aucune régression `critical`
+ne peut passer. Chaque item ci-dessus se traite composant par composant, avec
+revue visuelle.
 
 ## Structure (extrait)
 
