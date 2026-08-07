@@ -47,3 +47,46 @@ test.describe('Parcours critiques (mode démo)', () => {
     expect(errors, `Erreurs runtime: ${errors.join(' | ')}`).toHaveLength(0);
   });
 });
+
+test.describe('Formules — landing, sous-landing et accès produit', () => {
+  test('chaque carte de la landing mène à sa formule, sa connexion et sa souscription', async ({ page }) => {
+    const errors = trackPageErrors(page);
+    await page.goto('/landing');
+
+    for (const slug of ['core', 'conseil', 'payroll', '360', 'placement']) {
+      await expect(page.locator(`#formules a[href="/produits/${slug}"]`)).toHaveCount(1);
+      await expect(page.locator(`#formules a[href="/login?produit=${slug}"]`)).toHaveCount(1);
+      await expect(page.locator(`#formules a[href="/produits/${slug}#souscrire"]`)).toHaveCount(1);
+    }
+    expect(errors, `Erreurs runtime: ${errors.join(' | ')}`).toHaveLength(0);
+  });
+
+  test('la sous-landing d\'une formule offre connexion et souscription', async ({ page }) => {
+    const errors = trackPageErrors(page);
+    await page.goto('/produits/payroll');
+
+    await expect(page.getByRole('heading', { name: 'Atlas Payroll', exact: true })).toBeVisible();
+    // Périmètre fonctionnel : les écrans propres au bureau de paie.
+    await expect(page.getByRole('listitem').filter({ hasText: 'DSN consolidée' })).toBeVisible();
+    // Souscription accessible sans compte.
+    await expect(page.locator('#souscrire')).toBeVisible();
+    await expect(page.getByRole('button', { name: /demande de souscription/i })).toBeVisible();
+    expect(errors, `Erreurs runtime: ${errors.join(' | ')}`).toHaveLength(0);
+  });
+
+  test('« me connecter » depuis une formule ouvre le logiciel correspondant', async ({ page }) => {
+    const errors = trackPageErrors(page);
+    await page.goto('/produits/placement');
+    await page.getByRole('link', { name: /me connecter/i }).first().click();
+    // Mode démo : la connexion applique le produit visé, dont l'accueil est
+    // la liste des travailleurs placés (agence de mise à disposition).
+    await expect(page).toHaveURL(/\/travailleurs-places$/);
+    expect(errors, `Erreurs runtime: ${errors.join(' | ')}`).toHaveLength(0);
+  });
+
+  test('une formule inconnue retombe sur la liste des formules', async ({ page }) => {
+    await page.goto('/produits/inconnu');
+    await expect(page).toHaveURL(/\/landing#formules$/);
+    await expect(page.locator('#formules').getByRole('heading', { name: /Choisissez votre formule/i })).toBeVisible();
+  });
+});
