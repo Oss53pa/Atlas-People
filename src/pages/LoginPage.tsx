@@ -17,7 +17,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, ArrowLeft, Sparkles, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { useAuth, useAuthStore, isBackendConfigured } from '../lib/auth';
+import { useAuth, useAuthStore, isBackendConfigured, requestProductWorkspace } from '../lib/auth';
 import { PRODUCT_META } from '../app/nav';
 import { tenantTypeFromSlug } from '../app/products';
 import { Button } from '../components/ui/Button';
@@ -65,6 +65,14 @@ export function LoginPage() {
     const token = params.get('token');
     if (token) { setInvitationToken(token); setView('invitation'); }
   }, [location.search]);
+
+  // La formule demandée est mémorisée dès l'ouverture de la page : quelle que
+  // soit la voie d'authentification qui aboutit (mot de passe, lien magique,
+  // session déjà ouverte), la résolution du tenant ouvrira le workspace de ce
+  // produit si le compte en possède un.
+  useEffect(() => {
+    if (product) requestProductWorkspace(product);
+  }, [product]);
 
   // Redirection si déjà authentifié.
   // En démo (pas de backend), la session est toujours considérée ouverte : on
