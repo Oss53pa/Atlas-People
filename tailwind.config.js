@@ -18,9 +18,12 @@ export default {
         },
         // Accent de marque Atlas
         amber: {
-          DEFAULT: '#EF9F27',
+          DEFAULT: '#EF9F27', // remplissages / accents larges (≥ 3:1 sur clair)
           soft: '#F6BC5B',
-          deep: '#C97E12',
+          // `deep` = amber d'ENCRE : assombri pour AA en petit texte sur fond clair
+          // (#C97E12 → #8F5810 = 5.02:1 sur canvas, 5.88:1 sur blanc) et blanc AA
+          // en remplissage (`bg-amber-deep text-white` → 5.9:1).
+          deep: '#8F5810',
           glow: 'rgba(239, 159, 39, 0.14)',
         },
         highlight: '#F4D03F', // jaune vif pour pastilles clés
@@ -30,12 +33,15 @@ export default {
           800: '#211E17',
           700: '#2C2820',
         },
-        // États sémantiques lisibles sur fond clair
-        ok: '#1B9E6B',
-        warn: '#D9921A',
-        danger: '#D6483B',
-        info: '#3B82C4',
-        purple: '#8B57B0', // négociation / statuts intermédiaires (DS §1.3.5)
+        // États sémantiques — assombris pour AA en PETIT TEXTE sur tuiles teintées
+        // (`text-* ` sur `bg-*/10-15`). Mesuré ≥ 4.5:1 sur blanc/canvas/surface2 ;
+        // les remplissages `bg-*/10` restent des teintes pâles inchangées à l'œil.
+        ok: '#0F7048', // 5.46:1 tuile/blanc · 4.72:1 tuile/canvas (ex #1B9E6B → 3.4)
+        warn: '#8A5A0F', // 5.32:1 · 4.60:1 (ex #D9921A → 2.3)
+        danger: '#B0362A', // 5.40:1 · 4.67:1 (ex #D6483B → 3.8)
+        info: '#2266A0', // 5.39:1 · 4.62:1 (ex #3B82C4 → 3.6)
+        purple: '#7B46A0', // négociation / statuts intermédiaires (DS §1.3.5) — assombri AA
+
       },
       fontFamily: {
         logo: ['"Grand Hotel"', 'cursive'],

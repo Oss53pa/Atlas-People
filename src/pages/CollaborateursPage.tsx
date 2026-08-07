@@ -202,19 +202,23 @@ export function CollaborateursPage() {
                   return (
                     <div
                       key={e.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => navigate(`/collaborateurs/${e.id}`)}
-                      onKeyDown={(ev) => { if (ev.key === 'Enter') navigate(`/collaborateurs/${e.id}`); }}
-                      className="grid w-full cursor-pointer grid-cols-1 items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-amber/[0.04] focus:bg-amber/[0.04] focus:outline-none lg:grid-cols-[2.4fr_1.6fr_1fr_1fr_0.9fr_44px]"
+                      className="group relative grid w-full grid-cols-1 items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-amber/[0.04] focus-within:bg-amber/[0.04] focus-within:ring-1 focus-within:ring-inset focus-within:ring-amber/30 lg:grid-cols-[2.4fr_1.6fr_1fr_1fr_0.9fr_44px]"
                     >
                       <div className="flex items-center gap-3">
                         <Avatar name={employeeName(e)} size="sm" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="truncate text-sm font-bold text-ink">{employeeName(e)}</p>
-                            {urgent && <AlertTriangle size={12} className="shrink-0 text-warn" aria-label="Document/échéance à traiter" />}
-                            {isProtected && <ShieldAlert size={12} className="shrink-0 text-amber-deep" aria-label="Statut protégé" />}
+                            {/* Lien « étiré » (before:inset-0) : la ligne entière reste
+                                cliquable, mais le nom est le SEUL contrôle interactif de
+                                navigation → pas d'imbrication avec le bouton Actions. */}
+                            <Link
+                              to={`/collaborateurs/${e.id}`}
+                              className="truncate text-sm font-bold text-ink outline-none before:absolute before:inset-0 before:content-['']"
+                            >
+                              {employeeName(e)}
+                            </Link>
+                            {urgent && <AlertTriangle size={12} className="relative z-10 shrink-0 text-warn" aria-label="Document/échéance à traiter" />}
+                            {isProtected && <ShieldAlert size={12} className="relative z-10 shrink-0 text-amber-deep" aria-label="Statut protégé" />}
                           </div>
                           <p className="truncate text-[11px] font-medium text-ink-400">{e.email}</p>
                         </div>
@@ -233,7 +237,7 @@ export function CollaborateursPage() {
                         <button
                           onClick={(ev) => openMenu(ev, e.id)}
                           aria-label="Actions"
-                          className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                          className="relative z-10 rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink"
                         >
                           <MoreVertical size={16} />
                         </button>
