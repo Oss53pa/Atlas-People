@@ -6,14 +6,15 @@ import { Avatar } from '../ui/Avatar';
 import { useAppStore } from '../../store/useAppStore';
 import { useCorrespondence } from '../../store/useCorrespondence';
 import { employeeById, employeeName } from '../../data/mock';
-
-const SELF_ID = 'e2';
+import { useSessionContext } from '../../lib/useSession';
 
 /** Coquille du PORTAIL COLLABORATEUR — distincte du back-office.
  *  Desktop d'abord, responsive mobile. Aucun élément du SIRH. */
 export function PortalLayout() {
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
-  const employee = employeeById(SELF_ID)!;
+  const employee = employeeById(SELF_ID) ?? employeeById('e2')!;
   const unread = useCorrespondence((s) => s.items.filter((c) => c.employeeId === SELF_ID && (c.status === 'unread' || c.status === 'action_required')).length);
   const greeting = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
 

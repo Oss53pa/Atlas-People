@@ -3,13 +3,14 @@ import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { DOC_DELIVERIES, JOURNEYS } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { WELCOME_DOCS } from '../../lib/m6/referentiels';
 
 export function DocumentsPage() {
-  const total = DOC_DELIVERIES.length;
-  const signed = DOC_DELIVERIES.filter((d) => d.status === 'signed').length;
-  const pending = DOC_DELIVERIES.filter((d) => d.status === 'pending' || d.status === 'sent').length;
+  const m6 = useM6Data();
+  const total = m6.docs.length;
+  const signed = m6.docs.filter((d) => d.status === 'signed').length;
+  const pending = m6.docs.filter((d) => d.status === 'pending' || d.status === 'sent').length;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -58,9 +59,9 @@ export function DocumentsPage() {
               <th className="px-3 py-2 text-right" />
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {DOC_DELIVERIES.filter(d => JOURNEYS.find(j => j.id === d.journeyId)?.status === 'in_progress').slice(0, 30).map((d) => {
+              {m6.docs.filter(d => m6.journeys.find(j => j.id === d.journeyId)?.status === 'in_progress').slice(0, 30).map((d) => {
                 const doc = WELCOME_DOCS.find((x) => x.code === d.docCode)!;
-                const j = JOURNEYS.find((jj) => jj.id === d.journeyId);
+                const j = m6.journeys.find((jj) => jj.id === d.journeyId);
                 return (
                   <tr key={d.id}>
                     <td className="px-4 py-2 text-[12px] font-semibold text-ink">{doc.label}</td>

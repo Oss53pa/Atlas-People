@@ -7,13 +7,14 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { BUDDIES } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { employeeById, employeeName } from '../../data/mock';
 
 export function BuddyPage() {
   const { toast } = useToast();
-  const active = BUDDIES.filter((b) => b.status === 'active');
-  const completed = BUDDIES.filter((b) => b.status === 'completed');
+  const m6 = useM6Data();
+  const active = m6.buddies.filter((b) => b.status === 'active');
+  const completed = m6.buddies.filter((b) => b.status === 'completed');
   const avgSat = completed.length ? completed.reduce((s, b) => s + (b.satisfactionScore ?? 0), 0) / completed.length : 0;
 
   return (

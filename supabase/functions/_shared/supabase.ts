@@ -44,7 +44,7 @@ export async function resolveCaller(req: Request): Promise<Caller | null> {
   if (!auth?.user) return null;
 
   const { data: membership } = await supa
-    .from('memberships')
+    .from('tenant_memberships')
     .select('tenant_id, role')
     .eq('user_id', auth.user.id)
     .limit(1)
@@ -66,4 +66,7 @@ export async function resolveCaller(req: Request): Promise<Caller | null> {
   };
 }
 
-export const isHrOrAdmin = (c: Caller) => c.role === 'hr' || c.role === 'admin';
+// Rôle canonique app + RLS DB = 'hr' / 'super_admin' (cf. AppRole, is_hr_or_admin).
+// On accepte aussi les libellés FR historiques ('rh','drh','paie') par tolérance.
+export const isHrOrAdmin = (c: Caller) =>
+  ['hr', 'super_admin', 'rh', 'admin', 'drh', 'paie'].includes(c.role);

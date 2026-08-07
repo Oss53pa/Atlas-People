@@ -14,8 +14,9 @@ import { StatCard } from '../../components/ui/StatCard';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
-import { EMPLOYEES, employeeName } from '../../data/mock';
+import { employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useRoster } from '../../lib/m1/roster';
 
 /* ═══════════════════════════════ 1. MÉTHODOLOGIE (CRAFT / FAST / SMART / Anti-patterns) ═══════════════════════════════ */
 export function MethodologieOkrPage() {
@@ -278,7 +279,8 @@ export function NotationOkrPage() {
 
 /* ═══════════════════════════════ 3. RÉTROSPECTIVE & CLÔTURE ═══════════════════════════════ */
 export function RetrospectiveOkrPage() {
-  const marie = EMPLOYEES[2]; // Fatou Diop comme exemple "Marie SAMAKÉ"
+  const roster = useRoster();
+  const marie = roster[2]; // Fatou Diop comme exemple "Marie SAMAKÉ"
   return (
     <div className="animate-fade-up space-y-5">
       <OkrSubNav />

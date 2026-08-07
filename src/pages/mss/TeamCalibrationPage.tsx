@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Scale, Users, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Scale, Users, AlertTriangle, ShieldAlert, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
@@ -9,8 +9,9 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { employeeName } from '../../data/mock';
+import { isBackendConfigured, useTeamDirectory, dirName } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
-// Distribution cible (forced ranking indicatif) — pilotée par la DRH.
 const DIST = [
   { label: 'Top performers (5/5)', pct: 13, tone: 'ok' as const },
   { label: 'Bons performers (4/5)', pct: 40, tone: 'ok' as const },
@@ -27,13 +28,24 @@ export function TeamCalibrationPage() {
 
   const employees = useDirectory((s) => s.employees);
   const depth = useManagerScope((s) => s.depth);
-  const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
+  const mockTeam = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
+
+  const { data: ctx } = useSessionContext();
+  const { data: liveDir } = useTeamDirectory(ctx?.tenantId);
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
+
+  const displayTeam: { id: string; name: string }[] = hasLive
+    ? (liveDir ?? []).map(d => ({ id: d.id, name: dirName(d) }))
+    : mockTeam.map(e => ({ id: e.id, name: employeeName(e) }));
 
   return (
     <div className="animate-fade-up space-y-5">
       <PerformanceSubNav />
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Calibration — campagne annuelle 2026</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink">Calibration — campagne annuelle 2026</h1>
+          {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+        </div>
         <p className="text-sm font-medium text-ink-500">Session 20/06/2026 14h–17h · animée par la DRH</p>
       </div>
 
@@ -51,14 +63,14 @@ export function TeamCalibrationPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Mes évaluations préliminaires" subtitle={`${team.length} collaborateur(s)`} action={<Users size={16} className="text-ink-400" />} />
+        <CardHeader title="Mes évaluations préliminaires" subtitle={`${displayTeam.length} collaborateur(s)`} action={<Users size={16} className="text-ink-400" />} />
         <div className="space-y-1.5">
-          {team.map((e) => {
-            const note = noteFor(e.id);
+          {displayTeam.map((m) => {
+            const note = noteFor(m.id);
             const flag = note <= 2;
             return (
-              <div key={e.id} className="flex items-center justify-between rounded-xl bg-surface2 px-3 py-2">
-                <div className="flex items-center gap-2.5"><Avatar name={employeeName(e)} size="xs" /><span className="text-sm font-semibold text-ink">{employeeName(e)}</span></div>
+              <div key={m.id} className="flex items-center justify-between rounded-xl bg-surface2 px-3 py-2">
+                <div className="flex items-center gap-2.5"><Avatar name={m.name} size="xs" /><span className="text-sm font-semibold text-ink">{m.name}</span></div>
                 <div className="flex items-center gap-2">
                   {flag && <span className="inline-flex items-center gap-1 text-[11px] font-medium text-warn"><AlertTriangle size={11} /> à approfondir</span>}
                   <StatusPill tone={note >= 4 ? 'ok' : note === 3 ? 'info' : 'warn'} dot={false}>{note}/5</StatusPill>

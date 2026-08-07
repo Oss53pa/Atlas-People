@@ -114,6 +114,10 @@ export const ATLAS_VALUES = [
 ];
 
 // ─────────────────────────────────────── Échelle de calibration
+// Cible de répartition sur la grille 9-box (performance × potentiel, clés A1-C3 / BOX_LABELS).
+// À distinguer de la distribution des classes finales ABCDE (note composite 0-100),
+// définie localement dans CalibrationEvalPage (src/pages/eval/EvalEnrichmentPages.tsx) —
+// deux axes de calibration légitimement différents, non interchangeables.
 export const CALIBRATION_DISTRIBUTION = [
   { label: 'Top talents (A3, B3)', target: '15-20 %' },
   { label: 'High performers (A2, B2)', target: '50-60 %' },

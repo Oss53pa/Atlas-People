@@ -11,10 +11,8 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
 import { M5LiveBanner } from '../../components/recrut/M5LiveBanner';
-import {
-  JOBS, APPLICATIONS, INTERVIEWS, OFFERS, ACTIVITY, REFERRALS, SOURCING_CHANNELS,
-  candidateById, jobById, stageMeta, kpis,
-} from '../../lib/m5/mock';
+import { ACTIVITY, SOURCING_CHANNELS, stageMeta, kpis } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { JOB_STATUS_META, ACTIVE_STAGES, SLA } from '../../lib/m5/referentiels';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
@@ -23,21 +21,22 @@ import { cn } from '../../lib/cn';
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
 export function CockpitRecrutPage() {
+  const m5 = useM5Data();
   const k = useMemo(() => kpis(), []);
-  const openJobs = JOBS.filter((j) => j.status === 'open');
+  const openJobs = m5.jobs.filter((j) => j.status === 'open');
 
   // Entretiens jour
   const todayIv = useMemo(() => {
     const today = '2026-05-30';
-    return INTERVIEWS.filter((i) => i.scheduledAt.slice(0, 10) === today && i.status === 'planned')
+    return m5.interviews.filter((i) => i.scheduledAt.slice(0, 10) === today && i.status === 'planned')
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-  }, []);
+  }, [m5.interviews]);
 
   // Offres en attente
-  const pendingOffers = OFFERS.filter((o) => o.status === 'sent' || o.status === 'negotiating');
+  const pendingOffers = m5.offers.filter((o) => o.status === 'sent' || o.status === 'negotiating');
 
   // SLA breaches
-  const slaBreaches = APPLICATIONS.filter((a) => {
+  const slaBreaches = m5.applications.filter((a) => {
     if (!ACTIVE_STAGES.includes(a.stage)) return false;
     const days = Math.round((new Date('2026-05-30').getTime() - new Date(a.stageEnteredAt).getTime()) / 86_400_000);
     return (a.stage === 'screening' && days > SLA.screeningDays) || (a.stage === 'offer' && days > SLA.offerToHireDays);
@@ -120,9 +119,9 @@ export function CockpitRecrutPage() {
             {todayIv.length === 0 ? <p className="rounded-xl bg-surface2/40 px-3 py-3 text-center text-[12px] font-medium text-ink-400">Aucun entretien aujourd'hui.</p>
               : <div className="space-y-1.5">
                   {todayIv.map((i) => {
-                    const ap = APPLICATIONS.find((a) => a.id === i.applicationId);
-                    const cand = ap && candidateById(ap.candidateId);
-                    const job = ap && jobById(ap.jobId);
+                    const ap = m5.applications.find((a) => a.id === i.applicationId);
+                    const cand = ap && m5.candidateById(ap.candidateId);
+                    const job = ap && m5.jobById(ap.jobId);
                     if (!cand || !job) return null;
                     return (
                       <Link key={i.id} to="/recrutement/entretiens" className="flex items-center gap-2 rounded-xl bg-surface2/40 px-3 py-2 hover:bg-amber/[0.06]">
@@ -143,8 +142,8 @@ export function CockpitRecrutPage() {
               <CardHeader title="Offres en attente" subtitle={`${pendingOffers.length} offre(s) · validité contrôlée`} action={<Mail size={16} className="text-amber-deep" />} />
               <div className="space-y-1.5">
                 {pendingOffers.map((o) => {
-                  const ap = APPLICATIONS.find((a) => a.id === o.applicationId);
-                  const cand = ap && candidateById(ap.candidateId);
+                  const ap = m5.applications.find((a) => a.id === o.applicationId);
+                  const cand = ap && m5.candidateById(ap.candidateId);
                   if (!cand) return null;
                   return (
                     <Link key={o.id} to={`/recrutement/offres`} className="flex items-center gap-2 rounded-xl bg-surface2/40 px-3 py-2 hover:bg-amber/[0.06]">
@@ -166,7 +165,7 @@ export function CockpitRecrutPage() {
               <CardHeader title="SLA dépassés" subtitle="Screening ou offre trop long" action={<AlertTriangle size={16} className="text-warn" />} />
               <div className="space-y-1">
                 {slaBreaches.slice(0, 4).map((a) => {
-                  const cand = candidateById(a.candidateId)!;
+                  const cand = m5.candidateById(a.candidateId)!;
                   return (
                     <div key={a.id} className="flex items-center gap-2 text-[11px] font-medium text-warn">
                       <AlertTriangle size={11} /> {cand.firstName} {cand.lastName} · {stageMeta(a.stage).label}
@@ -219,11 +218,11 @@ export function CockpitRecrutPage() {
 
       {/* Cooptation */}
       <Card>
-        <CardHeader title="Cooptation active" subtitle={`${REFERRALS.filter(r => r.status !== 'paid' && r.status !== 'rejected').length} candidats cooptés en cours · prime jusqu'à ${fmt(600_000)}`} action={<Gift size={16} className="text-amber-deep" />} />
+        <CardHeader title="Cooptation active" subtitle={`${m5.referrals.filter(r => r.status !== 'paid' && r.status !== 'rejected').length} candidats cooptés en cours · prime jusqu'à ${fmt(600_000)}`} action={<Gift size={16} className="text-amber-deep" />} />
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          {REFERRALS.slice(0, 4).map((r) => {
-            const cand = candidateById(r.candidateId)!;
-            const job = jobById(r.jobId)!;
+          {m5.referrals.slice(0, 4).map((r) => {
+            const cand = m5.candidateById(r.candidateId)!;
+            const job = m5.jobById(r.jobId)!;
             return (
               <div key={r.id} className="rounded-xl bg-surface2/40 px-3 py-2">
                 <p className="text-[12px] font-semibold text-ink">{cand.firstName} {cand.lastName} <span className="ml-2 text-[10px] font-medium text-ink-500">→ {job.title.slice(0, 35)}</span></p>
@@ -234,7 +233,7 @@ export function CockpitRecrutPage() {
         </div>
       </Card>
 
-      <p className="text-[11px] font-medium text-ink-400">M5 Recrutement · ATS complet · pipeline 9 stages · {JOBS.length} postes · {APPLICATIONS.length} candidatures · {SOURCING_CHANNELS.length} canaux · RGPD conservation 2 ans · intégration M4 contrat & M6 onboarding.</p>
+      <p className="text-[11px] font-medium text-ink-400">M5 Recrutement · ATS complet · pipeline 9 stages · {m5.jobs.length} postes · {m5.applications.length} candidatures · {SOURCING_CHANNELS.length} canaux · RGPD conservation 2 ans · intégration M4 contrat & M6 onboarding.</p>
     </div>
   );
 }

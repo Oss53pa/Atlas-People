@@ -8,7 +8,7 @@ import { TeamSubNav } from '../../components/mss/TeamSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useManagerScope } from '../../store/useManagerScope';
 import { useDirectory } from '../../store/useDirectory';
-import { managementChain, reportsOf, maxChainDepth, MANAGER_ID, DEPTH_LABEL } from '../../lib/mss/scope';
+import { managementChain, reportsOf, maxChainDepth, useManagerId, DEPTH_LABEL } from '../../lib/mss/scope';
 import { employeeName, employeeLeaveBalance, type EmployeeRecord } from '../../data/mock';
 
 /** EQ.4 — Annuaire des managers (cf. 03_MON_EQUIPE). Réservé aux managers de
@@ -17,16 +17,17 @@ export function ManagerTeamPage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('mss'); }, [setSurface]);
 
+  const managerId = useManagerId();
   const depth = useManagerScope((s) => s.depth);
   const employees = useDirectory((s) => s.employees);
 
-  const isN2plus = maxChainDepth(employees) >= 2;
+  const isN2plus = maxChainDepth(employees, managerId) >= 2;
   // Managers intermédiaires = N-1 directs qui ont eux-mêmes des subordonnés.
   const subManagers = useMemo(() =>
-    managementChain(MANAGER_ID, employees)
+    managementChain(managerId, employees)
       .filter((n) => n.depth === 1)
       .map((n) => ({ manager: n.employee, reports: reportsOf(n.employee.id, employees) }))
-      .filter((g) => g.reports.length > 0), [employees]);
+      .filter((g) => g.reports.length > 0), [employees, managerId]);
 
   if (!isN2plus) return <Navigate to="/team/equipe" replace />;
 

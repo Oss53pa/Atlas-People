@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -11,6 +11,8 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { schedulingConflicts } from '../../lib/mss/daily';
+import { isBackendConfigured } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 export function SchedulingConflictsPage() {
   const setSurface = useSurface((s) => s.setSurface);
@@ -21,6 +23,9 @@ export function SchedulingConflictsPage() {
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
   const conflicts = schedulingConflicts(team);
+
+  const { data: ctx } = useSessionContext();
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
 
   const [choice, setChoice] = useState<Record<string, number>>({});
   const [comment, setComment] = useState<Record<string, string>>({});
@@ -37,7 +42,10 @@ export function SchedulingConflictsPage() {
     <div className="animate-fade-up space-y-5">
       <DailySubNav />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-ink">Conflits planning à arbitrer</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink">Conflits planning à arbitrer</h1>
+          {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+        </div>
         <StatusPill tone={open.length > 0 ? 'warn' : 'ok'} dot={false}>{open.length} conflit(s)</StatusPill>
       </div>
 
@@ -60,7 +68,7 @@ export function SchedulingConflictsPage() {
           </div>
           <label className="mt-3 block">
             <span className="text-[12px] font-semibold text-ink-500">Commentaire</span>
-            <textarea value={comment[c.id] ?? ''} onChange={(e) => setComment((s) => ({ ...s, [c.id]: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-info/30" placeholder="Justification de l’arbitrage…" />
+            <textarea value={comment[c.id] ?? ''} onChange={(e) => setComment((s) => ({ ...s, [c.id]: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-info/30" placeholder="Justification de l'arbitrage…" />
           </label>
           <div className="mt-3 flex justify-end">
             <Button size="sm" onClick={() => arbitrate(c.id)} disabled={choice[c.id] === undefined}>Arbitrer</Button>

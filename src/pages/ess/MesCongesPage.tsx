@@ -15,11 +15,9 @@ import { leaveTypeByCode } from '../../lib/m2/leaveTypes';
 import { employeeById } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import { useMyLeaveRequests, isBackendConfigured } from '../../lib/ess/supabaseLive';
-import { useAuth } from '../../lib/auth';
+import { useMyLeaveBalances } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
-const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002';
-
-const SELF_ID = 'e2';
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'info'> = { pending: 'warn', approved: 'ok', refused: 'danger', info_requested: 'info' };
 const STATUS_LABEL: Record<string, string> = { pending: 'En attente', approved: 'Approuvée', refused: 'Refusée', info_requested: 'Info demandée' };
 
@@ -34,12 +32,19 @@ export function MesCongesPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const [tab, setTab] = useState('balances');
-  const { tenantId } = useAuth();
-  const { data: liveRequests } = useMyLeaveRequests(tenantId ?? undefined, DEMO_EMP_ID);
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
+  const { data: liveRequests } = useMyLeaveRequests(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveBalances } = useMyLeaveBalances(ctx?.tenantId, ctx?.employeeId);
   const employee = employeeById(SELF_ID)!;
   const mockRequests = useTimeOff((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
   const requests = mockRequests;
   const balance = useMemo(() => computeSelfLeaveBalance(employee, requests), [employee, requests]);
+
+  // Soldes live (S4) — pilotent les cartes CP / Récupération si présents.
+  const balancesLive = isBackendConfigured && liveBalances && liveBalances.length > 0;
+  const cpRow = liveBalances?.find((b) => b.counter_type === 'CP');
+  const recupRow = liveBalances?.find((b) => b.counter_type === 'RECUP');
 
   const sickDays = requests.filter((r) => r.code === 'MAL').reduce((s, r) => s + r.countedDays, 0);
   const history = requests.slice().sort((a, b) => (a.start < b.start ? 1 : -1));
@@ -57,15 +62,15 @@ export function MesCongesPage() {
       {tab === 'balances' && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card>
-            <CardHeader title="Congés payés" action={<Wallet size={16} className="text-ink-400" />} />
-            <p className="mono text-3xl font-semibold text-amber-deep">{balance.available} j</p>
+            <CardHeader title="Congés payés" action={balancesLive && cpRow ? <Wifi size={13} className="text-emerald-500" /> : <Wallet size={16} className="text-ink-400" />} subtitle={balancesLive && cpRow ? 'Live DB' : undefined} />
+            <p className="mono text-3xl font-semibold text-amber-deep">{balancesLive && cpRow ? cpRow.available : balance.available} j</p>
             <p className="text-[11px] font-medium text-ink-400">disponibles</p>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <Mini label="Acquis" value={balance.acquired} />
-              <Mini label="Pris" value={balance.taken} />
-              <Mini label="En cours" value={balance.pending} />
+              <Mini label="Acquis" value={balancesLive && cpRow ? cpRow.acquired : balance.acquired} />
+              <Mini label="Pris" value={balancesLive && cpRow ? cpRow.taken : balance.taken} />
+              <Mini label="En cours" value={balancesLive && cpRow ? cpRow.pending : balance.pending} />
             </div>
-            <div className="mt-3"><ProgressBar value={balance.taken} max={balance.acquired} tone="amber" /></div>
+            <div className="mt-3"><ProgressBar value={balancesLive && cpRow ? cpRow.taken : balance.taken} max={balancesLive && cpRow ? cpRow.acquired : balance.acquired} tone="amber" /></div>
             <div className="mt-3 space-y-1 text-[12px] font-medium text-ink-500">
               <p>Vous gagnez <span className="mono font-semibold text-ink">{balance.monthlyRate}</span> jours par mois travaillé.</p>
               {balance.majorations.map((m) => <p key={m}>{m}</p>)}
@@ -75,8 +80,8 @@ export function MesCongesPage() {
 
           <div className="space-y-5">
             <Card>
-              <CardHeader title="Récupération" action={<RefreshCw size={16} className="text-ink-400" />} />
-              <p className="mono text-2xl font-semibold text-ink">0 h</p>
+              <CardHeader title="Récupération" action={balancesLive && recupRow ? <Wifi size={13} className="text-emerald-500" /> : <RefreshCw size={16} className="text-ink-400" />} subtitle={balancesLive && recupRow ? 'Live DB' : undefined} />
+              <p className="mono text-2xl font-semibold text-ink">{balancesLive && recupRow ? recupRow.available : 0} h</p>
               <p className="text-[11px] font-medium text-ink-400">à récupérer (issues d'heures supplémentaires converties)</p>
             </Card>
             <Card>

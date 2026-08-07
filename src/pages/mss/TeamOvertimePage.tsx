@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Check, X, Clock } from 'lucide-react';
+import { Check, X, Clock, Wifi } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
@@ -12,6 +12,9 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { employeeName, employeeById } from '../../data/mock';
+import { isBackendConfigured, useTeamOvertime, useDecideOvertime } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
 
 const fmtH = (n: number) => `${Math.floor(n)}h${n % 1 ? String(Math.round((n % 1) * 60)).padStart(2, '0') : '00'}`;
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
@@ -31,6 +34,16 @@ export function TeamOvertimePage() {
 
   const pending = records.filter((r) => teamIds.has(r.employeeId) && r.status === 'pending').sort((a, b) => (a.date < b.date ? 1 : -1));
 
+  // ── LIVE : heures sup Supabase (status 'detected') scopées à l'équipe. ──
+  const { data: ctx } = useSessionContext();
+  const { data: liveRows } = useTeamOvertime(ctx?.tenantId);
+  const decideLive = useDecideOvertime();
+  const liveScoped = useMemo(
+    () => (liveRows ?? []).filter((r) => teamIds.has(mockEmpId(r.employee_id))),
+    [liveRows, teamIds],
+  );
+  const hasLive = isBackendConfigured && liveScoped.length > 0;
+
   const act = (id: string, status: 'validated' | 'refused', who: string, h: number, adjust?: number) => {
     decide(id, status, adjust);
     toast({
@@ -40,15 +53,55 @@ export function TeamOvertimePage() {
     });
   };
 
+  const actLive = async (overtimeId: string, decision: 'validated' | 'refused', who: string) => {
+    if (!ctx?.tenantId) return;
+    try {
+      await decideLive.mutateAsync({ overtimeId, decision, tenantId: ctx.tenantId });
+      toast({
+        variant: 'success',
+        title: decision === 'validated' ? 'Heures sup validées' : 'Heures sup refusées',
+        description: `${who} — décision journalisée (audit) ; l'employé est informé.`,
+      });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Échec de la décision', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
+
   return (
     <div className="animate-fade-up space-y-5">
       <TeamTimeSubNav />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold text-ink">Valider les heures supplémentaires</h1>
-        <StatusPill tone={pending.length ? 'amber' : 'ok'} dot={false}>{pending.length} à valider</StatusPill>
+        <div className="flex items-center gap-2">
+          {hasLive && (
+            <StatusPill tone="ok" dot={false}><Wifi size={12} className="inline" /> Live DB</StatusPill>
+          )}
+          <StatusPill tone={(hasLive ? liveScoped.length : pending.length) ? 'amber' : 'ok'} dot={false}>{hasLive ? liveScoped.length : pending.length} à valider</StatusPill>
+        </div>
       </div>
 
-      {pending.length > 0 ? (
+      {hasLive ? (
+        <div className="space-y-3">
+          {liveScoped.map((r) => {
+            const who = `${r.employee_first_name ?? ''} ${r.employee_last_name ?? ''}`.trim() || '—';
+            return (
+              <Card key={r.id}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Avatar name={who} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-ink">{who} · <span className="mono text-amber-deep">{fmtH(Number(r.hours))}</span> {r.category === 'night' ? '(nuit)' : `(+${r.rate_pct}%)`}</p>
+                    <p className="text-[11px] font-medium text-ink-400">{frDate(r.work_date)} · {CAT[r.category] ?? r.category}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => actLive(r.id, 'validated', who)} disabled={decideLive.isPending} className="rounded-lg bg-ok/12 px-2.5 py-2 text-[12px] font-bold text-ok hover:bg-ok/20 disabled:opacity-50"><Check size={14} className="inline" /> Valider</button>
+                    <button onClick={() => actLive(r.id, 'refused', who)} disabled={decideLive.isPending} className="rounded-lg bg-danger/10 px-2.5 py-2 text-[12px] font-bold text-danger hover:bg-danger/20 disabled:opacity-50"><X size={14} className="inline" /></button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : pending.length > 0 ? (
         <div className="space-y-3">
           {pending.map((r) => {
             const emp = employeeById(r.employeeId); if (!emp) return null;

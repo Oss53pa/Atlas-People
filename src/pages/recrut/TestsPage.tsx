@@ -11,7 +11,7 @@ import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
 import {
   RECRUITMENT_TESTS, TEST_PASSATIONS, TEST_CATEGORY_META, testById, testKpis,
 } from '../../lib/m5/assessments';
-import { candidateById } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import type { TestCategory, PassationStatus } from '../../lib/m5/types';
 import { cn } from '../../lib/cn';
 
@@ -24,6 +24,7 @@ const PASS_META: Record<PassationStatus, { label: string; tone: 'ok' | 'amber' |
 };
 
 export function TestsPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
   const k = useMemo(() => testKpis(), []);
   const [q, setQ] = useState('');
@@ -113,7 +114,7 @@ export function TestsPage() {
             </tr></thead>
             <tbody className="divide-y divide-line">
               {TEST_PASSATIONS.map((p) => {
-                const cand = candidateById(p.candidateId);
+                const cand = m5.candidateById(p.candidateId);
                 const test = testById(p.testId);
                 const pm = PASS_META[p.status];
                 return (

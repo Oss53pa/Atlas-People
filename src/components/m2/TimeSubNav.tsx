@@ -2,8 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Home, CalendarDays, Fingerprint, CalendarRange, Clock, Megaphone } from 'lucide-react';
 import { useDelegation } from '../../store/useDelegation';
 import { cn } from '../../lib/cn';
-
-const SELF_ID = 'e2';
+import { useSessionContext } from '../../lib/useSession';
 
 const BASE_ITEMS = [
   { to: '/me/time', label: 'Accueil', icon: Home, end: true },

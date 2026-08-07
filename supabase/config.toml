@@ -1,0 +1,20 @@
+# Configuration Supabase CLI.
+#
+# RAISON D'ÊTRE : `supabase functions deploy` applique `verify_jwt = true`
+# par défaut. Sans ce fichier, chaque déploiement d'`atlas-sso` réactivait
+# silencieusement la vérification du JWT et cassait le SSO — la fonction est
+# appelée par le navigateur AVANT toute session (c'est elle qui la crée),
+# donc elle renvoyait 401 avant même d'atteindre son code.
+#
+# Toutes les autres fonctions du projet sont en `verify_jwt = true`, ce qui
+# est correct : elles sont appelées depuis l'application authentifiée. Ne
+# les déclarez ici que pour changer ce comportement.
+
+project_id = "atlas-people"
+
+# Seule fonction publique : point d'entrée SSO depuis Atlas Studio Portal.
+# Sa sécurité ne repose pas sur le JWT Supabase mais sur la signature
+# HMAC-SHA256 du jeton émis par le portail (secret partagé JWT_SECRET),
+# l'expiration obligatoire, le contrôle de `appId` et le CORS restreint.
+[functions.atlas-sso]
+verify_jwt = false

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin Atlas Studio Console — /admin (HORS AppLayout).
  *
  * Workspace de l'administrateur de l'application qui accède DEPUIS Atlas Studio
@@ -16,16 +16,26 @@
  * volontaire avec Atlas People amber-deep pour signaler que c'est une couche au-dessus).
  */
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Settings2, Users, Building2, Shield, ScrollText, ArrowRight,
   Plus, Search, MoreVertical, CheckCircle2, AlertCircle,
   ExternalLink, ChevronRight, Lock, Globe, Coins, FileText,
   Key, ChevronDown, Inbox, Home, LayoutGrid, Compass,
+  Briefcase, Check, Network, UserCheck, Crown,
+  Mail, X, Send,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { supabase, isBackendConfigured } from '../../lib/supabase';
+import { useAuthStore } from '../../lib/auth';
+import { getTenantOwner, setMemberActive, type TenantOwner } from '../../lib/admin/membersLive';
+import {
+  fetchCountryZones, fetchTenantGeography, setTenantCountries, humanizeCountriesError,
+  type CountryZone, type TenantGeography,
+} from '../../lib/admin/tenantSettings';
+import type { TenantType } from '../../store/useAppStore';
 
-type AdminTab = 'tenant' | 'users' | 'settings' | 'security';
+type AdminTab = 'apps' | 'tenant' | 'users' | 'settings' | 'security';
 
 interface UserRow {
   id: string;
@@ -59,6 +69,46 @@ const USERS: UserRow[] = [
   { id: 'u8', name: 'Fatou Diallo',       email: 'fatou.d@atlasdemo.ci',   role: 'employee',   spaces: ['ESS'],                         status: 'invited',   mfa: false },
 ];
 
+// ── Membre chargé depuis atlas_people.tenant_members ─────────────────
+interface DBMember {
+  id: number;
+  email: string;
+  display_name: string | null;
+  role: string;
+  active: boolean;
+  invited_at: string;
+  last_login_at: string | null;
+}
+
+function mapMemberToUserRow(m: DBMember): UserRow {
+  const roleMap: Record<string, UserRow['role']> = {
+    super_admin: 'admin', admin: 'admin', hr: 'drh',
+    manager: 'manager', employee: 'employee',
+  };
+  const spacesMap: Record<string, string[]> = {
+    admin:    ['Back-office', 'MSS', 'ESS', 'Atlas Studio'],
+    drh:      ['Back-office', 'MSS', 'ESS'],
+    hr_agent: ['Back-office', 'ESS'],
+    manager:  ['MSS', 'ESS'],
+    employee: ['ESS'],
+    payroll:  ['Back-office', 'ESS'],
+    compliance:['Back-office', 'ESS'],
+  };
+  const mappedRole = (roleMap[m.role] ?? 'employee') as UserRow['role'];
+  return {
+    id:       String(m.id),
+    name:     m.display_name ?? m.email.split('@')[0],
+    email:    m.email,
+    role:     mappedRole,
+    spaces:   spacesMap[mappedRole] ?? ['ESS'],
+    status:   !m.active ? 'suspended' : !m.last_login_at ? 'invited' : 'active',
+    lastSeen: m.last_login_at
+      ? new Date(m.last_login_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+      : undefined,
+    mfa: false,
+  };
+}
+
 const STATUS_META: Record<UserRow['status'], { label: string; tone: string }> = {
   active:    { label: 'Actif',    tone: 'bg-emerald-100 text-emerald-700' },
   invited:   { label: 'Invité',   tone: 'bg-amber-100 text-amber-700' },
@@ -66,10 +116,84 @@ const STATUS_META: Record<UserRow['status'], { label: string; tone: string }> = 
 };
 
 const TABS: { key: AdminTab; label: string; icon: typeof Building2 }[] = [
+  { key: 'apps',     label: 'Applications',      icon: LayoutGrid },
   { key: 'tenant',   label: 'Entreprise',        icon: Building2 },
   { key: 'users',    label: 'Utilisateurs',      icon: Users },
   { key: 'settings', label: 'Paramètres app',    icon: Settings2 },
   { key: 'security', label: 'Sécurité & audit',  icon: Shield },
+];
+
+interface AtlasApp {
+  key: string;
+  label: string;
+  sub: string;
+  description: string;
+  version: string;
+  accent: string;          // Tailwind bg class active chip
+  accentText: string;      // Tailwind text class
+  accentBorder: string;
+  accentBg: string;
+  status: 'active' | 'beta' | 'soon';
+  to?: string;
+  landingTo?: string;
+  modules: string[];
+}
+
+const ATLAS_APPS: AtlasApp[] = [
+  {
+    key: 'people',
+    label: 'Atlas People',
+    sub: 'SIRH RH · OHADA',
+    description: 'Gestion RH complète — 14 modules de l\'embauche à la sortie. Paie déterministe, OKR, formation FDFP, conformité SST, cockpit DRH unifié.',
+    version: 'v1.0 · 14 modules',
+    accent: 'bg-amber-600',
+    accentText: 'text-amber-700',
+    accentBorder: 'border-amber-300',
+    accentBg: 'bg-amber-50',
+    status: 'active',
+    to: '/',
+    landingTo: '/landing',
+    modules: ['M1 Collaborateurs', 'M2 Temps & absences', 'M3 Paie', 'M5 Recrutement', 'M7 OKR', 'M8 Évaluations', 'M9 Compétences', 'M10 Carrières', 'M11 Formation', 'M12 Conformité & SST', 'M13 Cockpit DRH'],
+  },
+  {
+    key: 'fna',
+    label: 'Atlas Finance & Accounting',
+    sub: 'ERP Comptable · SYSCOHADA',
+    description: 'Comptabilité africaine SYSCOHADA révisé 2017. Journaux, grand livre, bilan, TAFIRE, fiscalité automatique, trésorerie & banque, rapprochement.',
+    version: 'v1.0 · 8 modules',
+    accent: 'bg-teal-600',
+    accentText: 'text-teal-700',
+    accentBorder: 'border-teal-300',
+    accentBg: 'bg-teal-50',
+    status: 'active',
+    modules: ['Comptabilité SYSCOHADA', 'États financiers', 'Fiscalité automatique', 'Trésorerie & banque', 'IA Proph3t', 'Multi-devises', 'Multi-sociétés', 'Audit trail SHA-256'],
+  },
+  {
+    key: 'analytics',
+    label: 'Atlas Analytics',
+    sub: 'BI & Reporting',
+    description: 'Tableau de bord croisé People + FnA. Rapports décisionnels, consolidation multi-entités, export DSIR et liasse OHADA automatisée.',
+    version: 'Bêta Q3 2026',
+    accent: 'bg-violet-600',
+    accentText: 'text-violet-700',
+    accentBorder: 'border-violet-300',
+    accentBg: 'bg-violet-50',
+    status: 'soon',
+    modules: ['Dashboards croisés', 'Consolidation multi-entités', 'Export DSIR', 'BI temps réel'],
+  },
+  {
+    key: 'payroll',
+    label: 'Atlas Payroll Bureau',
+    sub: 'Bureau de paie · multi-clients',
+    description: 'Plateforme multi-tenant pour cabinets de paie. Gestion simultanée de plusieurs entreprises clientes, bulletins en lot, DSN consolidée.',
+    version: 'Bêta Q4 2026',
+    accent: 'bg-blue-600',
+    accentText: 'text-blue-700',
+    accentBorder: 'border-blue-300',
+    accentBg: 'bg-blue-50',
+    status: 'soon',
+    modules: ['Multi-clients', 'Bulletins en lot', 'DSN consolidée', 'Reporting cabinet'],
+  },
 ];
 
 interface Workspace {
@@ -90,10 +214,62 @@ const WORKSPACES: Workspace[] = [
 ];
 
 export function AdminWorkspacePage() {
-  const [tab, setTab] = useState<AdminTab>('users');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<AdminTab>((searchParams.get('tab') as AdminTab) ?? 'apps');
   const [search, setSearch] = useState('');
   const [wsOpen, setWsOpen] = useState(false);
   const wsRef = useRef<HTMLDivElement>(null);
+  const tenantId = useAuthStore((s) => s.tenantId);
+  const [realUsers, setRealUsers] = useState<UserRow[] | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [owner, setOwner] = useState<TenantOwner | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Chargement des membres réels depuis atlas_people.tenant_members
+  useEffect(() => {
+    if (!supabase || !tenantId) return;
+    supabase
+      .schema('atlas_people')
+      .from('tenant_members')
+      .select('id, email, display_name, role, active, invited_at, last_login_at')
+      .eq('tenant_id', tenantId)
+      .order('invited_at', { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) setRealUsers((data as DBMember[]).map(mapMemberToUserRow));
+      });
+  }, [tenantId]);
+
+  // Propriétaire fondateur (CADMIN) — pour badge + protection UI
+  useEffect(() => {
+    if (!tenantId) return;
+    getTenantOwner(tenantId).then(setOwner).catch(() => setOwner(null));
+  }, [tenantId]);
+
+  const handleToggleActive = async (u: UserRow) => {
+    const memberId = Number(u.id);
+    if (!Number.isFinite(memberId)) return;
+    setActionError(null);
+    const nextActive = u.status === 'suspended';
+    try {
+      await setMemberActive(memberId, u.email, nextActive);
+      reloadUsers();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const reloadUsers = () => {
+    if (!supabase || !tenantId) return;
+    supabase
+      .schema('atlas_people')
+      .from('tenant_members')
+      .select('id, email, display_name, role, active, invited_at, last_login_at')
+      .eq('tenant_id', tenantId)
+      .order('invited_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setRealUsers((data as DBMember[]).map(mapMemberToUserRow));
+      });
+  };
 
   // Click outside → close workspaces dropdown
   useEffect(() => {
@@ -105,7 +281,8 @@ export function AdminWorkspacePage() {
     return () => document.removeEventListener('mousedown', onClick);
   }, [wsOpen]);
 
-  const filtered = USERS.filter((u) =>
+  const displayUsers = realUsers ?? USERS;
+  const filtered = displayUsers.filter((u) =>
     !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -247,9 +424,9 @@ export function AdminWorkspacePage() {
           <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Statut global</p>
             <div className="grid grid-cols-2 gap-3">
-              <SmallStat label="Utilisateurs" value={USERS.filter((u) => u.status === 'active').length} unit={`/ ${USERS.length}`} />
-              <SmallStat label="Invitations" value={USERS.filter((u) => u.status === 'invited').length} unit="en attente" />
-              <SmallStat label="MFA activé" value={USERS.filter((u) => u.mfa).length} unit={`/ ${USERS.length}`} tone="success" />
+              <SmallStat label="Utilisateurs" value={displayUsers.filter((u) => u.status === 'active').length} unit={`/ ${displayUsers.length}`} />
+              <SmallStat label="Invitations" value={displayUsers.filter((u) => u.status === 'invited').length} unit="en attente" />
+              <SmallStat label="MFA activé" value={displayUsers.filter((u) => u.mfa).length} unit={`/ ${displayUsers.length}`} tone="success" />
               <SmallStat label="Sessions live" value={4} unit="actives" />
             </div>
           </div>
@@ -283,17 +460,33 @@ export function AdminWorkspacePage() {
 
       {/* ───────── Tab panels ───────── */}
       <section className="mx-auto max-w-7xl px-6 py-6">
+        {tab === 'apps' && <AppsPanel />}
         {tab === 'tenant' && <TenantPanel />}
         {tab === 'users' && (
           <UsersPanel
             users={filtered}
             search={search}
             onSearch={setSearch}
+            onInvite={() => setInviteOpen(true)}
+            isLive={isBackendConfigured && realUsers !== null}
+            ownerEmail={owner?.email ?? null}
+            onToggleActive={handleToggleActive}
+            actionError={actionError}
+            onDismissError={() => setActionError(null)}
           />
         )}
         {tab === 'settings' && <SettingsPanel />}
         {tab === 'security' && <SecurityPanel />}
       </section>
+
+      {/* ───────── Invite modal ───────── */}
+      {inviteOpen && (
+        <InviteModal
+          tenantId={tenantId}
+          onClose={() => setInviteOpen(false)}
+          onSuccess={() => { setInviteOpen(false); reloadUsers(); }}
+        />
+      )}
 
       {/* ───────── Footer ───────── */}
       <footer className="border-t border-slate-200 bg-white">
@@ -320,9 +513,415 @@ export function AdminWorkspacePage() {
  * Panneaux
  * ────────────────────────────────────────────────────────────────── */
 
+function AppsPanel() {
+  const STATUS_CHIP: Record<AtlasApp['status'], { label: string; cls: string }> = {
+    active: { label: 'Actif',       cls: 'bg-emerald-100 text-emerald-700' },
+    beta:   { label: 'Bêta',        cls: 'bg-amber-100 text-amber-700' },
+    soon:   { label: 'Bientôt',     cls: 'bg-slate-100 text-slate-500' },
+  };
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Suite Atlas Studio · {ATLAS_APPS.length} applications</p>
+        <p className="mt-1 text-[13px] font-medium text-slate-500">
+          Chaque application partage le même tenant, le même SSO et le même audit SHA-256. Le compte actuel a accès aux applications marquées <strong className="text-slate-700">Actif</strong>.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {ATLAS_APPS.map((app) => {
+          const chip = STATUS_CHIP[app.status];
+          const isActive = app.status === 'active';
+          return (
+            <div key={app.key} className={cn(
+              'flex flex-col rounded-2xl border bg-white shadow-sm transition-shadow',
+              isActive ? `${app.accentBorder} hover:shadow-md` : 'border-slate-200 opacity-70',
+            )}>
+              {/* Header */}
+              <div className={cn('flex items-start justify-between rounded-t-2xl px-5 py-4', isActive ? app.accentBg : 'bg-slate-50')}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('inline-block h-2.5 w-2.5 rounded-full', app.accent)} />
+                    <h3 className={cn('text-[15px] font-bold', isActive ? app.accentText : 'text-slate-700')}>{app.label}</h3>
+                  </div>
+                  <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{app.sub}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="mono text-[10px] font-bold text-slate-400">{app.version}</span>
+                  <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold', chip.cls)}>{chip.label}</span>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="flex flex-1 flex-col gap-4 p-5">
+                <p className="text-[13px] font-medium leading-relaxed text-slate-600">{app.description}</p>
+
+                <div className="flex flex-wrap gap-1">
+                  {app.modules.slice(0, 6).map((m) => (
+                    <span key={m} className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{m}</span>
+                  ))}
+                  {app.modules.length > 6 && (
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400">+{app.modules.length - 6} autres</span>
+                  )}
+                </div>
+
+                {isActive && (
+                  <div className="mt-auto flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                    {app.to && (
+                      <Link to={app.to}
+                        className={cn('inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[12px] font-bold text-white shadow-sm transition-shadow hover:shadow-md', app.accent)}>
+                        <ExternalLink size={13} /> Ouvrir l'application
+                      </Link>
+                    )}
+                    {app.landingTo && (
+                      <Link to={app.landingTo}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50">
+                        <ExternalLink size={13} /> Landing page
+                      </Link>
+                    )}
+                  </div>
+                )}
+                {!isActive && (
+                  <div className="mt-auto border-t border-slate-100 pt-4">
+                    <span className="text-[12px] font-medium text-slate-400">Disponible prochainement · rejoignez la liste d'attente</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const TENANT_MODES: {
+  key: TenantType;
+  label: string;
+  sub: string;
+  description: string;
+  icon: typeof Building2;
+  accent: string;
+  accentBg: string;
+  accentText: string;
+  chip: string;
+  tags: string[];
+}[] = [
+  {
+    key: 'entreprise',
+    label: 'Atlas People Core',
+    sub: 'SIRH Entreprise · Auto-gestion RH',
+    description: 'Votre entreprise gère directement son propre RH et sa paie. Accès complet aux 14 modules Atlas People.',
+    icon: Building2,
+    accent: 'border-amber-400',
+    accentBg: 'bg-amber-50',
+    accentText: 'text-amber-700',
+    chip: 'bg-amber-100 text-amber-700',
+    tags: ['14 modules actifs', 'Multi-pays OHADA', 'Self-service ESS/MSS'],
+  },
+  {
+    key: 'cabinet_complet',
+    label: 'Atlas People Conseil',
+    sub: 'Cabinet RH · Gestion complète tiers',
+    description: 'Votre cabinet prend en charge la gestion RH et administrative complète pour des entreprises clientes.',
+    icon: Briefcase,
+    accent: 'border-teal-400',
+    accentBg: 'bg-teal-50',
+    accentText: 'text-teal-700',
+    chip: 'bg-teal-100 text-teal-700',
+    tags: ['Gestion multi-clients', 'RH + Paie tiers', 'Reporting cabinet'],
+  },
+  {
+    key: 'cabinet_paie',
+    label: 'Atlas Payroll',
+    sub: 'Bureau de paie · Pour le compte de tiers',
+    description: 'Votre cabinet traite uniquement la paie pour des entreprises clientes. Modules M2 Temps et M3 Paie prioritaires.',
+    icon: Coins,
+    accent: 'border-blue-400',
+    accentBg: 'bg-blue-50',
+    accentText: 'text-blue-700',
+    chip: 'bg-blue-100 text-blue-700',
+    tags: ['Paie multi-clients', 'Bulletins en lot', 'DSN consolidée'],
+  },
+  {
+    key: 'cabinet_mixte',
+    label: 'Atlas People 360',
+    sub: 'Structure mixte · RH propre + tiers',
+    description: 'Votre cabinet gère à la fois son propre personnel en interne et des entreprises clientes. Deux périmètres distincts, un seul workspace.',
+    icon: Network,
+    accent: 'border-violet-400',
+    accentBg: 'bg-violet-50',
+    accentText: 'text-violet-700',
+    chip: 'bg-violet-100 text-violet-700',
+    tags: ['RH interne', 'Multi-clients', 'Double périmètre'],
+  },
+  {
+    key: 'cabinet_agence',
+    label: 'Atlas People Placement',
+    sub: 'Agence · Mise à disposition · Intérim',
+    description: 'Votre agence emploie des travailleurs placés chez des entreprises clientes. Vous êtes l\'employeur légal — gestion RH, paie et conformité centralisées.',
+    icon: UserCheck,
+    accent: 'border-rose-400',
+    accentBg: 'bg-rose-50',
+    accentText: 'text-rose-700',
+    chip: 'bg-rose-100 text-rose-700',
+    tags: ['Employeur légal', 'Travailleurs placés', 'Multi-sites clients'],
+  },
+];
+
+function TenantModeSelector() {
+  const tenantId = useAuthStore((s) => s.tenantId);
+  const tenantType = useAuthStore((s) => s.tenantType);
+  const setTenantType = useAuthStore((s) => s._setTenantType);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSelect = async (key: TenantType) => {
+    if (!tenantId || key === tenantType || saving || !supabase) return;
+    setSaving(true); setSaveError(null); setSaved(false);
+    const { error } = await supabase
+      .schema('atlas_people')
+      .from('tenants')
+      .update({ tenant_type: key, updated_at: new Date().toISOString() })
+      .eq('id', tenantId);
+    setSaving(false);
+    if (error) { setSaveError(error.message); return; }
+    setTenantType(key);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3500);
+  };
+
+  return (
+    <PanelCard title="Mode de fonctionnement" subtitle="Définit la nature de votre workspace Atlas People" icon={Settings2}>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {TENANT_MODES.map((m) => {
+          const Icon = m.icon;
+          const isActive = tenantType === m.key;
+          return (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => handleSelect(m.key)}
+              disabled={saving}
+              className={cn(
+                'relative rounded-2xl border-2 p-4 text-left transition-all hover:shadow-md disabled:opacity-60',
+                isActive ? `${m.accent} ${m.accentBg}` : 'border-slate-200 bg-white hover:border-slate-300',
+              )}
+            >
+              {isActive && (
+                <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-white">
+                  <Check size={13} />
+                </span>
+              )}
+              <span className={cn(
+                'inline-flex h-10 w-10 items-center justify-center rounded-xl ring-1',
+                isActive ? `${m.accentBg} ${m.accentText} ring-current/20` : 'bg-slate-100 text-slate-600 ring-slate-200',
+              )}>
+                <Icon size={18} />
+              </span>
+              <p className={cn('mt-3 text-[14px] font-bold', isActive ? m.accentText : 'text-slate-900')}>{m.label}</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{m.sub}</p>
+              <p className="mt-2 text-[12px] font-medium leading-relaxed text-slate-600">{m.description}</p>
+              <div className="mt-3 flex flex-wrap gap-1">
+                {m.tags.map((t) => (
+                  <span key={t} className={cn('rounded-md px-2 py-0.5 text-[10px] font-semibold', isActive ? m.chip : 'bg-slate-100 text-slate-600')}>{t}</span>
+                ))}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {saved && (
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-[12px] font-semibold text-emerald-700">
+          <CheckCircle2 size={14} /> Mode enregistré avec succès.
+        </div>
+      )}
+      {saveError && (
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
+          <AlertCircle size={14} /> {saveError}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+/**
+ * Pays du workspace — et donc zone monétaire et devise.
+ *
+ * Le provisionnement déduit ces valeurs du pays connu à la création du
+ * compte (migration 0066), que le portail ne renseigne pas toujours. Sans
+ * cet écran, un client CEMAC restait bloqué en XOF pour toujours : rien
+ * dans l'application n'écrivait `tenants.countries`, `zone` ni `currency`.
+ *
+ * Les règles sont tenues par la base, pas ici : `set_tenant_countries`
+ * refuse un mélange UEMOA/CEMAC et tout changement de devise sur un
+ * workspace qui a déjà des bulletins. L'écran anticipe le premier refus
+ * pour éviter un aller-retour inutile, mais ne se substitue à aucun.
+ */
+function TenantCountriesSelector() {
+  const tenantId = useAuthStore((s) => s.tenantId);
+  const [zones, setZones] = useState<CountryZone[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [geo, setGeo] = useState<TenantGeography | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!tenantId || !isBackendConfigured) { setLoading(false); return; }
+    let alive = true;
+    void (async () => {
+      try {
+        const [z, g] = await Promise.all([fetchCountryZones(), fetchTenantGeography(tenantId)]);
+        if (!alive) return;
+        setZones(z);
+        setGeo(g);
+        setSelected(g?.countries ?? []);
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : 'Chargement impossible.');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [tenantId]);
+
+  // Zone impliquée par la sélection courante : sert à griser l'autre zone
+  // plutôt qu'à laisser l'utilisateur construire une sélection que la base
+  // refusera.
+  const pickedZone = zones.find((z) => selected.includes(z.code))?.zone ?? null;
+  const dirty =
+    selected.length > 0 &&
+    (selected.length !== (geo?.countries.length ?? 0) ||
+      selected.some((c) => !geo?.countries.includes(c)));
+
+  const toggle = (code: string) => {
+    setSaved(false); setError(null);
+    setSelected((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+  };
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false);
+    try {
+      const next = await setTenantCountries(selected);
+      setGeo(next);
+      setSelected(next.countries);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3500);
+    } catch (e) {
+      setError(humanizeCountriesError(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const byZone = (zone: 'UEMOA' | 'CEMAC') => zones.filter((z) => z.zone === zone);
+
+  return (
+    <PanelCard
+      title="Pays du workspace"
+      subtitle="Détermine la zone monétaire et la devise de toute la paie"
+      icon={Globe}
+    >
+      {loading ? (
+        <p className="text-[12px] font-medium text-slate-500">Chargement…</p>
+      ) : zones.length === 0 ? (
+        <p className="text-[12px] font-medium text-slate-500">
+          Référentiel des pays indisponible.
+        </p>
+      ) : (
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+              {geo?.zone ?? '—'}
+            </span>
+            <span className="mono rounded-lg bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-800">
+              {geo?.currency ?? '—'}
+            </span>
+            <span className="text-[11px] font-medium text-slate-500">
+              zone et devise déduites des pays sélectionnés
+            </span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(['UEMOA', 'CEMAC'] as const).map((zone) => {
+              const blocked = pickedZone !== null && pickedZone !== zone;
+              return (
+                <div key={zone}>
+                  <p className={cn(
+                    'mb-2 text-[11px] font-bold uppercase tracking-wider',
+                    blocked ? 'text-slate-400' : 'text-slate-600',
+                  )}>
+                    {zone} · {zone === 'UEMOA' ? 'XOF' : 'XAF'}
+                    {blocked && ' — indisponible (zone déjà engagée)'}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {byZone(zone).map((c) => {
+                      const active = selected.includes(c.code);
+                      return (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => toggle(c.code)}
+                          disabled={saving || (blocked && !active)}
+                          title={`${c.name} · ${c.socialFund}`}
+                          className={cn(
+                            'rounded-xl border px-2.5 py-1.5 text-[12px] font-semibold transition-colors',
+                            active
+                              ? 'border-teal-400 bg-teal-50 text-teal-800'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                            (blocked && !active) && 'cursor-not-allowed opacity-40 hover:border-slate-200',
+                          )}
+                        >
+                          {active && <Check size={11} className="mr-1 inline align-[-1px]" />}
+                          {c.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={!dirty || saving}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-[12px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {saving ? 'Enregistrement…' : 'Enregistrer les pays'}
+            </button>
+            <p className="text-[11px] font-medium text-slate-500">
+              XOF (UEMOA) et XAF (CEMAC) ne se mélangent jamais dans un calcul.
+            </p>
+          </div>
+
+          {saved && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-[12px] font-semibold text-emerald-700">
+              <CheckCircle2 size={14} /> Pays enregistrés.
+            </div>
+          )}
+          {error && (
+            <div className="mt-3 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
+              <AlertCircle size={14} className="mt-0.5 shrink-0" /> {error}
+            </div>
+          )}
+        </>
+      )}
+    </PanelCard>
+  );
+}
+
 function TenantPanel() {
   return (
-    <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+    <div className="space-y-4">
+      <TenantModeSelector />
+      <TenantCountriesSelector />
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <PanelCard title="Identité de l'entreprise" subtitle="Données SYSCOHADA · OHADA · pour bulletins, contrats, déclarations" icon={Building2}>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
@@ -354,24 +953,56 @@ function TenantPanel() {
           ))}
         </ul>
       </PanelCard>
+      </div>
     </div>
   );
 }
 
-interface UsersPanelProps { users: UserRow[]; search: string; onSearch: (s: string) => void }
+interface UsersPanelProps {
+  users: UserRow[];
+  search: string;
+  onSearch: (s: string) => void;
+  onInvite: () => void;
+  isLive: boolean;
+  ownerEmail: string | null;
+  onToggleActive: (u: UserRow) => Promise<void>;
+  actionError: string | null;
+  onDismissError: () => void;
+}
 
-function UsersPanel({ users, search, onSearch }: UsersPanelProps) {
+function UsersPanel({ users, search, onSearch, onInvite, isLive, ownerEmail, onToggleActive, actionError, onDismissError }: UsersPanelProps) {
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuFor) return;
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [menuFor]);
+
+  const handleToggle = async (u: UserRow) => {
+    setMenuFor(null);
+    setBusyId(u.id);
+    await onToggleActive(u);
+    setBusyId(null);
+  };
+
   return (
     <PanelCard
       title="Utilisateurs Atlas People"
-      subtitle={`${users.length} comptes · MFA activé sur ${users.filter((u) => u.mfa).length}`}
+      subtitle={`${users.length} comptes${isLive ? ' · données live' : ' · démo'} · MFA activé sur ${users.filter((u) => u.mfa).length}`}
       icon={Users}
       action={
         <button
           type="button"
+          onClick={onInvite}
           className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition-shadow hover:shadow-lg"
         >
-          <Plus size={13} /> Nouvel utilisateur
+          <Plus size={13} /> Inviter un utilisateur
         </button>
       }
     >
@@ -385,6 +1016,15 @@ function UsersPanel({ users, search, onSearch }: UsersPanelProps) {
           className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none"
         />
       </div>
+
+      {actionError && (
+        <div className="mb-4 flex items-start justify-between gap-2 rounded-xl bg-rose-50 px-3 py-2.5 text-[12px] font-semibold text-rose-700">
+          <span className="flex items-start gap-2"><AlertCircle size={14} className="mt-0.5 shrink-0" /> {actionError}</span>
+          <button type="button" onClick={onDismissError} className="shrink-0 rounded-lg p-0.5 text-rose-400 hover:text-rose-700" aria-label="Fermer">
+            <X size={13} />
+          </button>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full min-w-[760px] text-sm">
@@ -400,7 +1040,9 @@ function UsersPanel({ users, search, onSearch }: UsersPanelProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {users.map((u) => (
+            {users.map((u) => {
+              const isOwner = !!ownerEmail && u.email.toLowerCase() === ownerEmail.toLowerCase();
+              return (
               <tr key={u.id} className="hover:bg-slate-50/60">
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2.5">
@@ -435,12 +1077,50 @@ function UsersPanel({ users, search, onSearch }: UsersPanelProps) {
                 </td>
                 <td className="px-3 py-2.5 text-[11px] font-medium text-slate-500">{u.lastSeen ?? '—'}</td>
                 <td className="px-3 py-2.5 text-right">
-                  <button type="button" aria-label="Plus d'actions" className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700">
-                    <MoreVertical size={15} />
-                  </button>
+                  {isOwner ? (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700"
+                      title="Propriétaire fondateur du tenant — non révocable"
+                    >
+                      <Crown size={11} /> Propriétaire
+                    </span>
+                  ) : isLive ? (
+                    <div className="relative inline-block" ref={menuFor === u.id ? menuRef : undefined}>
+                      <button
+                        type="button"
+                        onClick={() => setMenuFor(menuFor === u.id ? null : u.id)}
+                        aria-label="Plus d'actions"
+                        aria-haspopup="menu"
+                        aria-expanded={menuFor === u.id}
+                        disabled={busyId === u.id}
+                        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-60"
+                      >
+                        {busyId === u.id
+                          ? <span className="block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                          : <MoreVertical size={15} />}
+                      </button>
+                      {menuFor === u.id && (
+                        <div role="menu" className="absolute right-0 z-10 mt-1 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => handleToggle(u)}
+                            className="block w-full px-3 py-2 text-left text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            {u.status === 'suspended' ? 'Réactiver l’accès' : 'Suspendre l’accès'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button type="button" disabled aria-label="Plus d'actions" className="rounded-lg p-1.5 text-slate-300">
+                      <MoreVertical size={15} />
+                    </button>
+                  )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -564,6 +1244,230 @@ function SecRow({ icon: Icon, label, value, tone }: SecRowProps) {
         {label}
       </span>
       <span className={cn('mono text-[11px] font-bold', tone === 'success' ? 'text-emerald-700' : tone === 'warn' ? 'text-amber-700' : 'text-rose-700')}>{value}</span>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * InviteModal — créer une invitation et envoyer l'email
+ * ────────────────────────────────────────────────────────────────── */
+
+interface InviteRoleDef {
+  value: string;
+  label: string;
+  description: string;
+  icon: typeof Users;
+  spaces: string[];
+  color: string;
+}
+
+const INVITE_ROLES: InviteRoleDef[] = [
+  {
+    value: 'employee',
+    label: 'Collaborateur',
+    description: 'Accès à son espace personnel uniquement — bulletins, congés, profil.',
+    icon: Users,
+    spaces: ['Mon espace'],
+    color: 'text-emerald-600',
+  },
+  {
+    value: 'manager',
+    label: 'Manager',
+    description: 'Gère son équipe (N-1) + accès à son espace personnel collaborateur.',
+    icon: Briefcase,
+    spaces: ['Mon équipe', 'Mon espace'],
+    color: 'text-blue-600',
+  },
+  {
+    value: 'hr',
+    label: 'Agent RH / Paie',
+    description: 'Accès back-office : dossiers collaborateurs, paie, temps, conformité.',
+    icon: Shield,
+    spaces: ['Administration RH'],
+    color: 'text-violet-600',
+  },
+  {
+    value: 'admin',
+    label: 'Administrateur',
+    description: 'Accès complet + peut inviter tous les profils et configurer le workspace.',
+    icon: Key,
+    spaces: ['Administration RH', 'Mon équipe', 'Mon espace'],
+    color: 'text-amber-600',
+  },
+];
+
+interface InviteModalProps {
+  tenantId: string | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function InviteModal({ onClose, onSuccess }: InviteModalProps) {
+  const [email, setEmail]           = useState('');
+  const [role, setRole]             = useState('employee');
+  const [displayName, setDisplayName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [result, setResult]         = useState<{ inviteUrl?: string; note?: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    setSubmitting(true); setError(null);
+
+    const { data, error: fnErr } = await supabase.functions.invoke('send-invitation-email', {
+      body: { email: email.trim(), role, display_name: displayName.trim() || undefined },
+    });
+
+    setSubmitting(false);
+    if (fnErr) { setError(fnErr.message); return; }
+    if (data?.error) { setError(data.error); return; }
+
+    if (data?.invite_url) {
+      setResult({ inviteUrl: data.invite_url, note: data.note });
+    } else {
+      onSuccess();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Fermer"
+        >
+          <X size={16} />
+        </button>
+
+        <div className="mb-5 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-200/60">
+            <Mail size={18} />
+          </span>
+          <div>
+            <h2 className="text-[16px] font-bold text-slate-900">Inviter un utilisateur</h2>
+            <p className="text-[11px] font-medium text-slate-500">Un lien d'invitation sera envoyé par email</p>
+          </div>
+        </div>
+
+        {result ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-amber-50 p-4 text-[13px] font-medium text-amber-800">
+              <p className="font-bold">{result.note ?? "Lien d'accès généré"}</p>
+              <p className="mono mt-2 break-all rounded-lg bg-white/70 px-3 py-2 text-[11px] text-amber-900">{result.inviteUrl}</p>
+            </div>
+            <p className="text-[12px] font-medium text-slate-500">L'utilisateur avait déjà un compte — partagez ce lien directement.</p>
+            <button
+              type="button"
+              onClick={onSuccess}
+              className="w-full rounded-2xl bg-teal-600 py-2.5 text-[13px] font-bold text-white transition-shadow hover:shadow-lg"
+            >
+              Terminer
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Adresse email *
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="prenom@entreprise.ci"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Nom affiché
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Prénom Nom (optionnel)"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Profil
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {INVITE_ROLES.map((r) => {
+                  const RIcon = r.icon;
+                  const active = role === r.value;
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setRole(r.value)}
+                      className={cn(
+                        'rounded-xl border-2 p-3 text-left transition-all',
+                        active
+                          ? 'border-teal-400 bg-teal-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300',
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <RIcon size={14} className={active ? 'text-teal-600' : r.color} />
+                        <span className={cn('text-[12px] font-bold', active ? 'text-teal-800' : 'text-slate-800')}>{r.label}</span>
+                      </div>
+                      <p className="mt-1 text-[10px] font-medium leading-snug text-slate-500">{r.description}</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {r.spaces.map((sp) => (
+                          <span key={sp} className={cn(
+                            'rounded-md px-1.5 py-0.5 text-[9px] font-bold',
+                            active ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500',
+                          )}>{sp}</span>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2.5 text-[12px] font-semibold text-rose-700">
+                <AlertCircle size={13} /> {error}
+              </div>
+            )}
+
+            {!isBackendConfigured && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-700">
+                <AlertCircle size={13} /> Mode démo — l'invitation ne sera pas envoyée
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-2xl border border-slate-200 bg-white py-2.5 text-[13px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || !email}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-teal-600 py-2.5 text-[13px] font-bold text-white transition-shadow hover:shadow-lg disabled:opacity-60"
+              >
+                {submitting ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  <><Send size={13} /> Envoyer l'invitation</>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

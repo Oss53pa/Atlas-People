@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Target, Radar, Award, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Target, Radar, Award, ArrowRight, AlertTriangle, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -8,9 +8,12 @@ import { PerformanceSubNav } from '../../components/mss/PerformanceSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
-import { scopedTeam } from '../../lib/mss/scope';
+import { scopedTeam, scopedTeamIds } from '../../lib/mss/scope';
 import { memberOkr, memberEval, memberOneOnOne, member360, memberRecognition, OKR_STATUS_META, type OkrStatus } from '../../lib/mss/perf';
 import { employeeName } from '../../data/mock';
+import { isBackendConfigured, useTeamEvaluations, useTeamObjectives } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
+import { mockEmpId } from '../../lib/m1/roster';
 
 function Bar({ pct, tone = 'info' }: { pct: number; tone?: 'info' | 'ok' | 'warn' | 'danger' }) {
   const c = tone === 'ok' ? 'bg-ok' : tone === 'warn' ? 'bg-warn' : tone === 'danger' ? 'bg-danger' : 'bg-info';
@@ -24,6 +27,30 @@ export function TeamPerformanceDashboardPage() {
   const employees = useDirectory((s) => s.employees);
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
+  const teamIds = useMemo(() => scopedTeamIds(depth, employees), [depth, employees]);
+
+  const { data: ctx } = useSessionContext();
+  const { data: liveEvals } = useTeamEvaluations(ctx?.tenantId ?? undefined);
+  const { data: liveObjectives } = useTeamObjectives(ctx?.tenantId ?? undefined);
+
+  // KPIs live (Supabase) — dérivés des évaluations & objectifs d'équipe, périmètre managérial.
+  const live = useMemo(() => {
+    if (!isBackendConfigured || !liveEvals || liveEvals.length === 0) return null;
+    const scopedEvals = liveEvals.filter((r) => teamIds.has(mockEmpId(r.employee_id)));
+    if (scopedEvals.length === 0) return null;
+    const notes = scopedEvals.map((r) => r.note_finale).filter((n): n is number => n != null);
+    const avgNote = notes.length ? notes.reduce((s, n) => s + n, 0) / notes.length : 0;
+    const CLASSES = ['A', 'B', 'C', 'D', 'E'];
+    const classDist = CLASSES.map((c) => ({ c, n: scopedEvals.filter((r) => r.classe === c).length }));
+    const classified = classDist.reduce((s, d) => s + d.n, 0);
+    const DONE = ['calibrated', 'entretien_pending', 'signed', 'closed'];
+    const evaluated = scopedEvals.filter((r) => DONE.includes(r.status)).length;
+    const pending = scopedEvals.length - evaluated;
+    const scopedObj = (liveObjectives ?? []).filter((r) => r.owner_id == null || teamIds.has(mockEmpId(r.owner_id)));
+    const OBJ_DONE = ['done', 'achieved', 'closed', 'validated'];
+    const objDone = scopedObj.filter((r) => OBJ_DONE.includes(r.status)).length;
+    return { total: scopedEvals.length, avgNote, classDist, classified, evaluated, pending, objTotal: scopedObj.length, objDone };
+  }, [liveEvals, liveObjectives, teamIds]);
 
   const okrs = team.map(memberOkr);
   const okrAvg = okrs.length ? Math.round(okrs.reduce((s, o) => s + o.progress, 0) / okrs.length) : 0;
@@ -51,10 +78,53 @@ export function TeamPerformanceDashboardPage() {
   return (
     <div className="animate-fade-up space-y-5">
       <PerformanceSubNav />
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-info">Campagne en cours · Évaluation annuelle 2026</p>
-        <h1 className="text-2xl font-semibold text-ink">Performance de l'équipe</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-info">Campagne en cours · Évaluation annuelle 2026</p>
+          <h1 className="text-2xl font-semibold text-ink">Performance de l'équipe</h1>
+        </div>
+        {live && (
+          <StatusPill tone="ok" dot={false}><span className="inline-flex items-center gap-1"><Wifi size={12} /> Live DB</span></StatusPill>
+        )}
       </div>
+
+      {live && (
+        <Card>
+          <CardHeader title="Synthèse d'équipe (live)" subtitle={`${live.total} évaluation(s) · périmètre confidentiel`} action={<span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Supabase</span>} />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-surface2 px-3 py-2.5">
+              <p className="mono text-xl font-semibold text-ink">{live.avgNote.toFixed(1)}<span className="text-[12px] font-medium text-ink-400">/5</span></p>
+              <p className="text-[11px] font-medium text-ink-500">Note finale moyenne</p>
+            </div>
+            <div className="rounded-xl bg-surface2 px-3 py-2.5">
+              <p className="mono text-xl font-semibold text-ok">{live.evaluated}</p>
+              <p className="text-[11px] font-medium text-ink-500">Évaluées (calibrées+)</p>
+            </div>
+            <div className="rounded-xl bg-surface2 px-3 py-2.5">
+              <p className="mono text-xl font-semibold text-warn">{live.pending}</p>
+              <p className="text-[11px] font-medium text-ink-500">En cours / à traiter</p>
+            </div>
+            <div className="rounded-xl bg-surface2 px-3 py-2.5">
+              <p className="mono text-xl font-semibold text-info">{live.objDone}<span className="text-[12px] font-medium text-ink-400">/{live.objTotal}</span></p>
+              <p className="text-[11px] font-medium text-ink-500">Objectifs finalisés</p>
+            </div>
+          </div>
+          {live.classified > 0 && (
+            <div className="mt-4">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-400">Distribution des classes (A–E)</p>
+              <div className="space-y-1.5">
+                {live.classDist.map((d) => (
+                  <div key={d.c} className="flex items-center gap-2 text-[12px] font-medium">
+                    <span className="w-4 text-ink-500">{d.c}</span>
+                    <div className="flex-1"><Bar pct={Math.round((d.n / live.classified) * 100)} tone={d.c === 'A' || d.c === 'B' ? 'ok' : d.c === 'C' ? 'info' : d.c === 'D' ? 'warn' : 'danger'} /></div>
+                    <span className="mono w-6 text-right text-ink-400">{d.n}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>

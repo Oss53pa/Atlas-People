@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Clock,
   Wallet,
+  Wifi,
 } from 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { SectionHeader } from '../components/ui/SectionHeader';
@@ -16,11 +17,14 @@ import { StatCard } from '../components/ui/StatCard';
 import { StatusPill } from '../components/ui/StatusPill';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
+import { useToast } from '../components/ui/Toast';
 import { Money } from '../lib/money';
 import { checkPolicy, EXPENSE_CATEGORIES, categoryByCode } from '../lib/expenses/policy';
 import { detectAnomalies, ANOMALY_LABEL } from '../lib/expenses/anomalies';
+import { useExpenseClaims, useSubmitExpenseClaim, useDecideExpenseClaim, isBackendConfigured } from '../lib/expenses/supabaseLive';
 import { EXPENSE_CLAIMS, employeeById, employeeName, type ExpenseClaim } from '../data/mock';
 import { TENANT_CURRENCY } from '../data/countries';
+import { useAuth } from '../lib/auth';
 import { cn } from '../lib/cn';
 
 const BENEFITS = [
@@ -30,32 +34,158 @@ const BENEFITS = [
 ];
 
 export function NotesFraisPage() {
-  const [claims, setClaims] = useState<ExpenseClaim[]>(EXPENSE_CLAIMS);
+  const { tenantId } = useAuth();
+  const { toast } = useToast();
+
+  // ── Données live vs mock ─────────────────────────────────────────────
+  const { data: liveClaims, isLoading } = useExpenseClaims(tenantId ?? undefined);
+  const submitClaim = useSubmitExpenseClaim();
+  const decideClaim = useDecideExpenseClaim();
+
+  // Mock fallback (mode démo)
+  const [mockClaims, setMockClaims] = useState<ExpenseClaim[]>(EXPENSE_CLAIMS);
+
+  // ── Formulaire ───────────────────────────────────────────────────────
   const [category, setCategory] = useState('transport');
   const [amount, setAmount] = useState(0);
   const [hasReceipt, setHasReceipt] = useState(false);
   const [scanned, setScanned] = useState<string | null>(null);
 
-  const anomalies = useMemo(() => detectAnomalies(claims), [claims]);
   const policy = checkPolicy(category, amount);
 
-  const totalReimburse = Money.sum(
-    claims.filter((c) => c.status !== 'refused').map((c) => Money.of(c.amount, TENANT_CURRENCY)),
+  // ── Dérivation des claims unifiés pour les stats & anomalies ────────
+  const claimsForAnomaly: ExpenseClaim[] = useMemo(() => {
+    if (isBackendConfigured && liveClaims) {
+      return liveClaims.map((c) => ({
+        id: c.id,
+        employeeId: c.employee_id,
+        category: c.category,
+        amount: c.amount,
+        date: c.created_at.slice(0, 10),
+        status: c.status,
+        hasReceipt: c.receipt_url !== null,
+      }));
+    }
+    return mockClaims;
+  }, [liveClaims, mockClaims]);
+
+  const anomalies = useMemo(() => detectAnomalies(claimsForAnomaly), [claimsForAnomaly]);
+
+  const totalReimburse = useMemo(() => Money.sum(
+    claimsForAnomaly.filter((c) => c.status !== 'refused').map((c) => Money.of(c.amount, TENANT_CURRENCY)),
     TENANT_CURRENCY,
-  );
-  const pendingCount = claims.filter((c) => c.status === 'pending').length;
+  ), [claimsForAnomaly]);
+
+  const pendingCount = claimsForAnomaly.filter((c) => c.status === 'pending').length;
   const anomalyCount = [...anomalies.keys()].length;
   const taxableBenefits = Money.sum(BENEFITS.map((b) => Money.of(b.monthlyValue, TENANT_CURRENCY)), TENANT_CURRENCY);
 
-  const decide = (id: string, status: 'approved' | 'refused') =>
-    setClaims((cs) => cs.map((c) => (c.id === id ? { ...c, status } : c)));
+  // ── Actions ──────────────────────────────────────────────────────────
+  const handleDecide = async (id: string, decision: 'approved' | 'refused') => {
+    if (!isBackendConfigured || !tenantId) {
+      setMockClaims((cs) => cs.map((c) => (c.id === id ? { ...c, status: decision } : c)));
+      return;
+    }
+    try {
+      await decideClaim.mutateAsync({ claimId: id, decision, tenantId });
+      toast({ variant: 'success', title: decision === 'approved' ? 'Note validée' : 'Note refusée' });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!isBackendConfigured) {
+      toast({ variant: 'info', title: 'Mode démo', description: "Soumission réelle disponible après authentification RH." });
+      return;
+    }
+    try {
+      await submitClaim.mutateAsync({ category, amount, hasReceipt });
+      toast({ variant: 'success', title: 'Note soumise', description: `${categoryByCode(category).label} — ${Money.of(amount, TENANT_CURRENCY).format()} FCFA` });
+      setAmount(0);
+      setHasReceipt(false);
+      setScanned(null);
+    } catch (e) {
+      toast({ variant: 'error', title: 'Échec de la soumission', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
 
   const runOcr = () => {
-    // OCR simulé (Proph3t) : pré-remplissage depuis le justificatif.
     setCategory('carburant');
     setAmount(18_500);
     setHasReceipt(true);
     setScanned('Total Énergies · 18 500 FCFA · 24/05/2026');
+  };
+
+  // ── Rendu des lignes de notes (live ou mock) ─────────────────────────
+  const renderClaims = () => {
+    if (isBackendConfigured) {
+      if (isLoading) return <p className="px-5 py-4 text-sm text-ink-400">Chargement…</p>;
+      if (!liveClaims?.length) return <p className="px-5 py-4 text-sm text-ink-400">Aucune note de frais.</p>;
+      return liveClaims.map((c) => {
+        const fullName = [c.employee_first_name, c.employee_last_name].filter(Boolean).join(' ') || '—';
+        const cat = categoryByCode(c.category);
+        const pol = checkPolicy(c.category, c.amount);
+        const anos = anomalies.get(c.id) ?? [];
+        return (
+          <div key={c.id} className="flex items-center gap-3 px-5 py-3">
+            <Avatar name={fullName} size="sm" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="truncate text-sm font-bold text-ink">{fullName}</p>
+                {!pol.withinPolicy && <StatusPill tone="danger" dot={false}>Hors plafond</StatusPill>}
+                {anos.map((a) => <StatusPill key={a} tone="warn" dot={false}>{ANOMALY_LABEL[a]}</StatusPill>)}
+              </div>
+              <p className="text-[11px] font-medium text-ink-400">
+                {cat.label} · {new Date(c.created_at).toLocaleDateString('fr-FR')}{c.receipt_url ? '' : ' · sans justificatif'}
+              </p>
+            </div>
+            <span className="mono text-sm font-bold text-ink">{Money.of(c.amount, TENANT_CURRENCY).format()}</span>
+            {c.status === 'pending' ? (
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => handleDecide(c.id, 'approved')} disabled={decideClaim.isPending} className="rounded-lg bg-ok/12 p-2 text-ok hover:bg-ok/20 disabled:opacity-40"><Check size={15} /></button>
+                <button onClick={() => handleDecide(c.id, 'refused')} disabled={decideClaim.isPending} className="rounded-lg bg-danger/10 p-2 text-danger hover:bg-danger/20 disabled:opacity-40"><X size={15} /></button>
+              </div>
+            ) : (
+              <StatusPill tone={c.status === 'approved' ? 'ok' : 'danger'}>{c.status === 'approved' ? 'Validé' : 'Refusé'}</StatusPill>
+            )}
+          </div>
+        );
+      });
+    }
+
+    // Mode démo
+    return mockClaims.map((c) => {
+      const emp = employeeById(c.employeeId);
+      if (!emp) return null;
+      const cat = categoryByCode(c.category);
+      const pol = checkPolicy(c.category, c.amount);
+      const anos = anomalies.get(c.id) ?? [];
+      return (
+        <div key={c.id} className="flex items-center gap-3 px-5 py-3">
+          <Avatar name={employeeName(emp)} size="sm" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="truncate text-sm font-bold text-ink">{employeeName(emp)}</p>
+              {!pol.withinPolicy && <StatusPill tone="danger" dot={false}>Hors plafond</StatusPill>}
+              {anos.map((a) => <StatusPill key={a} tone="warn" dot={false}>{ANOMALY_LABEL[a]}</StatusPill>)}
+            </div>
+            <p className="text-[11px] font-medium text-ink-400">
+              {cat.label} · {new Date(c.date).toLocaleDateString('fr-FR')}{c.hasReceipt ? '' : ' · sans justificatif'}
+            </p>
+          </div>
+          <span className="mono text-sm font-bold text-ink">{Money.of(c.amount, TENANT_CURRENCY).format()}</span>
+          {c.status === 'pending' ? (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => handleDecide(c.id, 'approved')} className="rounded-lg bg-ok/12 p-2 text-ok hover:bg-ok/20"><Check size={15} /></button>
+              <button onClick={() => handleDecide(c.id, 'refused')} className="rounded-lg bg-danger/10 p-2 text-danger hover:bg-danger/20"><X size={15} /></button>
+            </div>
+          ) : (
+            <StatusPill tone={c.status === 'approved' ? 'ok' : 'danger'}>{c.status === 'approved' ? 'Validé' : 'Refusé'}</StatusPill>
+          )}
+        </div>
+      );
+    });
   };
 
   return (
@@ -76,7 +206,11 @@ export function NotesFraisPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Formulaire */}
         <Card>
-          <CardHeader title="Nouvelle note de frais" subtitle="Mobile-first · OCR du justificatif" />
+          <CardHeader
+            title="Nouvelle note de frais"
+            subtitle="Mobile-first · OCR du justificatif"
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined}
+          />
           <Button variant="outline" size="sm" className="mb-3 w-full" onClick={runOcr}>
             <ScanLine size={14} /> Scanner le justificatif (OCR)
           </Button>
@@ -101,8 +235,12 @@ export function NotesFraisPage() {
               <p className="mt-1 text-[11px] font-semibold text-warn">Justificatif obligatoire au-delà de 10 000 FCFA.</p>
             )}
           </div>
-          <Button className="mt-3 w-full" disabled={amount <= 0 || (policy.requiresReceipt && !hasReceipt)}>
-            <ReceiptText size={14} /> Soumettre la note
+          <Button
+            className="mt-3 w-full"
+            disabled={amount <= 0 || (policy.requiresReceipt && !hasReceipt) || submitClaim.isPending}
+            onClick={handleSubmit}
+          >
+            <ReceiptText size={14} /> {submitClaim.isPending ? 'Envoi…' : 'Soumettre la note'}
           </Button>
         </Card>
 
@@ -112,39 +250,7 @@ export function NotesFraisPage() {
             <CardHeader title="Notes de frais" subtitle="Contrôle de politique & anomalies" className="mb-0" />
           </div>
           <div className="divide-y divide-line">
-            {claims.map((c) => {
-              const emp = employeeById(c.employeeId);
-              if (!emp) return null;
-              const cat = categoryByCode(c.category);
-              const pol = checkPolicy(c.category, c.amount);
-              const anos = anomalies.get(c.id) ?? [];
-              return (
-                <div key={c.id} className="flex items-center gap-3 px-5 py-3">
-                  <Avatar name={employeeName(emp)} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <p className="truncate text-sm font-bold text-ink">{employeeName(emp)}</p>
-                      {!pol.withinPolicy && <StatusPill tone="danger" dot={false}>Hors plafond</StatusPill>}
-                      {anos.map((a) => (
-                        <StatusPill key={a} tone="warn" dot={false}>{ANOMALY_LABEL[a]}</StatusPill>
-                      ))}
-                    </div>
-                    <p className="text-[11px] font-medium text-ink-400">
-                      {cat.label} · {new Date(c.date).toLocaleDateString('fr-FR')}{c.hasReceipt ? '' : ' · sans justificatif'}
-                    </p>
-                  </div>
-                  <span className="mono text-sm font-bold text-ink">{Money.of(c.amount, TENANT_CURRENCY).format()}</span>
-                  {c.status === 'pending' ? (
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => decide(c.id, 'approved')} className="rounded-lg bg-ok/12 p-2 text-ok hover:bg-ok/20"><Check size={15} /></button>
-                      <button onClick={() => decide(c.id, 'refused')} className="rounded-lg bg-danger/10 p-2 text-danger hover:bg-danger/20"><X size={15} /></button>
-                    </div>
-                  ) : (
-                    <StatusPill tone={c.status === 'approved' ? 'ok' : 'danger'}>{c.status === 'approved' ? 'Validé' : 'Refusé'}</StatusPill>
-                  )}
-                </div>
-              );
-            })}
+            {renderClaims()}
           </div>
         </Card>
       </div>

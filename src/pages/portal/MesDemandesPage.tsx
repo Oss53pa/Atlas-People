@@ -12,11 +12,8 @@ import { useSurface } from '../../store/useSurface';
 import { useServiceRequests, type RequestCategory } from '../../store/useServiceRequests';
 import { cn } from '../../lib/cn';
 import { useMyServiceRequests, useCreateServiceRequest, isBackendConfigured } from '../../lib/ess/serviceRequestsLive';
-import { useAuth } from '../../lib/auth';
+import { useSessionContext } from '../../lib/useSession';
 
-const DEMO_EMP_ID = 'e1000001-0000-0000-0000-000000000002';
-
-const SELF_ID = 'e2';
 const TODAY = '2026-05-28';
 
 const CATEGORY_LABEL: Record<RequestCategory, string> = {
@@ -48,8 +45,9 @@ export function MesDemandesPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const { toast } = useToast();
-  const { tenantId } = useAuth();
-  const { data: liveRequests } = useMyServiceRequests(tenantId ?? undefined, DEMO_EMP_ID);
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
+  const { data: liveRequests } = useMyServiceRequests(ctx?.tenantId, ctx?.employeeId);
   const createLive = useCreateServiceRequest();
   const mockRequests = useServiceRequests((s) => s.requests).filter((r) => r.employeeId === SELF_ID);
   const requests = mockRequests;
@@ -70,33 +68,50 @@ export function MesDemandesPage() {
   const [urgency, setUrgency] = useState<'normal' | 'important' | 'urgent'>('normal');
   const typesInCat = TYPES.filter((t) => t.category === category);
 
+  const hasLive = isBackendConfigured && !!liveRequests && liveRequests.length > 0;
+
   const shown = useMemo(() => requests.filter((r) =>
     tab === 'open' ? ['submitted', 'in_progress', 'info_requested'].includes(r.status)
       : tab === 'action' ? r.status === 'info_requested'
       : tab === 'resolved' ? ['resolved', 'closed', 'refused'].includes(r.status) : true,
   ).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)), [requests, tab]);
 
+  // Live : filtrage par onglet sur les demandes Supabase.
+  const liveShown = useMemo(() => (liveRequests ?? []).filter((r) =>
+    tab === 'open' ? ['submitted', 'assigned', 'in_progress', 'info_requested'].includes(r.status)
+      : tab === 'action' ? r.status === 'info_requested'
+      : tab === 'resolved' ? ['resolved', 'closed', 'refused'].includes(r.status) : true,
+  ).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)), [liveRequests, tab]);
+
   const detail = requests.find((r) => r.id === detailId) ?? null;
 
   const submitNew = async () => {
     const type = TYPES.find((t) => t.code === typeCode)!;
-    const seq = String(143 + mockRequests.length).padStart(4, '0');
-    // Zustand store (toujours)
-    create({
-      id: `req_${Date.now()}`, reference: `REQ-2026-${seq}`, employeeId: SELF_ID, typeCode, typeLabel: type.label, category,
-      subject: subject || type.label, description, urgency, status: 'submitted', referent: 'Valentina Okou', createdAt: TODAY, slaHours: 48,
-      messages: [{ id: `m_${Date.now()}`, author: 'employee', authorName: 'Moi', content: description || subject, at: new Date().toISOString() }],
-    });
-    // DB si backend configuré
-    if (isBackendConfigured && tenantId) {
+    if (isBackendConfigured) {
+      // Live : Supabase source de vérité, identité résolue depuis la session.
+      if (!ctx) {
+        toast({ variant: 'error', title: 'Session requise', description: 'Connectez-vous pour envoyer une demande.' });
+        return;
+      }
       try {
         await createLive.mutateAsync({
-          tenantId, employeeId: DEMO_EMP_ID,
+          tenantId: ctx.tenantId, employeeId: ctx.employeeId,
           typeCode, subject: subject || type.label,
           description: description || subject || type.label,
           urgency,
         });
-      } catch {}
+      } catch (e) {
+        toast({ variant: 'error', title: "Échec de l'envoi", description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+        return;
+      }
+    } else {
+      // Démo local : store Zustand.
+      const seq = String(143 + mockRequests.length).padStart(4, '0');
+      create({
+        id: `req_${Date.now()}`, reference: `REQ-2026-${seq}`, employeeId: SELF_ID, typeCode, typeLabel: type.label, category,
+        subject: subject || type.label, description, urgency, status: 'submitted', referent: 'Valentina Okou', createdAt: TODAY, slaHours: 48,
+        messages: [{ id: `m_${Date.now()}`, author: 'employee', authorName: 'Moi', content: description || subject, at: new Date().toISOString() }],
+      });
     }
     toast({ variant: 'success', title: 'Demande envoyée', description: `${type.label} — transmise à Valentina Okou.` });
     setNewOpen(false); setSubject(''); setDescription('');
@@ -124,7 +139,31 @@ export function MesDemandesPage() {
       </div>
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
 
-      {shown.length > 0 ? (
+      {hasLive ? (
+        liveShown.length > 0 ? (
+          <div className="space-y-3">
+            {liveShown.map((r) => {
+              const label = TYPES.find((t) => t.code === r.request_type_code)?.label ?? r.request_type_code;
+              return (
+                <Card key={r.id}>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="mono rounded-md bg-ink/[0.05] px-1.5 py-0.5 text-[11px] font-bold text-ink-500">{r.reference}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-bold text-ink">{label}</p>
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={10} className="text-emerald-500" /> Live DB</span>
+                      </div>
+                      <p className="truncate text-[11px] font-medium text-ink-400">{r.subject} · {new Date(r.created_at).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                    {r.status === 'info_requested' && <StatusPill tone="info" dot={false}><MessageCircle size={11} /> Action requise</StatusPill>}
+                    <StatusPill tone={STATUS_TONE[r.status] ?? 'neutral'} dot={false}>{STATUS_LABEL[r.status] ?? r.status}</StatusPill>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        ) : <Card><EmptyState icon={Inbox} title="Aucune demande" description="Vos demandes RH apparaîtront ici." /></Card>
+      ) : shown.length > 0 ? (
         <div className="space-y-3">
           {shown.map((r) => (
             <button key={r.id} onClick={() => setDetailId(r.id)} className="w-full text-left">

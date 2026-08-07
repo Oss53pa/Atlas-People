@@ -11,8 +11,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, Zap, Play, Sparkles, Moon,
-  Users, CalendarClock, Wallet, ReceiptText, Briefcase,
+  ArrowRight, ArrowUpRight, Zap, Play, Sparkles, Moon,
+  Users, CalendarClock, Wallet, ReceiptText, Briefcase, Building2,
   Rocket, Target, Gauge, Network, Route as RouteIcon, GraduationCap,
   ShieldCheck, LayoutGrid, Check, ChevronDown, Mail,
   Lock, FileCheck2, Server, Quote, MapPin, Phone, Linkedin, Twitter,
@@ -21,6 +21,7 @@ import {
 import { cn } from '../lib/cn';
 
 const NAV_ITEMS = [
+  { label: 'Formules', to: '/landing#formules' },
   { label: 'Modules', to: '/landing#modules' },
   { label: 'Tarifs', to: '/landing#tarifs' },
   { label: 'Blog', to: '/landing#blog' },
@@ -127,10 +128,10 @@ interface Step {
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 const STEPS: Step[] = [
-  { num: '01', title: 'Setup tenant',         description: 'Création du tenant en 24 h depuis Atlas Studio. Choix du régime OHADA, devise FCFA/XOF/XAF, configuration des modules activés.', icon: Settings2 },
-  { num: '02', title: 'Import collaborateurs', description: 'Wizard d\'import en masse : CSV / Excel / connecteur SIRH existant. Validation déterministe des données contractuelles.',         icon: Users },
-  { num: '03', title: 'Formez les équipes',    description: 'Onboarding admin (DRH) en 2h · formation agents HR en 4h · self-service collaborateur intuitif sans formation.',                  icon: GraduationCap },
-  { num: '04', title: 'Optimisez en continu',  description: 'Cockpit DRH unifié + PROPH3T narrative IA souveraine · alertes proactives · audit SHA-256 légalement opposable.',                  icon: Compass },
+  { num: '01', title: 'Choisissez votre formule',    description: 'Visitez le catalogue Atlas Studio, comparez les 5 produits (Core, Conseil, Payroll, 360, Placement) et choisissez celui qui correspond à votre structure.', icon: Compass },
+  { num: '02', title: 'Souscrivez sur Atlas Studio', description: 'Créez votre compte sur Atlas Studio, sélectionnez votre formule dans le catalogue et finalisez l\'achat. Votre espace Atlas People est provisionné sous 24 h.', icon: Settings2 },
+  { num: '03', title: 'Accès admin · créez vos profils', description: 'Vous recevez un accès administrateur. Depuis votre tableau de bord, invitez collaborateurs, managers, agents RH et responsables paie selon les postes.', icon: Users },
+  { num: '04', title: 'Gérez et optimisez',          description: 'Chaque utilisateur accède à son espace dédié : Mon espace (ESS), Mon équipe (Manager) ou Administration RH (back-office). Cockpit DRH unifié en temps réel.', icon: GraduationCap },
 ];
 
 interface Testimonial {
@@ -240,6 +241,103 @@ const FAQ: FaqItem[] = [
   },
 ];
 
+interface TenantPersona {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  productName: string;
+  catalogKey: string;
+  label: string;
+  sub: string;
+  description: string;
+  mode: string;
+  modeColor: string;
+  tags: string[];
+  accentBg: string;
+  accentText: string;
+  accentBorder: string;
+  accentBtn: string;
+}
+
+const ATLAS_STUDIO_CATALOG = 'https://atlas-studio.org/catalog';
+
+/* Ordre officiel : Core → Conseil → Payroll → 360 → Placement */
+const TENANT_PERSONAS: TenantPersona[] = [
+  {
+    icon: Building2,
+    productName: 'Atlas People Core',
+    catalogKey: 'atlas-people-core',
+    label: 'Entreprise',
+    sub: 'PME · ETI · Groupe multi-filiales',
+    description: 'Vous gérez directement vos propres collaborateurs. Accès complet aux 14 modules RH, paie déterministe, ESS mobile.',
+    mode: 'Entreprise',
+    modeColor: 'bg-amber-100 text-amber-700',
+    tags: ['Auto-gestion RH', '14 modules', 'Multi-pays OHADA'],
+    accentBg: 'bg-amber-50',
+    accentText: 'text-amber-700',
+    accentBorder: 'border-amber-200',
+    accentBtn: 'bg-amber-deep text-white hover:opacity-90',
+  },
+  {
+    icon: Briefcase,
+    productName: 'Atlas People Conseil',
+    catalogKey: 'atlas-people-conseil',
+    label: 'Cabinet RH & Conseil',
+    sub: 'Externalisation RH complète',
+    description: 'Votre cabinet prend en charge la gestion RH et administrative complète pour des entreprises clientes.',
+    mode: 'Cabinet complet',
+    modeColor: 'bg-teal-100 text-teal-700',
+    tags: ['Multi-clients', 'RH + Paie tiers', 'Reporting cabinet'],
+    accentBg: 'bg-teal-50',
+    accentText: 'text-teal-700',
+    accentBorder: 'border-teal-200',
+    accentBtn: 'bg-teal-600 text-white hover:opacity-90',
+  },
+  {
+    icon: Wallet,
+    productName: 'Atlas Payroll',
+    catalogKey: 'atlas-payroll',
+    label: 'Bureau de paie',
+    sub: 'Externalisation paie & admin',
+    description: 'Votre bureau traite la paie pour des entreprises clientes. Bulletins en lot, DSN consolidée, 14 régimes OHADA.',
+    mode: 'Cabinet paie',
+    modeColor: 'bg-blue-100 text-blue-700',
+    tags: ['Paie multi-clients', 'Bulletins en lot', 'DSN consolidée'],
+    accentBg: 'bg-blue-50',
+    accentText: 'text-blue-700',
+    accentBorder: 'border-blue-200',
+    accentBtn: 'bg-blue-600 text-white hover:opacity-90',
+  },
+  {
+    icon: LayoutGrid,
+    productName: 'Atlas People 360',
+    catalogKey: 'atlas-people-360',
+    label: 'Structure mixte',
+    sub: 'RH interne + clients tiers',
+    description: 'Vous gérez vos propres salariés ET des entreprises clientes. Deux périmètres distincts, un seul workspace Atlas People.',
+    mode: 'Cabinet mixte',
+    modeColor: 'bg-violet-100 text-violet-700',
+    tags: ['RH interne', 'Multi-clients', 'Double périmètre'],
+    accentBg: 'bg-violet-50',
+    accentText: 'text-violet-700',
+    accentBorder: 'border-violet-200',
+    accentBtn: 'bg-violet-600 text-white hover:opacity-90',
+  },
+  {
+    icon: Users,
+    productName: 'Atlas People Placement',
+    catalogKey: 'atlas-people-placement',
+    label: 'Agence de mise à disposition',
+    sub: 'Intérim · staffing · prêt de main-d\'œuvre',
+    description: 'Vous êtes l\'employeur légal de travailleurs placés chez des entreprises clientes. RH, paie et conformité centralisées.',
+    mode: 'Agence MAD',
+    modeColor: 'bg-rose-100 text-rose-700',
+    tags: ['Employeur légal', 'Travailleurs placés', 'Multi-sites clients'],
+    accentBg: 'bg-rose-50',
+    accentText: 'text-rose-700',
+    accentBorder: 'border-rose-200',
+    accentBtn: 'bg-rose-600 text-white hover:opacity-90',
+  },
+];
+
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-surface text-ink">
@@ -281,60 +379,131 @@ export function LandingPage() {
 
       {/* ─────────────────────── Hero ─────────────────────── */}
       <section className="relative overflow-hidden">
-        {/* Halos décoratifs */}
         <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-32 left-1/4 h-[480px] w-[480px] rounded-full bg-amber/[0.06] blur-3xl" />
-          <div className="absolute right-0 top-32 h-[360px] w-[360px] rounded-full bg-emerald-500/[0.04] blur-3xl" />
+          <div className="absolute -top-32 left-1/4 h-[560px] w-[560px] rounded-full bg-amber/[0.07] blur-3xl" />
+          <div className="absolute right-0 top-20 h-[400px] w-[400px] rounded-full bg-emerald-500/[0.04] blur-3xl" />
         </div>
 
-        <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-24 text-center">
-          <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 shadow-sm">
-            <Sparkles size={13} className="text-amber-deep" />
-            <span className="text-[12px] font-bold text-ink">100 % conforme OHADA · 14 régimes UEMOA + CEMAC</span>
-          </span>
+        <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-20">
+          <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.1fr]">
+            {/* ── Texte gauche ── */}
+            <div>
+              <span className="mb-7 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 shadow-sm">
+                <Sparkles size={13} className="text-amber-deep" />
+                <span className="text-[12px] font-bold text-ink">100 % conforme OHADA · 14 régimes UEMOA + CEMAC</span>
+              </span>
 
-          <h1 className="font-display text-[64px] leading-[1.04] tracking-tight text-ink sm:text-[78px]">
-            La gestion RH africaine,
-          </h1>
-          <h1 className="mt-2 font-display text-[64px] leading-[1.04] tracking-tight text-amber-deep sm:text-[78px]">
-            premium et intelligente.
-          </h1>
+              <h1 className="font-display text-[54px] leading-[1.05] tracking-tight text-ink sm:text-[64px]">
+                La gestion RH africaine,
+              </h1>
+              <h1 className="font-display text-[54px] leading-[1.05] tracking-tight text-amber-deep sm:text-[64px]">
+                premium et intelligente.
+              </h1>
 
-          <p className="mx-auto mt-7 max-w-2xl text-[15px] font-medium leading-relaxed text-ink-500">
-            Atlas People est le SIRH conçu pour les <strong className="text-ink">17 pays de l'espace OHADA</strong>.
-            Paie déterministe, conformité légale, OKR, formation, carrières — tout est intégré.
-          </p>
+              <p className="mt-6 max-w-xl text-[15px] font-medium leading-relaxed text-ink-500">
+                Atlas People est le SIRH conçu pour les <strong className="text-ink">17 pays de l'espace OHADA</strong>.
+                Paie déterministe, conformité légale, OKR, formation, carrières — tout est intégré.
+              </p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/"
-              className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 text-[14px] font-bold text-surface shadow-sm transition-shadow hover:shadow-lg">
-              <Zap size={16} className="text-amber" /> Souscrire maintenant <ArrowRight size={14} />
-            </Link>
-            <a href="#demo"
-              className="inline-flex items-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3 text-[14px] font-bold text-ink transition-colors hover:border-amber-deep/40 hover:bg-amber/[0.04]">
-              <Play size={14} /> Voir la démo
-            </a>
-          </div>
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                <a href="https://atlas-studio.org/portal"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 text-[14px] font-bold text-surface shadow-sm transition-shadow hover:shadow-lg">
+                  <Zap size={16} className="text-amber" /> Souscrire maintenant <ArrowRight size={14} />
+                </a>
+                <a href="#demo"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3 text-[14px] font-bold text-ink transition-colors hover:border-amber-deep/40 hover:bg-amber/[0.04]">
+                  <Play size={14} /> Voir la démo
+                </a>
+              </div>
 
-          {/* Chips pilotes */}
-          <div className="mt-10 flex items-center justify-center gap-3">
-            <div className="flex -space-x-2">
-              {PILOT_CHIPS.map((p, i) => (
-                <span key={p}
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-full border-2 border-surface text-[11px] font-bold text-surface shadow-sm',
-                    i === 0 && 'bg-amber-deep',
-                    i === 1 && 'bg-emerald-600',
-                    i === 2 && 'bg-rose-500',
-                    i === 3 && 'bg-blue-600',
-                  )}>
-                  {p}
-                </span>
-              ))}
+              <div className="mt-8 flex items-center gap-3">
+                <div className="flex -space-x-2">
+                  {PILOT_CHIPS.map((p, i) => (
+                    <span key={p} className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface text-[10px] font-bold text-surface shadow-sm',
+                      i === 0 && 'bg-amber-deep', i === 1 && 'bg-emerald-600',
+                      i === 2 && 'bg-rose-500',   i === 3 && 'bg-blue-600',
+                    )}>{p}</span>
+                  ))}
+                </div>
+                <p className="text-[12px] font-medium text-ink-500">
+                  Choisi par <strong className="text-ink">10+ entreprises pilotes</strong> en CI · SN · CM
+                </p>
+              </div>
             </div>
-            <p className="text-[13px] font-medium text-ink-500">
-              Choisi par <strong className="text-ink">10+ entreprises pilotes</strong> en Côte d'Ivoire · Sénégal · Cameroun
-            </p>
+
+            {/* ── Mockup dashboard droite ── */}
+            <div className="hidden lg:block">
+              <div className="relative mx-auto max-w-[480px]">
+                {/* Carte principale — Cockpit DRH */}
+                <div className="rounded-3xl border border-line bg-surface shadow-2xl shadow-ink/[0.08]">
+                  {/* Topbar mockup */}
+                  <div className="flex items-center justify-between rounded-t-3xl border-b border-line bg-surface2/60 px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-display text-[14px] text-amber-deep">Atlas People</span>
+                      <span className="rounded-md bg-amber/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-deep">Cockpit DRH</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-rose-400/60" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-amber/60" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
+                    </div>
+                  </div>
+                  <div className="p-5 space-y-4">
+                    {/* Score composite */}
+                    <div className="flex items-center justify-between rounded-2xl border border-amber-deep/20 bg-amber/[0.05] px-4 py-3">
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-amber-deep">Index DRH composite</p>
+                        <p className="mono mt-0.5 text-[32px] font-bold leading-none text-ink">92<span className="text-[14px] text-ink-400"> /100</span></p>
+                        <p className="mt-0.5 text-[9px] font-medium text-ink-500">Conformité · OKR · Formation · Bench</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[['Conformité','94%','ok'],['OKR','78%','warn'],['Formation','100%','ok'],['Bench','63%','warn']].map(([l,v,t]) => (
+                          <div key={l} className={cn('rounded-xl border px-2 py-1.5', t === 'ok' ? 'border-emerald-200 bg-emerald-50/50' : 'border-amber-200 bg-amber-50/50')}>
+                            <p className="text-[8px] font-bold uppercase text-ink-400">{l}</p>
+                            <p className={cn('mono text-[13px] font-bold', t === 'ok' ? 'text-emerald-700' : 'text-amber-700')}>{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Alertes */}
+                    <div className="space-y-1.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-ink-400">Alertes consolidées</p>
+                      {[
+                        ['text-rose-600','border-rose-200 bg-rose-50/40','1 déclaration CNPS en retard'],
+                        ['text-amber-700','border-amber-200 bg-amber-50/40','2 certifications à renouveler < 90 j'],
+                        ['text-amber-700','border-amber-200 bg-amber-50/40','3 postes clés à bench faible'],
+                      ].map(([tc,bc,label]) => (
+                        <div key={label} className={cn('flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-[10px] font-semibold', bc)}>
+                          <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', tc.replace('text-','bg-'))} />
+                          <span className="text-ink">{label}</span>
+                          <ArrowUpRight size={10} className="ml-auto text-ink-400" />
+                        </div>
+                      ))}
+                    </div>
+                    {/* Mini paie */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {[['Effectif','14','collab'],['Masse sal.','42 M','FCFA'],['FDFP','2,4 M','récup.']].map(([l,v,u]) => (
+                        <div key={l} className="rounded-xl border border-line bg-surface2/40 px-2.5 py-2 text-center">
+                          <p className="text-[8px] font-bold uppercase text-ink-400">{l}</p>
+                          <p className="mono text-[16px] font-bold text-ink">{v}</p>
+                          <p className="text-[8px] font-medium text-ink-500">{u}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* Badge flottant */}
+                <div className="absolute -bottom-4 -right-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 shadow-lg">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Paie clôturée</p>
+                  <p className="mono text-[13px] font-bold text-emerald-700">+4 h vs 5 j</p>
+                </div>
+                <div className="absolute -left-4 top-16 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 shadow-lg">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-amber-700">FDFP récupéré</p>
+                  <p className="mono text-[13px] font-bold text-amber-700">14 M FCFA</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -348,6 +517,88 @@ export function LandingPage() {
               <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-ink-400">{s.label}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ─────────────────────── Nos formules ─────────────────────── */}
+      <section id="formules" className="scroll-mt-20 bg-surface2/30">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="mb-12 text-center">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-deep">5 produits · un seul éditeur OHADA</p>
+            <h2 className="mt-2 font-display text-[38px] leading-tight tracking-tight text-ink sm:text-[46px]">
+              Choisissez votre formule
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-[14px] font-medium leading-relaxed text-ink-500">
+              Chaque produit Atlas People est taillé pour un modèle d'organisation précis.
+              Souscrivez sur Atlas Studio — votre accès admin est prêt en 24 h.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {TENANT_PERSONAS.map((p) => {
+              const Icon = p.icon;
+              return (
+                <div key={p.catalogKey} className={cn(
+                  'flex flex-col rounded-2xl border-2 p-5 transition-shadow hover:shadow-md',
+                  p.accentBorder, p.accentBg,
+                )}>
+                  {/* Icône + nom produit */}
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface shadow-sm ring-1 ring-line',
+                      p.accentText,
+                    )}>
+                      <Icon size={20} />
+                    </span>
+                    <div>
+                      <p className={cn('text-[10px] font-bold uppercase tracking-[0.15em]', p.accentText)}>{p.mode}</p>
+                      <h3 className="text-[16px] font-bold leading-tight text-ink">{p.productName}</h3>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-[11px] font-semibold text-ink-400">{p.label} · {p.sub}</p>
+                  <p className="mt-2 flex-1 text-[13px] font-medium leading-relaxed text-ink-500">{p.description}</p>
+
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {p.tags.map((t) => (
+                      <span key={t} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-ink-500 ring-1 ring-line">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+
+                  <a
+                    href={`${ATLAS_STUDIO_CATALOG}?product=${p.catalogKey}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      'mt-4 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition-opacity',
+                      p.accentBtn,
+                    )}
+                  >
+                    Acheter <ArrowUpRight size={14} />
+                  </a>
+                </div>
+              );
+            })}
+
+            {/* Carte CTA — déjà abonné */}
+            <div className="flex flex-col items-start justify-between rounded-2xl border border-ink/10 bg-ink p-5 text-surface">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber">Déjà abonné ?</p>
+                <h3 className="mt-2 text-[16px] font-bold">Accédez à votre espace</h3>
+                <p className="mt-2 text-[13px] font-medium leading-relaxed text-surface/70">
+                  Votre accès admin Atlas People vous permet de créer les comptes de vos collaborateurs, managers et agents RH en quelques minutes.
+                </p>
+              </div>
+              <Link
+                to="/"
+                className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-amber px-4 py-2.5 text-[13px] font-bold text-night transition-shadow hover:shadow-lg"
+              >
+                <ArrowRight size={14} /> Accéder à l'application
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -381,15 +632,65 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ─────────────────────── Demo interactive ─────────────────────── */}
+      <section id="demo" className="scroll-mt-20 border-y border-line bg-gradient-to-br from-amber/[0.04] via-surface to-surface">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            {/* Gauche — texte */}
+            <div>
+              <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-bold text-ink-500">
+                <Play size={11} className="text-amber-deep" /> Aucun compte requis
+              </span>
+              <h2 className="font-display text-[42px] leading-tight text-ink sm:text-[52px]">
+                Essayez avant<br /><span className="text-amber-deep">de vous inscrire</span>
+              </h2>
+              <p className="mt-4 text-[14px] font-medium leading-relaxed text-ink-500">
+                Naviguez dans le cockpit DRH, simulez un bulletin de paie OHADA, explorez les OKR
+                et la gestion des compétences — sans créer de compte.
+              </p>
+              <Link to="/accueil"
+                className="mt-7 inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 text-[14px] font-bold text-surface shadow-sm transition-shadow hover:shadow-lg">
+                <Play size={16} /> Lancer la démo <ArrowRight size={14} />
+              </Link>
+            </div>
+            {/* Droite — liste modules démo */}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {[
+                { icon: Wallet,       label: 'Bulletin de paie OHADA',  detail: 'Calcul déterministe · CNPS · IUTS' },
+                { icon: LayoutGrid,   label: 'Cockpit DRH 360°',        detail: 'KPIs · alertes · PROPH3T IA' },
+                { icon: Target,       label: 'OKR & objectifs',         detail: 'Cascade · check-ins · notation' },
+                { icon: GraduationCap,label: 'Formation & FDFP',        detail: 'PIF · parcours · récupération FDFP' },
+                { icon: Gauge,        label: 'Évaluations 9-box',       detail: 'Talents · plans dev · calibration' },
+                { icon: ShieldCheck,  label: 'Conformité & SST',        detail: 'DUER · AT/MP · déclarations' },
+              ].map(({ icon: Icon, label, detail }) => (
+                <Link key={label} to="/accueil"
+                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 transition-colors hover:border-amber-deep/40 hover:bg-amber/[0.04]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber/12 text-amber-deep">
+                    <Icon size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-bold text-ink">{label}</p>
+                    <p className="text-[10px] font-medium text-ink-500">{detail}</p>
+                  </div>
+                  <ArrowUpRight size={12} className="ml-auto shrink-0 text-ink-300" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─────────────────────── Modules ─────────────────────── */}
       <section id="modules" className="scroll-mt-20 bg-surface">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="text-center">
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-deep">14 modules intégrés</p>
             <h2 className="mt-3 font-display text-[44px] leading-tight text-ink sm:text-[56px]">Un seul SIRH, <span className="text-amber-deep">tous vos métiers RH</span></h2>
-            <p className="mx-auto mt-4 max-w-2xl text-[14px] font-medium leading-relaxed text-ink-500">
-              De l'embauche à la sortie · paie déterministe · OKR · formation FDFP · conformité SST · cockpit unifié.
-              <strong className="text-ink"> Chaque module est conçu pour les régimes OHADA</strong>, pas un patch sur un logiciel européen.
+            <p className="mx-auto mt-4 max-w-2xl text-[14px] font-medium leading-relaxed text-amber-deep">
+              Une suite complète pour couvrir l'ensemble de vos besoins RH — de l'embauche à la sortie.
+            </p>
+            <p className="mx-auto mt-2 max-w-2xl text-[13px] font-medium leading-relaxed text-ink-500">
+              Chaque module est conçu pour les régimes OHADA, pas un patch sur un logiciel européen.
             </p>
           </div>
 
@@ -520,8 +821,8 @@ export function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  to="/admin"
+                <a
+                  href="https://atlas-studio.org/portal"
                   className={cn(
                     'mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[13px] font-bold transition-shadow',
                     p.highlighted
@@ -530,7 +831,7 @@ export function LandingPage() {
                   )}
                 >
                   {p.cta} <ArrowRight size={14} />
-                </Link>
+                </a>
               </div>
             ))}
           </div>
@@ -798,10 +1099,10 @@ export function LandingPage() {
               className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 text-[14px] font-bold text-surface shadow-sm transition-shadow hover:shadow-lg">
               <Play size={16} /> Voir la démo en live
             </Link>
-            <Link to="/admin"
+            <a href="https://atlas-studio.org/portal"
               className="inline-flex items-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3 text-[14px] font-bold text-ink transition-colors hover:border-amber-deep/40 hover:bg-amber/[0.04]">
               <Zap size={14} /> Démarrer un tenant
-            </Link>
+            </a>
           </div>
         </div>
       </section>

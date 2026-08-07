@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GraduationCap, BookOpen, Award, Route, Sparkles, PlayCircle, CheckCircle2, Clock, ChevronRight } from 'lucide-react';
+import { GraduationCap, BookOpen, Award, Route, Sparkles, PlayCircle, CheckCircle2, Clock, ChevronRight, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -9,6 +9,8 @@ import { ProgressBar } from '../../components/charts/ProgressBar';
 import { useToast } from '../../components/ui/Toast';
 import { useSurface } from '../../store/useSurface';
 import { cn } from '../../lib/cn';
+import { useMySkills, useMyExternalTrainings, isBackendConfigured } from '../../lib/portal/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 
@@ -54,6 +56,11 @@ export function MonDeveloppementPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
   const { toast } = useToast();
   const [tab, setTab] = useState('trainings');
+  const { data: ctx } = useSessionContext();
+  const { data: liveSkills } = useMySkills(ctx?.tenantId, ctx?.employeeId);
+  const { data: liveExtTrainings } = useMyExternalTrainings(ctx?.tenantId, ctx?.employeeId);
+  const hasLiveSkills = isBackendConfigured && !!liveSkills && liveSkills.length > 0;
+  const hasLiveExtTrainings = isBackendConfigured && !!liveExtTrainings && liveExtTrainings.length > 0;
 
   const totalHours = TRAININGS.reduce((s, t) => s + (t.status === 'done' ? t.hours : 0), 0);
   const inProgress = TRAININGS.filter((t) => t.status === 'in_progress').length;
@@ -114,6 +121,56 @@ export function MonDeveloppementPage() {
       {/* COMPETENCES */}
       {tab === 'skills' && (
         <div className="space-y-5">
+          {/* Compétences LIVE */}
+          {hasLiveSkills && (
+            <Card>
+              <CardHeader
+                title="Mes compétences"
+                subtitle={`${liveSkills!.length} compétence(s) · Live DB`}
+                action={<Wifi size={13} className="text-emerald-500" />}
+              />
+              <div className="space-y-3">
+                {liveSkills!.map((s) => (
+                  <div key={s.id}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-ink">{s.name ?? s.skill_id}{s.domain ? <span className="ml-2 text-[11px] font-medium text-ink-400">{s.domain}</span> : null}</span>
+                      <span className="mono text-[11px] font-bold text-ink-400">{s.level}/5</span>
+                    </div>
+                    <div className="relative"><ProgressBar value={s.level} max={5} tone={s.level >= 4 ? 'ok' : 'amber'} /></div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Formations externes / diplômes LIVE */}
+          {hasLiveExtTrainings && (
+            <Card>
+              <CardHeader
+                title="Mes formations externes / diplômes"
+                subtitle={`${liveExtTrainings!.length} formation(s) · Live DB`}
+                action={<Wifi size={13} className="text-emerald-500" />}
+              />
+              <div className="space-y-1.5">
+                {liveExtTrainings!.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 rounded-xl bg-surface2 px-3 py-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber/12 text-amber-deep"><GraduationCap size={15} /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">{t.training_title}</p>
+                      <p className="text-[11px] font-medium text-ink-400">
+                        {t.training_organization}
+                        {t.start_date ? ` · ${frDate(t.start_date)}` : ''}
+                        {t.end_date ? ` → ${frDate(t.end_date)}` : ''}
+                        {t.domain ? ` · ${t.domain}` : ''}
+                      </p>
+                    </div>
+                    {t.obtained_certification && <StatusPill tone="ok" dot={false}>Certifiée</StatusPill>}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           <Card>
             <CardHeader title="Référentiel de compétences" subtitle="Niveau actuel vs. niveau cible (1 → 5)" />
             <div className="space-y-3">

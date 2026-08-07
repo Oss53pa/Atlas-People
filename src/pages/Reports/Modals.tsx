@@ -134,6 +134,9 @@ export function LoadModal({ open, onClose, tenantId, onLoad }: LoadModalProps) {
     try {
       const list = await dataProvider.getReports(tenantId);
       setDocs(list);
+    } catch (e) {
+      setDocs([]);
+      toast({ variant: 'error', title: 'Chargement impossible', description: e instanceof Error ? e.message : String(e) });
     } finally { setLoading(false); }
   };
   useEffect(() => { if (open) reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [open]);
@@ -152,8 +155,13 @@ export function LoadModal({ open, onClose, tenantId, onLoad }: LoadModalProps) {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Supprimer définitivement ce rapport ?')) return;
-    await dataProvider.deleteReport(id);
-    reload();
+    try {
+      await dataProvider.deleteReport(id, tenantId); // borné au tenant + remonte les erreurs
+      toast({ variant: 'success', title: 'Rapport supprimé' });
+      reload();
+    } catch (e) {
+      toast({ variant: 'error', title: 'Suppression impossible', description: e instanceof Error ? e.message : String(e) });
+    }
   };
 
   const fr = (ts: number) => new Date(ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });

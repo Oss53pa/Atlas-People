@@ -10,6 +10,7 @@ import { useManagerScope } from '../../store/useManagerScope';
 import { useDirectory } from '../../store/useDirectory';
 import { scopedTeam, DEPTH_LABEL, MANAGER_ID } from '../../lib/mss/scope';
 import { employeeById, employeeName } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 
 /** Coquille du PORTAIL MANAGER (MSS) — distincte du back-office (R1).
  *  Header contextuel : manager + nombre de collaborateurs + profondeur de vue. */
@@ -18,6 +19,12 @@ export function ManagerLayout() {
   const setSurface = useSurface((s) => s.setSurface);
   const depth = useManagerScope((s) => s.depth);
   const employees = useDirectory((s) => s.employees);
+  const hydrateFromRoster = useDirectory((s) => s.hydrateFromRoster);
+
+  // Bascule live : hydrate l'annuaire MSS depuis le roster Supabase (fallback
+  // mock intégré à useRoster) → toutes les pages /team lisent des effectifs réels.
+  const roster = useRoster();
+  useEffect(() => { hydrateFromRoster(roster); }, [roster, hydrateFromRoster]);
 
   useEffect(() => { setSurface('mss'); }, [setSurface]);
 

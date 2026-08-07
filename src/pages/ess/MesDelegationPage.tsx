@@ -11,8 +11,7 @@ import { useToast } from '../../components/ui/Toast';
 import { TimeSubNav } from '../../components/m2/TimeSubNav';
 import { useSurface } from '../../store/useSurface';
 import { useDelegation } from '../../store/useDelegation';
-
-const SELF_ID = 'e2';
+import { useSessionContext } from '../../lib/useSession';
 const fmtH = (n: number) => `${Math.floor(n)}h${n % 1 ? String(Math.round((n % 1) * 60)).padStart(2, '0') : '00'}`;
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 
@@ -21,6 +20,8 @@ export function MesDelegationPage() {
   useEffect(() => { setSurface('ess'); }, [setSurface]);
 
   const { toast } = useToast();
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const credits = useDelegation((s) => s.credits).filter((c) => c.employeeId === SELF_ID);
   const usage = useDelegation((s) => s.usage).filter((u) => u.employeeId === SELF_ID);
   const declare = useDelegation((s) => s.declare);

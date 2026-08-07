@@ -10,10 +10,8 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import {
-  APPLICATIONS, REFERRALS,
-  candidateById, jobById, stageMeta, rejectionLabel, scorecardsByApp, interviewsByApp, offerByApp,
-} from '../../lib/m5/mock';
+import { stageMeta, rejectionLabel, scorecardsByApp } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { RECOMMENDATION_META, INTERVIEW_TYPES } from '../../lib/m5/referentiels';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
@@ -33,8 +31,9 @@ const TABS = [
 type TabId = typeof TABS[number]['id'];
 
 export function CandidatPage() {
+  const m5 = useM5Data();
   const { id = '' } = useParams();
-  const cand = candidateById(id);
+  const cand = m5.candidateById(id);
   const { toast } = useToast();
   const [tab, setTab] = useState<TabId>('profile');
 
@@ -47,11 +46,11 @@ export function CandidatPage() {
     );
   }
 
-  const apps = APPLICATIONS.filter((a) => a.candidateId === cand.id);
-  const intvs = apps.flatMap((a) => interviewsByApp(a.id));
+  const apps = m5.applications.filter((a) => a.candidateId === cand.id);
+  const intvs = apps.flatMap((a) => m5.interviewsByApp(a.id));
   const cards = apps.flatMap((a) => scorecardsByApp(a.id));
-  const myOffers = apps.map((a) => offerByApp(a.id)).filter(Boolean);
-  const referral = REFERRALS.find((r) => r.candidateId === cand.id);
+  const myOffers = apps.map((a) => m5.offerByApp(a.id)).filter(Boolean);
+  const referral = m5.referrals.find((r) => r.candidateId === cand.id);
 
   return (
     <div className="animate-fade-up space-y-4">
@@ -137,7 +136,7 @@ export function CandidatPage() {
               </tr></thead>
               <tbody className="divide-y divide-line">
                 {apps.map((a) => {
-                  const job = jobById(a.jobId)!;
+                  const job = m5.jobById(a.jobId)!;
                   const m = stageMeta(a.stage);
                   return (
                     <tr key={a.id}>

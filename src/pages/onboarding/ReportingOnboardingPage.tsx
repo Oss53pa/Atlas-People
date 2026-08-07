@@ -4,17 +4,18 @@ import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
 import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { JOURNEYS, TASKS, PULSES, kpis } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { MILESTONES, MILESTONE_META, ONBOARDING_SLA } from '../../lib/m6/referentiels';
 
 export function ReportingOnboardingPage() {
   const { toast } = useToast();
-  const k = kpis();
+  const m6 = useM6Data();
+  const k = m6.kpis();
 
   // Drop-off / complétion par milestone
-  const totalActive = JOURNEYS.filter(j => j.status === 'in_progress' || j.status === 'completed').length;
+  const totalActive = m6.journeys.filter(j => j.status === 'in_progress' || j.status === 'completed').length;
   const byMilestone = MILESTONES.map((m) => {
-    const reached = JOURNEYS.filter((j) => {
+    const reached = m6.journeys.filter((j) => {
       const days = Math.round((new Date('2026-05-31').getTime() - new Date(j.hireDate).getTime()) / 86_400_000);
       return days >= m.daysFromHire;
     }).length;
@@ -37,7 +38,7 @@ export function ReportingOnboardingPage() {
         <StatCard label="Complétion moyenne" value={`${k.completionMoyenne} %`} unit={`cible ${ONBOARDING_SLA.completionTargetPct} %`} icon={TrendingUp} />
         <StatCard label="NPS J+90" value={String(k.npsJ90)} unit={`cible ≥ ${ONBOARDING_SLA.npsTargetMin}`} icon={MessageSquareHeart} />
         <StatCard label="Time-to-productivity" value={`${k.timeToProductivityJours} j`} unit="cible" icon={Clock} mono />
-        <StatCard label="Pulses collectés" value={String(PULSES.length)} unit={`sur ${JOURNEYS.length * 4} attendus`} icon={MessageSquareHeart} />
+        <StatCard label="Pulses collectés" value={String(m6.pulses.length)} unit={`sur ${m6.journeys.length * 4} attendus`} icon={MessageSquareHeart} />
       </div>
 
       <Card>
@@ -74,7 +75,7 @@ export function ReportingOnboardingPage() {
                 { label: 'Passifs (40-69)', filter: (n: number) => n >= 40 && n < 70 },
                 { label: 'Détracteurs (< 40)', filter: (n: number) => n < 40 },
               ].map((b) => {
-                const count = JOURNEYS.filter(j => typeof j.nps === 'number' && b.filter(j.nps)).length;
+                const count = m6.journeys.filter(j => typeof j.nps === 'number' && b.filter(j.nps)).length;
                 return (
                   <tr key={b.label}>
                     <td className="py-1.5 text-[12px] font-medium text-ink-700">{b.label}</td>
@@ -95,7 +96,7 @@ export function ReportingOnboardingPage() {
             </tr></thead>
             <tbody className="divide-y divide-line">
               {['ADMIN','IT','WORKSPACE','FORMATION','BUDDY','TEAM','BUSINESS','CULTURE'].map((c) => {
-                const late = TASKS.filter((t) => t.category === c && t.status !== 'completed' && new Date(t.dueDate) < new Date('2026-05-31')).length;
+                const late = m6.tasks.filter((t) => t.category === c && t.status !== 'completed' && new Date(t.dueDate) < new Date('2026-05-31')).length;
                 return (
                   <tr key={c}>
                     <td className="py-1.5 text-[12px] font-medium text-ink-700">{c}</td>

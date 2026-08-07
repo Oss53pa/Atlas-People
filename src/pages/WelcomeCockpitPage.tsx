@@ -23,7 +23,8 @@ import { cn } from '../lib/cn';
 import { Money } from '../lib/money';
 import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
-import { EMPLOYEES, employeeName } from '../data/mock';
+import { employeeName } from '../data/mock';
+import { useRoster } from '../lib/m1/roster';
 
 const fmtCompact = (n: number): string => {
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1).replace('.0', '')} Mds`;
@@ -83,10 +84,11 @@ function MiniSpark({ tone, seed }: { tone: 'amber' | 'rose' | 'emerald' | 'indig
  * Au modèle Atlas Studio CR — pas Atlas People CockpitPage (qui reste sur /).
  */
 export function WelcomeCockpitPage() {
+  const roster = useRoster();
   const k = useMemo(() => {
     let employerCost = Money.zero(TENANT_CURRENCY);
     let net = Money.zero(TENANT_CURRENCY);
-    for (const e of EMPLOYEES) {
+    for (const e of roster) {
       const regime = getRegime(e.countryCode);
       const { result } = computePayslip(
         {
@@ -102,16 +104,16 @@ export function WelcomeCockpitPage() {
       employerCost = employerCost.add(Money.fromJSON({ units: result.employerCostUnits, currency: TENANT_CURRENCY }));
       net = net.add(Money.fromJSON({ units: result.netToPayUnits, currency: TENANT_CURRENCY }));
     }
-    const active = EMPLOYEES.filter((e) => e.status === 'active').length;
-    const retention = Math.round((1 - EMPLOYEES.filter((e) => e.retentionAttention >= 55).length / EMPLOYEES.length) * 100);
+    const active = roster.filter((e) => e.status === 'active').length;
+    const retention = Math.round((1 - roster.filter((e) => e.retentionAttention >= 55).length / roster.length) * 100);
     return {
-      effectif: EMPLOYEES.length,
-      activeRatio: Math.round((active / EMPLOYEES.length) * 100),
+      effectif: roster.length,
+      activeRatio: Math.round((active / roster.length) * 100),
       employerCost: employerCost.toInt(),
       net: net.toInt(),
       retention,
     };
-  }, []);
+  }, [roster]);
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-gradient-to-b from-amber/[0.02] via-surface to-surface text-ink">

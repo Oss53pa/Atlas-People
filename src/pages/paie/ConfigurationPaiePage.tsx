@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SlidersHorizontal, Plus, ShieldCheck, ListOrdered, Percent, Save, GripVertical } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -9,6 +9,13 @@ import { Tabs } from '../../components/ui/Tabs';
 import { useToast } from '../../components/ui/Toast';
 import { PaieSubNav } from '../../components/paie/PaieSubNav';
 import { RUBRIQUES_CI, type Rubrique, type RubriqueType } from '../../lib/m3/referentiels';
+import {
+  isBackendConfigured,
+  useM3Rubriques, useM3TenantParams,
+  usePatchRubrique, useCreateRubrique, useSaveCalcRules,
+  type RubriqueLive,
+} from '../../lib/m3/settingsLive';
+import { useAuth } from '../../lib/auth';
 import { cn } from '../../lib/cn';
 
 const TYPE_TONE: Record<RubriqueType, 'ok' | 'amber' | 'danger' | 'info' | 'neutral'> = {
@@ -23,7 +30,7 @@ const TYPE_LABEL: Record<RubriqueType, string> = {
 const TYPE_OPTIONS: RubriqueType[] = ['gain', 'retenue', 'cotisation_emp', 'cotisation_pat', 'info'];
 
 type CalcMode = 'fixed' | 'rate' | 'bareme' | 'formula';
-interface RubriqueConfig extends Rubrique { active: boolean; order: number; calcMode: CalcMode }
+interface RubriqueConfig extends Rubrique { id?: string; active: boolean; order: number; calcMode: CalcMode }
 
 const CALC_LABEL: Record<CalcMode, string> = {
   fixed: 'Montant fixe', rate: 'Taux × base', bareme: 'Barème', formula: 'Formule',
@@ -46,13 +53,34 @@ function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; labe
   );
 }
 
+function mapLiveToConfig(r: RubriqueLive): RubriqueConfig {
+  return {
+    id: r.id,
+    code: r.code,
+    libelle: r.libelle,
+    category: r.category,
+    type: r.type,
+    pays: 'CI',
+    version: r.version,
+    baseCnps: r.baseCnps,
+    baseIrpp: r.baseIrpp,
+    status: r.status === 'published' ? 'published' : 'draft',
+    active: r.active,
+    order: r.order,
+    calcMode: r.calcMode,
+  };
+}
+
 export function ConfigurationPaiePage() {
   const { toast } = useToast();
+  const { tenantId } = useAuth();
   const [tab, setTab] = useState('rubriques');
-  const [list, setList] = useState<RubriqueConfig[]>(seedConfig);
+  const [list, setList] = useState<RubriqueConfig[]>(() => isBackendConfigured ? [] : seedConfig());
+  const [initialized, setInitialized] = useState(!isBackendConfigured);
   const [filter, setFilter] = useState<'all' | RubriqueType>('all');
   const [open, setOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // form pour nouvelle rubrique
   const [nCode, setNCode] = useState('');
@@ -64,6 +92,29 @@ export function ConfigurationPaiePage() {
   const [prorataMode, setProrataMode] = useState<'calendar' | 'worked'>('worked');
   const [smigGuard, setSmigGuard] = useState(true);
   const [quotaGuard, setQuotaGuard] = useState(true);
+
+  // live data
+  const { data: liveRubriques } = useM3Rubriques(tenantId ?? undefined);
+  const { data: liveParams } = useM3TenantParams(tenantId ?? undefined);
+  const patchRubriqueMut = usePatchRubrique();
+  const createRubriqueMut = useCreateRubrique();
+  const saveCalcRulesMut = useSaveCalcRules();
+
+  // init rubriques from live DB on first load
+  useEffect(() => {
+    if (initialized || liveRubriques == null) return;
+    setList(liveRubriques.length > 0 ? liveRubriques.map(mapLiveToConfig) : seedConfig());
+    setInitialized(true);
+  }, [liveRubriques, initialized]);
+
+  // init calc rules from live DB
+  useEffect(() => {
+    if (!liveParams) return;
+    setRounding(liveParams.rounding);
+    setProrataMode(liveParams.prorataMode);
+    setSmigGuard(liveParams.smigGuard);
+    setQuotaGuard(liveParams.quotaGuard);
+  }, [liveParams]);
 
   const filtered = useMemo(
     () => list.filter((r) => filter === 'all' || r.type === filter).sort((a, b) => a.order - b.order),
@@ -90,21 +141,61 @@ export function ConfigurationPaiePage() {
     });
     setDirty(true);
   };
-  const addRubrique = () => {
+  const addRubrique = async () => {
     const code = nCode.trim().toUpperCase();
     const libelle = nLib.trim();
     if (!code || !libelle) return;
-    setList((l) => [...l, {
-      code, libelle, category: 'PERSO', type: nType, pays: 'CI', version: 1,
-      baseCnps: nType === 'gain', baseIrpp: nType === 'gain', status: 'draft',
-      active: false, order: (l.length + 1) * 10, calcMode: nType === 'gain' ? 'fixed' : 'rate',
-    }]);
-    setOpen(false); setNCode(''); setNLib(''); setNType('gain'); setDirty(true);
+    if (isBackendConfigured) {
+      try {
+        await createRubriqueMut.mutateAsync({
+          code, libelle, type: nType, category: 'PERSO',
+          baseCnps: nType === 'gain', baseIrpp: nType === 'gain',
+          order: (list.length + 1) * 10,
+        });
+      } catch (err) {
+        toast({ variant: 'error', title: 'Erreur création', description: err instanceof Error ? err.message : String(err) });
+        return;
+      }
+    } else {
+      setList((l) => [...l, {
+        code, libelle, category: 'PERSO', type: nType, pays: 'CI', version: 1,
+        baseCnps: nType === 'gain', baseIrpp: nType === 'gain', status: 'draft',
+        active: false, order: (l.length + 1) * 10, calcMode: nType === 'gain' ? 'fixed' : 'rate',
+      }]);
+      setDirty(true);
+    }
+    setOpen(false); setNCode(''); setNLib(''); setNType('gain');
     toast({ variant: 'success', title: 'Rubrique créée (brouillon)', description: `${code} — soumise au workflow de validation 4-eyes avant publication.` });
   };
-  const save = () => {
-    setDirty(false);
-    toast({ variant: 'success', title: 'Paramétrage soumis', description: 'Modifications envoyées en validation 4-eyes (responsable paie + DRH). Versionné et audité.' });
+  const save = async () => {
+    if (!dirty) return;
+    if (!isBackendConfigured || !liveRubriques?.length) {
+      setDirty(false);
+      toast({ variant: 'success', title: 'Paramétrage soumis', description: 'Modifications envoyées en validation 4-eyes (responsable paie + DRH). Versionné et audité.' });
+      return;
+    }
+    setSaving(true);
+    try {
+      for (const r of list) {
+        if (!r.id) continue;
+        const orig = liveRubriques.find((lr) => lr.id === r.id);
+        if (!orig) continue;
+        const patch: Parameters<typeof patchRubriqueMut.mutateAsync>[0] = { id: r.id, code: r.code };
+        if (r.type !== orig.type)         patch.rubrique_type = r.type;
+        if (r.active !== orig.active)     patch.active = r.active;
+        if (r.baseCnps !== orig.baseCnps) patch.enters_base_cnps = r.baseCnps;
+        if (r.baseIrpp !== orig.baseIrpp) patch.enters_base_irpp = r.baseIrpp;
+        if (r.order !== orig.order)       patch.visible_position = r.order;
+        if (Object.keys(patch).length > 2) await patchRubriqueMut.mutateAsync(patch);
+      }
+      await saveCalcRulesMut.mutateAsync({ rounding, prorataMode, smigGuard, quotaGuard });
+      setDirty(false);
+      toast({ variant: 'success', title: 'Paramétrage soumis', description: 'Modifications enregistrées, auditées et envoyées en validation 4-eyes.' });
+    } catch (err) {
+      toast({ variant: 'error', title: 'Erreur enregistrement', description: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -117,7 +208,7 @@ export function ConfigurationPaiePage() {
         </div>
         <div className="flex gap-2">
           {tab === 'rubriques' && <Button variant="outline" size="sm" onClick={() => setOpen(true)}><Plus size={14} /> Rubrique</Button>}
-          <Button size="sm" onClick={save} disabled={!dirty}><Save size={14} /> Soumettre</Button>
+          <Button size="sm" onClick={save} disabled={!dirty || saving}><Save size={14} /> {saving ? 'Enregistrement…' : 'Soumettre'}</Button>
         </div>
       </div>
 

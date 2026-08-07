@@ -10,10 +10,8 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import {
-  journeyByEmployee, tasksByJourney, tasksByMilestone, pulsesByJourney,
-  trainingsByJourney, docsByJourney, templateMeta,
-} from '../../lib/m6/mock';
+import { templateMeta } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { MILESTONES, MILESTONE_META, TASK_CATEGORY_META, MANDATORY_TRAININGS, WELCOME_DOCS, OWNER_LABEL } from '../../lib/m6/referentiels';
 import { employeeById, employeeName, matricule } from '../../data/mock';
 import type { MilestoneCode } from '../../lib/m6/types';
@@ -21,14 +19,15 @@ import { cn } from '../../lib/cn';
 
 export function ArrivantDetailPage() {
   const { employeeId = '' } = useParams();
+  const m6 = useM6Data();
   const emp = employeeById(employeeId);
-  const journey = journeyByEmployee(employeeId);
+  const journey = m6.journeyByEmployee(employeeId);
   const { toast } = useToast();
 
-  const tasks = useMemo(() => journey ? tasksByJourney(journey.id) : [], [journey]);
-  const pulses = useMemo(() => journey ? pulsesByJourney(journey.id) : [], [journey]);
-  const trainings = useMemo(() => journey ? trainingsByJourney(journey.id) : [], [journey]);
-  const docs = useMemo(() => journey ? docsByJourney(journey.id) : [], [journey]);
+  const tasks = useMemo(() => journey ? m6.tasksByJourney(journey.id) : [], [journey, m6]);
+  const pulses = useMemo(() => journey ? m6.pulsesByJourney(journey.id) : [], [journey, m6]);
+  const trainings = useMemo(() => journey ? m6.trainingsByJourney(journey.id) : [], [journey, m6]);
+  const docs = useMemo(() => journey ? m6.docsByJourney(journey.id) : [], [journey, m6]);
 
   if (!emp || !journey) {
     return (
@@ -100,7 +99,7 @@ export function ArrivantDetailPage() {
         <div className="space-y-3">
           {MILESTONES.map((m) => {
             const ms = MILESTONE_META[m.code as MilestoneCode];
-            const list = tasksByMilestone(journey.id, m.code as MilestoneCode);
+            const list = m6.tasksByMilestone(journey.id, m.code as MilestoneCode);
             const done = list.filter((t) => t.status === 'completed').length;
             const reached = journeyDays >= m.daysFromHire;
             return (

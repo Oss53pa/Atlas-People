@@ -17,7 +17,7 @@ import { employeeName, employeeById } from '../../data/mock';
 import { useMssTeamStats, usePendingApprovals, isBackendConfigured } from '../../lib/mss/supabaseLive';
 import { useAuth } from '../../lib/auth';
 
-const TODAY = '2026-05-28';
+const TODAY = new Date().toISOString().slice(0, 10);
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 function isoAdd(iso: string, n: number) { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
 

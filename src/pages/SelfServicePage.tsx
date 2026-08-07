@@ -46,12 +46,13 @@ import {
   employeeCurrency,
 } from '../data/mock';
 import { cn } from '../lib/cn';
+import { useSessionContext } from '../lib/useSession';
 
-// Collaborateur connecté (démo) — l'identité viendrait du SSO Atlas Studio.
-const SELF_ID = 'e2';
 const PERIOD = 'Mai 2026';
 
 export function SelfServicePage() {
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const employee = employeeById(SELF_ID)!;
   const country = countryByCode(employee.countryCode);
   const regime = getRegime(employee.countryCode);

@@ -14,7 +14,8 @@ import { StatusPill } from '../components/ui/StatusPill';
 import { Money } from '../lib/money';
 import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
-import { EMPLOYEES, employeeName, type EmployeeRecord } from '../data/mock';
+import { employeeName, type EmployeeRecord } from '../data/mock';
+import { useRoster } from '../lib/m1/roster';
 import { useWhatIfScenarios, type WhatIfScenario } from '../store/useWhatIfScenarios';
 import { ProphtetPanel } from '../components/ProphtetPanel';
 import { cn } from '../lib/cn';
@@ -35,10 +36,10 @@ interface Totals {
   charges: number;
 }
 
-function rosterFor(sc: WhatIfScenario | null): EmployeeRecord[] {
-  if (!sc) return EMPLOYEES;
+function rosterFor(sc: WhatIfScenario | null, base: EmployeeRecord[]): EmployeeRecord[] {
+  if (!sc) return base;
   const removed = new Set(sc.removedIds);
-  const remaining: EmployeeRecord[] = EMPLOYEES
+  const remaining: EmployeeRecord[] = base
     .filter((e) => !removed.has(e.id))
     .map((e) => ({
       ...e,
@@ -105,15 +106,16 @@ function describe(sc: WhatIfScenario | null): string {
 }
 
 export function WhatIfComparePage() {
+  const roster = useRoster();
   const { scenarios, selectedAId, selectedBId, selectForCompare, deleteScenario } = useWhatIfScenarios();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const scA = scenarios.find((s) => s.id === selectedAId) ?? null;
   const scB = scenarios.find((s) => s.id === selectedBId) ?? null;
 
-  const totA = useMemo(() => totalsFor(rosterFor(scA)), [scA]);
-  const totB = useMemo(() => totalsFor(rosterFor(scB)), [scB]);
-  const baseline = useMemo(() => totalsFor(EMPLOYEES), []);
+  const totA = useMemo(() => totalsFor(rosterFor(scA, roster)), [scA, roster]);
+  const totB = useMemo(() => totalsFor(rosterFor(scB, roster)), [scB, roster]);
+  const baseline = useMemo(() => totalsFor(roster), [roster]);
 
   const delta = {
     headcount: totB.headcount - totA.headcount,

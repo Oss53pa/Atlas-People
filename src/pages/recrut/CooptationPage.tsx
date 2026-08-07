@@ -7,7 +7,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { REFERRALS, candidateById, jobById } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { employeeById, employeeName } from '../../data/mock';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
@@ -15,10 +15,11 @@ import { Money } from '../../lib/money';
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
 export function CooptationPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
-  const totalBonus = REFERRALS.reduce((s, r) => s + r.bonusAmount, 0);
-  const inPipe = REFERRALS.filter(r => r.status === 'in_pipeline' || r.status === 'submitted');
-  const hired = REFERRALS.filter(r => r.status === 'hired' || r.status === 'paid');
+  const totalBonus = m5.referrals.reduce((s, r) => s + r.bonusAmount, 0);
+  const inPipe = m5.referrals.filter(r => r.status === 'in_pipeline' || r.status === 'submitted');
+  const hired = m5.referrals.filter(r => r.status === 'hired' || r.status === 'paid');
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -36,7 +37,7 @@ export function CooptationPage() {
         <StatCard label="En pipeline" value={String(inPipe.length)} unit="actifs" icon={Users} tone="amber" />
         <StatCard label="Embauchés via cooptation" value={String(hired.length)} unit="12 mois" icon={CheckCircle2} />
         <StatCard label="Primes engagées" value={fmt(totalBonus)} unit="enveloppe" icon={DollarSign} mono />
-        <StatCard label="Coût moyen / hire" value={fmt(Math.round(totalBonus / Math.max(1, REFERRALS.length)))} unit="cooptation" icon={DollarSign} mono />
+        <StatCard label="Coût moyen / hire" value={fmt(Math.round(totalBonus / Math.max(1, m5.referrals.length)))} unit="cooptation" icon={DollarSign} mono />
       </div>
 
       <Card>
@@ -53,9 +54,9 @@ export function CooptationPage() {
       <Card>
         <CardHeader title="Cooptations en cours" />
         <div className="space-y-2">
-          {REFERRALS.map((r) => {
-            const cand = candidateById(r.candidateId)!;
-            const job = jobById(r.jobId)!;
+          {m5.referrals.map((r) => {
+            const cand = m5.candidateById(r.candidateId)!;
+            const job = m5.jobById(r.jobId)!;
             const ref = employeeById(r.referrerEmployeeId)!;
             return (
               <div key={r.id} className="rounded-xl border border-line bg-surface2/30 p-3">

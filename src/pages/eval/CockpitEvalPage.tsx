@@ -11,19 +11,18 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { Avatar } from '../../components/ui/Avatar';
 import { EvalSubNav } from '../../components/eval/EvalSubNav';
 import { M8LiveBanner } from '../../components/eval/M8LiveBanner';
-import {
-  EVALUATIONS, CYCLES, CALIBRATIONS, TALENT_BOXES, DEV_PLANS, activeCycle, kpis,
-} from '../../lib/m8/mock';
+import { useM8Data } from '../../lib/m8/dataLive';
 import { STATUS_META, BOX_LABELS } from '../../lib/m8/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
 export function CockpitEvalPage() {
-  const k = useMemo(() => kpis(), []);
-  const recent = [...EVALUATIONS].sort((a, b) => (b.managerSubmittedAt ?? '').localeCompare(a.managerSubmittedAt ?? '')).slice(0, 6);
-  const upcomingCalibrations = CALIBRATIONS.filter((c) => c.status === 'planned').slice(0, 4);
-  const topTalents = TALENT_BOXES.filter((t) => t.box === 'A3' || t.box === 'A2').slice(0, 5);
-  const atRisk = EVALUATIONS.filter((e) => e.performanceRating === 'low').slice(0, 5);
+  const m8 = useM8Data();
+  const k = useMemo(() => m8.kpis(), [m8]);
+  const recent = [...m8.evaluations].sort((a, b) => (b.managerSubmittedAt ?? '').localeCompare(a.managerSubmittedAt ?? '')).slice(0, 6);
+  const upcomingCalibrations = m8.calibrations.filter((c) => c.status === 'planned').slice(0, 4);
+  const topTalents = m8.talentBoxes.filter((t) => t.box === 'A3' || t.box === 'A2').slice(0, 5);
+  const atRisk = m8.evaluations.filter((e) => e.performanceRating === 'low').slice(0, 5);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -33,7 +32,7 @@ export function CockpitEvalPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Évaluations</h1>
-          <p className="text-sm font-medium text-ink-500">Cycle <b className="text-amber-deep">{activeCycle.label}</b> · {activeCycle.startDate} → {activeCycle.endDate} · calibration {activeCycle.calibrationDate}</p>
+          <p className="text-sm font-medium text-ink-500">Cycle <b className="text-amber-deep">{m8.activeCycle.label}</b> · {m8.activeCycle.startDate} → {m8.activeCycle.endDate} · calibration {m8.activeCycle.calibrationDate}</p>
         </div>
         <div className="flex gap-2">
           <Link to="/evaluations/cycles"><Button variant="outline" size="sm">Cycles</Button></Link>
@@ -56,7 +55,7 @@ export function CockpitEvalPage() {
         {/* Évaluations en cours */}
         <Card inset={false}>
           <div className="flex items-center justify-between p-5 pb-2">
-            <CardHeader title="Évaluations récentes" subtitle={`${EVALUATIONS.length} sur le cycle actif`} className="mb-0" />
+            <CardHeader title="Évaluations récentes" subtitle={`${m8.evaluations.length} sur le cycle actif`} className="mb-0" />
             <Link to="/evaluations/liste" className="text-[12px] font-semibold text-amber-deep hover:underline">Toutes →</Link>
           </div>
           <div className="overflow-x-auto">
@@ -146,9 +145,9 @@ export function CockpitEvalPage() {
       </div>
 
       <Card>
-        <CardHeader title="Plans de développement" subtitle={`${DEV_PLANS.length} plans actifs · suite directe des évaluations`} action={<Link to="/evaluations/plans-dev" className="text-[11px] font-semibold text-amber-deep hover:underline">Tous →</Link>} />
+        <CardHeader title="Plans de développement" subtitle={`${m8.devPlans.length} plans actifs · suite directe des évaluations`} action={<Link to="/evaluations/plans-dev" className="text-[11px] font-semibold text-amber-deep hover:underline">Tous →</Link>} />
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {DEV_PLANS.slice(0, 6).map((p) => {
+          {m8.devPlans.slice(0, 6).map((p) => {
             const emp = employeeById(p.employeeId)!;
             const inProgress = p.actions.filter((a) => a.status === 'in_progress').length;
             const total = p.actions.length;
@@ -163,7 +162,7 @@ export function CockpitEvalPage() {
         </div>
       </Card>
 
-      <p className="text-[11px] font-medium text-ink-400">M8 Évaluations · {CYCLES.length} cycles · {EVALUATIONS.length} évaluations · {CALIBRATIONS.length} commissions · 9-box performance × potentiel · plans dev liés OKR (M7) / compétences (M9) / formations (M11).</p>
+      <p className="text-[11px] font-medium text-ink-400">M8 Évaluations · {m8.cycles.length} cycles · {m8.evaluations.length} évaluations · {m8.calibrations.length} commissions · 9-box performance × potentiel · plans dev liés OKR (M7) / compétences (M9) / formations (M11).</p>
     </div>
   );
 }

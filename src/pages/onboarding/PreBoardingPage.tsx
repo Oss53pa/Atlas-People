@@ -7,7 +7,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { JOURNEYS, tasksByJourney } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
@@ -37,10 +37,11 @@ const RACI = [
 const TODAY = new Date('2026-05-31');
 
 export function PreBoardingPage() {
-  const upcoming = useMemo(() => JOURNEYS.filter((j) => {
+  const m6 = useM6Data();
+  const upcoming = useMemo(() => m6.journeys.filter((j) => {
     const d = Math.round((new Date(j.hireDate).getTime() - TODAY.getTime()) / 86_400_000);
     return d > -1 && d <= 30;
-  }).sort((a, b) => a.hireDate.localeCompare(b.hireDate)), []);
+  }).sort((a, b) => a.hireDate.localeCompare(b.hireDate)), [m6]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -109,7 +110,7 @@ export function PreBoardingPage() {
               const emp = employeeById(j.employeeId);
               if (!emp) return null;
               const days = Math.round((new Date(j.hireDate).getTime() - TODAY.getTime()) / 86_400_000);
-              const tasks = tasksByJourney(j.id).filter((t) => t.milestone === 'PRE_J7');
+              const tasks = m6.tasksByJourney(j.id).filter((t) => t.milestone === 'PRE_J7');
               const done = tasks.filter((t) => t.status === 'completed').length;
               const overdue = tasks.filter((t) => t.status !== 'completed' && new Date(t.dueDate) < TODAY).length;
               const ready = days < 0 ? done === tasks.length : true;

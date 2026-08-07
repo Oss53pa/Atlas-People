@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Route, Network, Sparkles, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Route, Network, Sparkles, ArrowRight, AlertTriangle, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -10,6 +10,8 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { skillsMatrix, skillCoverage, trainingValidations, teamTrainings, mobilityApplications, mobilityMatches, successionPlan, memberWishes, DEV_BUDGET, budgetAvailable, fmtFCFA } from '../../lib/mss/dev';
+import { isBackendConfigured, useTeamDirectory, useTeamSkillMatrix, useTeamTrainingRequests } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 function Bar({ pct, tone = 'info' }: { pct: number; tone?: 'info' | 'ok' | 'warn' | 'danger' }) {
   const c = tone === 'ok' ? 'bg-ok' : tone === 'warn' ? 'bg-warn' : tone === 'danger' ? 'bg-danger' : 'bg-info';
@@ -24,39 +26,61 @@ export function TeamDevDashboardPage() {
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
 
+  const { data: ctx } = useSessionContext();
+  const { data: liveDir } = useTeamDirectory(ctx?.tenantId);
+  const { data: liveSkillMatrix } = useTeamSkillMatrix(ctx?.tenantId);
+  const { data: liveTrainings } = useTeamTrainingRequests(ctx?.tenantId);
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
+
+  // Live skill stats
+  const liveSkillStats = useMemo(() => {
+    if (!hasLive || !liveSkillMatrix) return null;
+    const scored = liveSkillMatrix.filter(r => r.target_level && r.target_level > 0);
+    const avgCoverage = scored.length ? Math.round(scored.reduce((s, r) => s + Math.min(100, Math.round((r.level / r.target_level!) * 100)), 0) / scored.length) : 0;
+    const gapSkills = [...new Set(liveSkillMatrix.filter(r => r.target_level && r.level < r.target_level).map(r => r.skill_name ?? r.skill_id))];
+    return { avgCoverage, gaps: gapSkills };
+  }, [hasLive, liveSkillMatrix]);
+
+  const teamSize = hasLive ? (liveDir ?? []).length : team.length;
+  const toValidateLive = hasLive ? (liveTrainings ?? []).length : null;
+
+  // Mock data (always computed for non-live sections)
   const matrix = skillsMatrix(team);
   const allRows = matrix.flatMap((g) => g.rows);
-  const avgCoverage = allRows.length ? Math.round(allRows.reduce((s, r) => s + skillCoverage(r, team), 0) / allRows.length) : 0;
-  const gaps = allRows.filter((r) => skillCoverage(r, team) < 70);
-
+  const mockAvgCoverage = allRows.length ? Math.round(allRows.reduce((s, r) => s + skillCoverage(r, team), 0) / allRows.length) : 0;
+  const mockGaps = allRows.filter((r) => skillCoverage(r, team) < 70);
   const toValidate = trainingValidations(team);
   const trainings = teamTrainings(team);
   const ongoing = trainings.filter((t) => t.status === 'inprogress');
-
   const mob = mobilityApplications(team);
   const matches = mobilityMatches(team);
-
   const succ = successionPlan(team);
   const covered = succ.filter((p) => p.successors.length >= p.needed).length;
-
   const wishes = team.flatMap(memberWishes);
   const consumedPct = Math.round((DEV_BUDGET.consumed / DEV_BUDGET.allocated) * 100);
+
+  const displayAvgCoverage = liveSkillStats?.avgCoverage ?? mockAvgCoverage;
+  const displayGapNames = liveSkillStats ? liveSkillStats.gaps : mockGaps.map((g) => g.name);
+  const displayToValidate = toValidateLive ?? toValidate.length;
 
   return (
     <div className="animate-fade-up space-y-5">
       <DevelopmentSubNav />
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Développement équipe</h1>
-        <p className="text-sm font-medium text-ink-500">{team.length} collaborateur(s) · montée en compétences, formations, mobilité, succession</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink">Développement équipe</h1>
+          {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+        </div>
+        <p className="text-sm font-medium text-ink-500">{teamSize} collaborateur(s) · montée en compétences, formations, mobilité, succession</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Compétences" subtitle={`Couverture moyenne vs cible : ${avgCoverage}%`} action={<Link to="/team/developpement/competences"><Button variant="outline" size="sm">Matrice <ArrowRight size={14} /></Button></Link>} />
-          <Bar pct={avgCoverage} tone={avgCoverage >= 80 ? 'ok' : 'warn'} />
-          {gaps.length > 0 && (
+          <CardHeader title="Compétences" subtitle={`Couverture moyenne vs cible : ${displayAvgCoverage}%`} action={<Link to="/team/developpement/competences"><Button variant="outline" size="sm">Matrice <ArrowRight size={14} /></Button></Link>} />
+          <Bar pct={displayAvgCoverage} tone={displayAvgCoverage >= 80 ? 'ok' : 'warn'} />
+          {displayGapNames.length > 0 && (
             <div className="mt-3 flex items-center gap-2 rounded-xl bg-warn/[0.06] px-3 py-2 text-[12px] font-medium text-ink-700">
-              <AlertTriangle size={13} className="text-warn" /> {gaps.length} écart(s) critique(s) : {gaps.map((g) => g.name).join(', ')}
+              <AlertTriangle size={13} className="text-warn" /> {displayGapNames.length} écart(s) critique(s) : {displayGapNames.slice(0, 5).join(', ')}
             </div>
           )}
         </Card>
@@ -64,7 +88,7 @@ export function TeamDevDashboardPage() {
         <Card>
           <CardHeader title="Formations" subtitle={`Budget consommé ${consumedPct}%`} action={<Link to="/team/developpement/formations-en-cours"><Button variant="outline" size="sm">Détails <ArrowRight size={14} /></Button></Link>} />
           <div className="space-y-2 text-[12px] font-medium text-ink-600">
-            <p className="flex items-center justify-between">À valider <StatusPill tone={toValidate.length > 0 ? 'warn' : 'ok'} dot={false}>{toValidate.length}</StatusPill></p>
+            <p className="flex items-center justify-between">À valider <StatusPill tone={displayToValidate > 0 ? 'warn' : 'ok'} dot={false}>{displayToValidate}</StatusPill></p>
             <p className="flex items-center justify-between">En cours <span className="mono text-ink">{ongoing.length}</span></p>
             <div className="pt-1"><Bar pct={consumedPct} tone="info" /><p className="mt-1 text-[11px] text-ink-400">{fmtFCFA(DEV_BUDGET.consumed)} / {fmtFCFA(DEV_BUDGET.allocated)} · dispo {fmtFCFA(budgetAvailable)}</p></div>
           </div>

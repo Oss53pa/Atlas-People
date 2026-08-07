@@ -3,7 +3,7 @@ import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
-import { OBJECTIVES, activeCycle, childObjectives } from '../../lib/m7/mock';
+import { useM7Data } from '../../lib/m7/dataLive';
 import { CONFIDENCE_META, LEVEL_META } from '../../lib/m7/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
@@ -11,7 +11,7 @@ import type { Objective } from '../../lib/m7/types';
 
 const LEVEL_ICON = { company: Building2, department: Users, team: Users, individual: User } as const;
 
-function Node({ o, depth }: { o: Objective; depth: number }) {
+function Node({ o, depth, childObjectives }: { o: Objective; depth: number; childObjectives: (parentId: string) => Objective[] }) {
   const children = childObjectives(o.id);
   const meta = LEVEL_META[o.level];
   const conf = CONFIDENCE_META[o.confidence];
@@ -41,7 +41,7 @@ function Node({ o, depth }: { o: Objective; depth: number }) {
       </div>
       {children.length > 0 && (
         <div className="ml-6 mt-2 space-y-2 border-l-2 border-line pl-4">
-          {children.map((c) => <Node key={c.id} o={c} depth={depth + 1} />)}
+          {children.map((c) => <Node key={c.id} o={c} depth={depth + 1} childObjectives={childObjectives} />)}
         </div>
       )}
     </div>
@@ -49,10 +49,11 @@ function Node({ o, depth }: { o: Objective; depth: number }) {
 }
 
 export function AlignementPage() {
-  const roots = OBJECTIVES.filter((o) => o.level === 'company' && o.cycleId === activeCycle.id);
-  const orphans = OBJECTIVES.filter((o) => o.level !== 'company' && !o.parentObjectiveId && o.cycleId === activeCycle.id);
-  const totalLinked = OBJECTIVES.filter((o) => o.level !== 'company' && o.parentObjectiveId && o.cycleId === activeCycle.id).length;
-  const totalNonCompany = OBJECTIVES.filter((o) => o.level !== 'company' && o.cycleId === activeCycle.id).length;
+  const m7 = useM7Data();
+  const roots = m7.objectives.filter((o) => o.level === 'company' && o.cycleId === m7.activeCycle.id);
+  const orphans = m7.objectives.filter((o) => o.level !== 'company' && !o.parentObjectiveId && o.cycleId === m7.activeCycle.id);
+  const totalLinked = m7.objectives.filter((o) => o.level !== 'company' && o.parentObjectiveId && o.cycleId === m7.activeCycle.id).length;
+  const totalNonCompany = m7.objectives.filter((o) => o.level !== 'company' && o.cycleId === m7.activeCycle.id).length;
   const alignPct = totalNonCompany ? Math.round((totalLinked / totalNonCompany) * 100) : 0;
 
   return (
@@ -73,7 +74,7 @@ export function AlignementPage() {
       <Card>
         <CardHeader title="Vue cascade" subtitle="Cliquer sur un nœud pour ouvrir l'OKR" />
         <div className="space-y-3">
-          {roots.map((r) => <Node key={r.id} o={r} depth={0} />)}
+          {roots.map((r) => <Node key={r.id} o={r} depth={0} childObjectives={m7.childObjectives} />)}
         </div>
       </Card>
 

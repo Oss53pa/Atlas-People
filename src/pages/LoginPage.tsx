@@ -19,6 +19,13 @@ import { cn } from '../lib/cn';
 
 type View = 'login' | 'magic' | 'reset' | 'reset_sent' | 'magic_sent' | 'invitation';
 
+const DEMO_PASSWORD = 'AtlasDemo2026!';
+const DEMO_PERSONAS = [
+  { label: 'RH', email: 'rh@atlaspeople.demo' },
+  { label: 'Manager', email: 'manager@atlaspeople.demo' },
+  { label: 'Employé', email: 'employe@atlaspeople.demo' },
+] as const;
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,6 +84,15 @@ export function LoginPage() {
     const { ok, error: err } = await acceptInvitation(invitationToken);
     setSubmitting(false);
     if (!ok) setError(err ?? 'Invitation invalide');
+    else navigate(from, { replace: true });
+  };
+
+  // Connexion rapide aux personas de démonstration (vraie session Supabase).
+  const handleDemoLogin = async (demoEmail: string) => {
+    setError(null); setSubmitting(true);
+    const { error: err } = await signIn(demoEmail, DEMO_PASSWORD);
+    setSubmitting(false);
+    if (err) setError(err);
     else navigate(from, { replace: true });
   };
 
@@ -236,6 +252,24 @@ export function LoginPage() {
                   </button>
                 )}
               </div>
+
+              {/* ── Accès démo rapide (vraie session) ─────────────── */}
+              {view === 'login' && (
+                <div className="space-y-2 border-t border-line pt-4">
+                  <p className="text-center text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                    Comptes de démonstration
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {DEMO_PERSONAS.map((p) => (
+                      <button key={p.email} type="button" disabled={submitting}
+                        onClick={() => handleDemoLogin(p.email)}
+                        className="rounded-xl border border-line bg-surface px-2 py-2 text-[11px] font-semibold text-ink transition hover:border-amber-deep hover:bg-amber/[0.05] disabled:opacity-50">
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

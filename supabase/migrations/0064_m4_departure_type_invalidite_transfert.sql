@@ -1,0 +1,52 @@
+-- =====================================================================
+-- Correctif — qualification juridique des départs : trois motifs de
+-- rupture n'avaient aucune valeur correspondante dans l'enum.
+--
+-- src/pages/ExitDossierPage.tsx propose 15 motifs de sortie ; l'enum
+-- atlas_people.m4_departure_type (migration 0021) n'en couvrait que 12.
+-- Restaient sans qualification :
+--   • Invalidité définitive          (motif « disability »)
+--   • Transfert intra-groupe         (motif « intra_group »)
+--   • Incompatibilité après mobilité (motif « incompatible_after_mobility »)
+-- L'écran les repliait silencieusement sur 'DEMISSION'. Or m4_departures.type
+-- est la SEULE trace de qualification persistée par ce parcours : la donnée
+-- enregistrée affirmait donc une démission là où le droit dit autre chose.
+-- L'enjeu n'est pas cosmétique — la démission n'ouvre pas droit à indemnité
+-- de licenciement (l'invalidité si) et rompt l'ancienneté (le transfert
+-- intra-groupe doit la préserver).
+--
+-- Aucune valeur existante n'est adéquate, et les rabattre sur une voisine
+-- reconduirait l'approximation avec des effets de droit distincts :
+--   • INVALIDITE ≠ LICEN_PERSO : rupture pour inaptitude médicale
+--     définitive constatée (chaîne M12), ni à l'initiative du salarié ni
+--     à celle de l'employeur, avec régime indemnitaire propre.
+--   • TRANSFERT_GROUPE ≠ RUPT_CONV : continuité du contrat au sein du
+--     groupe avec reprise d'ancienneté — il n'y a pas de rupture
+--     indemnisée à qualifier, mais un transfert à tracer.
+--   • INCOMPAT_MOBILITE ≠ RUPT_CONV : accord de fin de relation dont le
+--     fait générateur est la mobilité elle-même ; le distinguer est ce
+--     qui permet, plus tard, de rattacher l'ancienneté et l'indemnité au
+--     poste d'origine plutôt qu'au poste d'arrivée.
+--
+-- Additif et idempotent. `add value if not exists` ne réécrit aucune ligne.
+-- Un label d'enum PostgreSQL ne se supprime pas : d'où trois labels
+-- explicites plutôt qu'un fourre-tout 'AUTRE' qu'aucune requête ultérieure
+-- ne saurait désambiguïser.
+--
+-- NON TRAITÉ ICI, volontairement : les lignes déjà écrites en 'DEMISSION'
+-- par le repli. Aucune correction de données n'est faite à l'aveugle — un
+-- départ réellement démissionnaire et un départ mal qualifié portent la
+-- même valeur. Requête de dépistage (une démission saisie par cet écran
+-- porte toujours initiative='salarie' ; les trois motifs fautifs
+-- produisaient initiative='mutuelle') :
+--
+--   select ref, initiative, reason, notified_at, created_at
+--     from atlas_people.m4_departures
+--    where type = 'DEMISSION' and initiative is distinct from 'salarie';
+-- =====================================================================
+
+alter type atlas_people.m4_departure_type add value if not exists 'INVALIDITE';
+alter type atlas_people.m4_departure_type add value if not exists 'TRANSFERT_GROUPE';
+alter type atlas_people.m4_departure_type add value if not exists 'INCOMPAT_MOBILITE';
+
+-- Fin migration 0064 — qualification des départs invalidité / transfert / mobilité.

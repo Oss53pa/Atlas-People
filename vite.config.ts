@@ -9,7 +9,9 @@ export default defineConfig({
     host: true,
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    // @sentry/react est optionnel (import dynamique, non installé par défaut).
+    // On l'exclut du pré-bundling pour éviter l'avertissement de résolution en dev.
+    exclude: ['lucide-react', '@sentry/react'],
   },
   build: {
     rollupOptions: {

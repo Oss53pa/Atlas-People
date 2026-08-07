@@ -6,9 +6,11 @@ import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
 import { StatCard } from '../../components/ui/StatCard';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { CANDIDATES, poolEntries } from '../../lib/m5/mock';
+import { poolEntries } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 
 export function VivierPage() {
+  const m5 = useM5Data();
   const [q, setQ] = useState('');
   const [pool, setPool] = useState<'all' | string>('all');
 
@@ -17,10 +19,10 @@ export function VivierPage() {
 
   const filtered = useMemo(() => entries.filter((e) => {
     if (pool !== 'all' && !e.pools.includes(pool)) return false;
-    const c = CANDIDATES.find((cc) => cc.id === e.candidateId)!;
+    const c = m5.candidates.find((cc) => cc.id === e.candidateId)!;
     if (q && !`${c.firstName} ${c.lastName} ${c.currentRole} ${c.currentCompany} ${c.skills.join(' ')}`.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }), [entries, pool, q]);
+  }), [entries, pool, q, m5.candidates]);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -38,7 +40,7 @@ export function VivierPage() {
         <StatCard label="Talents vivier" value={String(entries.length)} unit="suivis" icon={Users} />
         <StatCard label="Pools actifs" value={String(allPools.length)} unit="catégories" icon={Tag} />
         <StatCard label="À recontacter" value={String(entries.length)} unit="ce trimestre" icon={Phone} tone="amber" />
-        <StatCard label="Bases CV" value={String(CANDIDATES.length)} unit="dont vivier" icon={Mail} />
+        <StatCard label="Bases CV" value={String(m5.candidates.length)} unit="dont vivier" icon={Mail} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -55,7 +57,7 @@ export function VivierPage() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {filtered.map((e) => {
-          const c = CANDIDATES.find((cc) => cc.id === e.candidateId)!;
+          const c = m5.candidates.find((cc) => cc.id === e.candidateId)!;
           return (
             <Card key={e.id}>
               <div className="flex items-start gap-2">

@@ -4,6 +4,8 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, isBackendConfigured } from '../supabase';
+import { getSupabaseOrThrow, resolveSessionContext, mapSupabaseError } from '../session';
+import { appendAuditEntry } from '../auditLog';
 export { isBackendConfigured };
 
 const DEMO = '11111111-1111-1111-1111-111111111111';
@@ -47,36 +49,44 @@ export function useUpsertPayrollInput() {
       bonuses?: Array<{ code: string; label: string; amount: number }>;
       overtime?: Array<{ date: string; hours: number; rate: number }>;
     }) => {
-      if (!supabase) throw new Error('Backend non configuré');
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
 
-      // Upsert l'enregistrement principal
-      const { data: inp, error: e1 } = await supabase.schema('atlas_people')
+      const { data: inp, error: e1 } = await sb.schema('atlas_people')
         .from('payroll_inputs')
         .upsert({
-          tenant_id: payload.tenantId,
+          tenant_id: ctx.tenantId,
           cycle_id: payload.cycleId,
           employee_id: payload.employeeId,
           status: payload.status,
           notes: payload.notes ?? null,
           locked_at: payload.status === 'locked' ? new Date().toISOString() : null,
+          locked_by: payload.status === 'locked' ? ctx.userId : null,
         }, { onConflict: 'cycle_id,employee_id' })
         .select('id').single();
-      if (e1 || !inp) throw e1 ?? new Error('Upsert payroll_inputs échoué');
+      if (e1 || !inp) throw mapSupabaseError(e1);
 
       const inputId = (inp as { id: string }).id;
 
-      // Primes ponctuelles si présentes
       if (payload.bonuses && payload.bonuses.length > 0) {
-        await supabase.schema('atlas_people').from('payroll_inputs_bonuses')
+        await sb.schema('atlas_people').from('payroll_inputs_bonuses')
           .delete().eq('input_id', inputId);
-        await supabase.schema('atlas_people').from('payroll_inputs_bonuses').insert(
+        const { error: e2 } = await sb.schema('atlas_people').from('payroll_inputs_bonuses').insert(
           payload.bonuses.map((b) => ({
-            input_id: inputId, tenant_id: payload.tenantId,
+            input_id: inputId, tenant_id: ctx.tenantId,
             cycle_id: payload.cycleId, employee_id: payload.employeeId,
             code: b.code, label: b.label, amount: b.amount,
           })),
         );
+        if (e2) throw mapSupabaseError(e2);
       }
+
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: `payroll_input.${payload.status}`,
+        entity: 'payroll_inputs', entityId: inputId,
+        payload: { cycleId: payload.cycleId, employeeId: payload.employeeId, status: payload.status },
+        surface: 'backoffice',
+      });
 
       return inputId;
     },
@@ -92,17 +102,24 @@ export function useLockAllInputs() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ tenantId, cycleId, employeeIds }: { tenantId: string; cycleId: string; employeeIds: string[] }) => {
-      if (!supabase) return;
-      // Upsert batch
+      const sb = getSupabaseOrThrow();
+      const ctx = await resolveSessionContext();
       const now = new Date().toISOString();
       const rows = employeeIds.map((eid) => ({
-        tenant_id: tenantId, cycle_id: cycleId, employee_id: eid,
-        status: 'locked', locked_at: now,
+        tenant_id: ctx.tenantId, cycle_id: cycleId, employee_id: eid,
+        status: 'locked', locked_at: now, locked_by: ctx.userId,
       }));
       for (let i = 0; i < rows.length; i += 10) {
-        await supabase.schema('atlas_people').from('payroll_inputs')
+        const { error } = await sb.schema('atlas_people').from('payroll_inputs')
           .upsert(rows.slice(i, i + 10), { onConflict: 'cycle_id,employee_id' });
+        if (error) throw mapSupabaseError(error);
       }
+      await appendAuditEntry({
+        tenantId: ctx.tenantId, actorId: ctx.userId, action: 'payroll_input.lock_all',
+        entity: 'payroll_inputs', entityId: cycleId,
+        payload: { cycleId, count: employeeIds.length }, surface: 'backoffice',
+      });
+      void tenantId;
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['payroll-inputs', vars.tenantId, vars.cycleId] });

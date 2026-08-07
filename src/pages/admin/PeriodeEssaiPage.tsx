@@ -1,19 +1,58 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Hourglass, AlertTriangle, CheckCircle2, ArrowUpRight, MapPin } from 'lucide-react';
+import { Hourglass, AlertTriangle, CheckCircle2, ArrowUpRight, MapPin, Plus, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
+import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { PROBATIONS, ALERTS } from '../../lib/m4/mock';
+import { ALERTS } from '../../lib/m4/mock';
+import { useM4AdminData } from '../../lib/m4/dataLive';
+import { useEvaluateProbation, useCreateProbationPeriod, isBackendConfigured } from '../../lib/m4/supabaseLive';
+import { useEmployees } from '../../lib/m1/supabaseLive';
+import { useAuth } from '../../lib/auth';
 import { PROBATION_LEGAL, PROBATION_ALERT_THRESHOLDS } from '../../lib/m4/referentiels';
-import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
+import { CONTRACT_TYPES } from '../../lib/m4/referentiels';
+import { employeeById, employeeName } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 
 export function PeriodeEssaiPage() {
+  const { toast } = useToast();
+  const { tenantId } = useAuth();
+  const roster = useRoster();
+  const { probations: PROBATIONS } = useM4AdminData();
+  const evaluateProbation = useEvaluateProbation();
+  const createProbation = useCreateProbationPeriod();
+  const { data: liveEmps } = useEmployees(tenantId ?? undefined);
+  const [showForm, setShowForm] = useState(false);
+  const [probEmpId, setProbEmpId] = useState('');
+  const [probType, setProbType] = useState('CDI');
+  const [probDuration, setProbDuration] = useState(3);
+  const [probStart, setProbStart] = useState(new Date().toISOString().slice(0, 10));
+  const [activeDecide, setActiveDecide] = useState<string | null>(null);
+  const [decisionVal, setDecisionVal] = useState<'confirmed' | 'extended' | 'terminated'>('confirmed');
+  const [rationaleVal, setRationaleVal] = useState('');
   const inProgress = PROBATIONS.filter((p) => p.decision === 'pending');
   const confirmed = PROBATIONS.filter((p) => p.decision !== 'pending');
   const probationAlerts = ALERTS.filter((a) => a.kind === 'probation');
+
+  const handleDecide = async (probationId: string) => {
+    if (!isBackendConfigured) {
+      toast({ variant: 'info', title: 'Décision PE', description: 'Persistance disponible en mode live (authentification requise).' });
+      setActiveDecide(null);
+      return;
+    }
+    try {
+      await evaluateProbation.mutateAsync({ probationId, decision: decisionVal, rationale: rationaleVal || undefined });
+      setActiveDecide(null);
+      setRationaleVal('');
+      toast({ variant: 'success', title: 'Décision enregistrée', description: `Période d'essai : ${decisionVal}` });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -24,7 +63,71 @@ export function PeriodeEssaiPage() {
           <h1 className="text-2xl font-semibold text-ink">Période d'essai</h1>
           <p className="text-sm font-medium text-ink-500">Durées légales par pays · alertes J-{PROBATION_ALERT_THRESHOLDS.join('/')} · décision avant échéance</p>
         </div>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)}><Plus size={14} /> {showForm ? 'Fermer' : 'Saisir une PE'}</Button>
       </div>
+
+      {showForm && (
+        <Card className="border-amber/40">
+          <CardHeader
+            title="Saisir une période d'essai"
+            subtitle="Durée calculée automatiquement selon la date de début"
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined}
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Collaborateur</label>
+              {isBackendConfigured && liveEmps && liveEmps.length > 0 ? (
+                <select value={probEmpId} onChange={(e) => setProbEmpId(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
+                  <option value="">— choisir —</option>
+                  {liveEmps.map((e) => <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}
+                </select>
+              ) : (
+                <p className="text-[12px] font-medium text-ink-500">Authentification requise.</p>
+              )}
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Type de contrat</label>
+              <select value={probType} onChange={(e) => setProbType(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none">
+                {CONTRACT_TYPES.map((t) => <option key={t.code} value={t.code}>{t.short}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Durée (mois)</label>
+              <input type="number" value={probDuration} onChange={(e) => setProbDuration(Number(e.target.value))} min={1} max={12}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none" />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date de début</label>
+              <input type="date" value={probStart} onChange={(e) => setProbStart(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none" />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              disabled={createProbation.isPending || (isBackendConfigured ? !probEmpId : false)}
+              onClick={async () => {
+                if (!isBackendConfigured) {
+                  setShowForm(false);
+                  toast({ variant: 'info', title: 'PE', description: 'Période d\'essai créée (mode démo)' });
+                  return;
+                }
+                try {
+                  const { endDate } = await createProbation.mutateAsync({ employeeId: probEmpId, contractType: probType, durationMonths: probDuration, startDate: probStart });
+                  setShowForm(false);
+                  setProbEmpId('');
+                  toast({ variant: 'success', title: 'Période d\'essai créée', description: `${probDuration} mois · fin le ${endDate} · alertes activées` });
+                } catch (e) {
+                  toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                }
+              }}
+            >{createProbation.isPending ? 'Création…' : 'Créer la période d\'essai'}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>Annuler</Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="En cours" value={String(inProgress.length)} unit="à surveiller" icon={Hourglass} tone={inProgress.length ? 'amber' : 'default'} />
@@ -56,9 +159,28 @@ export function PeriodeEssaiPage() {
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <Link to={`/collaborateurs/${emp.id}`}><Button variant="outline" size="sm">Ouvrir dossier <ArrowUpRight size={12} /></Button></Link>
-                    <Button variant="ghost" size="sm">Évaluer</Button>
-                    <Button variant="ghost" size="sm">Décider</Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setActiveDecide(p.id); setDecisionVal('confirmed'); }}>Évaluer</Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setActiveDecide(p.id); setDecisionVal('confirmed'); }}>Décider</Button>
                   </div>
+                  {activeDecide === p.id && (
+                    <div className="mt-2 rounded-xl border border-amber/30 bg-amber/[0.05] p-3 space-y-2">
+                      <div className="flex flex-wrap gap-3">
+                        {(['confirmed', 'extended', 'terminated'] as const).map((d) => (
+                          <label key={d} className="flex items-center gap-1.5 cursor-pointer text-[12px] font-semibold text-ink">
+                            <input type="radio" name={`dec-${p.id}`} checked={decisionVal === d} onChange={() => setDecisionVal(d)} className="accent-amber-deep" />
+                            {d === 'confirmed' ? 'Confirmé' : d === 'extended' ? 'Prolongé' : 'Rompu'}
+                          </label>
+                        ))}
+                      </div>
+                      <input value={rationaleVal} onChange={(e) => setRationaleVal(e.target.value)} placeholder="Motif (facultatif)…" className="h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink focus:border-amber/40 focus:outline-none" />
+                      <div className="flex gap-2">
+                        <Button size="sm" disabled={evaluateProbation.isPending} onClick={() => handleDecide(p.id)}>
+                          {evaluateProbation.isPending ? 'Envoi…' : 'Enregistrer la décision'}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setActiveDecide(null)}>Annuler</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -90,7 +212,7 @@ export function PeriodeEssaiPage() {
         </div>
       </Card>
 
-      <p className="text-[11px] font-medium text-ink-400">Alertes générées automatiquement à J-{PROBATION_ALERT_THRESHOLDS.join(', J-')} de la fin. Décision finale (confirmation / prolongation / rupture) notifiée au moins 5 jours avant la fin légale. Documents générés via DocJourney, signés DRH via ADVIST. Suivi pour les {EMPLOYEES.filter(e => e.probationEnd).length} collaborateur(s) en essai sur le périmètre.</p>
+      <p className="text-[11px] font-medium text-ink-400">Alertes générées automatiquement à J-{PROBATION_ALERT_THRESHOLDS.join(', J-')} de la fin. Décision finale (confirmation / prolongation / rupture) notifiée au moins 5 jours avant la fin légale. Documents générés via DocJourney, signés DRH via ADVIST. Suivi pour les {roster.filter(e => e.probationEnd).length} collaborateur(s) en essai sur le périmètre.</p>
     </div>
   );
 }

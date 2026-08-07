@@ -22,7 +22,7 @@ import {
 } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
-const TODAY = '2026-05-28';
+const TODAY = new Date().toISOString().slice(0, 10);
 const frDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR');
 
 /** Catégorie d'absence sans jamais exposer la nature médicale (R5/R7). */

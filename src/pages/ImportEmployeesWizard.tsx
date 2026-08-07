@@ -15,6 +15,7 @@ import { ComplianceGuard } from '../lib/compliance/ComplianceGuard';
 import { COUNTRIES, TENANT_CURRENCY } from '../data/countries';
 import { DEPARTMENTS, type EmployeeRecord } from '../data/mock';
 import { useDirectory } from '../store/useDirectory';
+import { bulkImportEmployees, isBackendConfigured, type BulkImportRow } from '../lib/m1/supabaseLive';
 import { Money } from '../lib/money';
 import { cn } from '../lib/cn';
 
@@ -119,7 +120,38 @@ export function ImportEmployeesWizard() {
   };
   const toggleExclude = (i: number) => setExcluded((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
 
-  const execute = () => {
+  const execute = async () => {
+    if (isBackendConfigured) {
+      // Live : import privilégié délégué à l'Edge Function (service_role + idempotence).
+      const rows: BulkImportRow[] = importableIdx.map((i) => {
+        const r = parsed.rows[i];
+        return {
+          first_name: r.firstName, last_name: r.lastName,
+          role_title: r.role, department: r.department,
+          country_code: r.countryCode.toUpperCase(),
+          email: r.email || `${normalize(r.firstName)}.${normalize(r.lastName)}@import.local`,
+          contract: r.contractType,
+          status: initialStatus,
+          hire_date: r.hireDate || undefined,
+          base_salary: Number(r.baseSalary),
+          taxable_allowances: 0, non_taxable_allowances: 0, fiscal_parts: 1,
+        };
+      });
+      try {
+        const res = await bulkImportEmployees(rows);
+        setDone({ created: res.created.length, failed: res.errors.length + stats.err });
+        setStep(6);
+        toast({
+          variant: res.errors.length ? 'warning' : 'success',
+          title: 'Import terminé',
+          description: `${res.created.length} créé(s)${res.errors.length ? ` · ${res.errors.length} en erreur` : ''}.`,
+        });
+      } catch (e) {
+        toast({ variant: 'error', title: "Échec de l'import", description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+      }
+      return;
+    }
+    // Démo local : store Zustand.
     let created = 0;
     importableIdx.forEach((i) => {
       const r = parsed.rows[i];

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Gauge, Plane, Clock, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react';
+import { Gauge, Plane, Clock, RefreshCw, AlertTriangle, Sparkles, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
@@ -8,25 +8,36 @@ import { useSurface } from '../../store/useSurface';
 import { useDirectory } from '../../store/useDirectory';
 import { useOvertime } from '../../store/useOvertime';
 import { useManagerScope } from '../../store/useManagerScope';
-import { scopedTeam } from '../../lib/mss/scope';
+import { scopedTeam, useManagerId } from '../../lib/mss/scope';
 import { employeeName, employeeLeaveBalance, type EmployeeRecord } from '../../data/mock';
+import { isBackendConfigured, useTeamDirectory, useTeamLeaveBalances, useTeamOvertime, dirName } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
-const MONTH = '2026-05';
-const HS_MONTH_LIMIT = 20; // plafond mensuel individuel (illustratif)
+const MONTH = new Date().toISOString().slice(0, 7);
+const HS_MONTH_LIMIT = 20;
 const fmtH = (n: number) => `${Math.round(n * 10) / 10}h`;
 
-type Counters = { e: EmployeeRecord; cpDisp: number; cpPeremp: number; perempIn: number; hsMonth: number; hsCumul: number; recup: number };
+type Counters = { id: string; name: string; cpDisp: number; cpPeremp: number; perempIn: number; hsMonth: number; hsCumul: number; recup: number };
 
 export function TeamCountersPage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('mss'); }, [setSurface]);
 
+  const managerId = useManagerId();
   const employees = useDirectory((s) => s.employees);
   const records = useOvertime((s) => s.records);
   const depth = useManagerScope((s) => s.depth);
-  const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
+  const mockTeam = useMemo(() => scopedTeam(depth, employees, managerId), [depth, employees, managerId]);
 
-  const rows: Counters[] = team.map((e, i) => {
+  // Live layer
+  const { data: ctx } = useSessionContext();
+  const { data: liveDir } = useTeamDirectory(ctx?.tenantId);
+  const { data: liveBalances } = useTeamLeaveBalances(ctx?.tenantId);
+  const { data: liveOvertimes } = useTeamOvertime(ctx?.tenantId, 'all');
+  const hasLive = isBackendConfigured && Boolean(ctx?.tenantId);
+
+  // Mock rows
+  const mockRows: Counters[] = mockTeam.map((e: EmployeeRecord, i) => {
     const bal = employeeLeaveBalance(e);
     const cpPeremp = i % 3 === 0 ? 5 : i % 3 === 2 ? 8 : 0;
     const perempIn = cpPeremp ? (i % 3 === 0 ? 3 : 8) : 0;
@@ -34,8 +45,20 @@ export function TeamCountersPage() {
     const hsMonth = Math.round(hs.filter((r) => r.date.slice(0, 7) === MONTH).reduce((s, r) => s + r.overtimeHours, 0) * 10) / 10;
     const hsCumul = Math.round((hsMonth + (i * 3.5) % 14) * 10) / 10;
     const recup = (i % 4) * 2;
-    return { e, cpDisp: bal.remaining, cpPeremp, perempIn, hsMonth, hsCumul, recup };
+    return { id: e.id, name: employeeName(e), cpDisp: bal.remaining, cpPeremp, perempIn, hsMonth, hsCumul, recup };
   });
+
+  // Live rows
+  const liveRows: Counters[] = hasLive ? (liveDir ?? []).map((d) => {
+    const bal = (liveBalances ?? []).find(b => b.employee_id === d.id && b.leave_type_code === 'CP');
+    const cpDisp = bal?.remaining ?? 0;
+    const hs = (liveOvertimes ?? []).filter(r => r.employee_id === d.id);
+    const hsMonth = Math.round(hs.filter(r => r.work_date.slice(0, 7) === MONTH).reduce((s, r) => s + r.hours, 0) * 10) / 10;
+    const hsCumul = Math.round(hs.reduce((s, r) => s + r.hours, 0) * 10) / 10;
+    return { id: d.id, name: dirName(d), cpDisp, cpPeremp: 0, perempIn: 0, hsMonth, hsCumul, recup: 0 };
+  }) : [];
+
+  const rows = hasLive ? liveRows : mockRows;
 
   const totalCp = rows.reduce((s, r) => s + r.cpDisp, 0);
   const avgCp = rows.length ? Math.round((totalCp / rows.length) * 10) / 10 : 0;
@@ -45,15 +68,18 @@ export function TeamCountersPage() {
 
   const alerts = rows.flatMap((r) => {
     const a: { label: string; tone: 'warn' | 'danger' }[] = [];
-    if (r.cpPeremp > 0) a.push({ label: `${employeeName(r.e)} : ${r.cpPeremp} j de CP périment dans ${r.perempIn} j`, tone: 'warn' });
-    if (r.hsMonth > HS_MONTH_LIMIT) a.push({ label: `${employeeName(r.e)} : ${fmtH(r.hsMonth)} HS ce mois (> ${HS_MONTH_LIMIT}h)`, tone: 'danger' });
+    if (r.cpPeremp > 0) a.push({ label: `${r.name} : ${r.cpPeremp} j de CP périment dans ${r.perempIn} j`, tone: 'warn' });
+    if (r.hsMonth > HS_MONTH_LIMIT) a.push({ label: `${r.name} : ${fmtH(r.hsMonth)} HS ce mois (> ${HS_MONTH_LIMIT}h)`, tone: 'danger' });
     return a;
   });
 
   return (
     <div className="animate-fade-up space-y-5">
       <TeamTimeSubNav />
-      <h1 className="text-2xl font-semibold text-ink">Compteurs de l'équipe</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-semibold text-ink">Compteurs de l'équipe</h1>
+        {hasLive && <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/[0.10] px-2.5 py-1 text-[11px] font-semibold text-ok"><Wifi size={12} /> Live DB</span>}
+      </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="CP disponibles" value={String(totalCp)} unit="j cumul" icon={Plane} tone="amber" />
@@ -78,8 +104,8 @@ export function TeamCountersPage() {
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((r) => (
-                <tr key={r.e.id}>
-                  <td className="px-4 py-2.5"><div className="flex items-center gap-2.5"><Avatar name={employeeName(r.e)} size="xs" /><span className="text-[13px] font-semibold text-ink">{employeeName(r.e)}</span></div></td>
+                <tr key={r.id}>
+                  <td className="px-4 py-2.5"><div className="flex items-center gap-2.5"><Avatar name={r.name} size="xs" /><span className="text-[13px] font-semibold text-ink">{r.name}</span></div></td>
                   <td className="mono px-3 py-2.5 text-right font-semibold text-ink">{r.cpDisp} j</td>
                   <td className={`mono px-3 py-2.5 text-right ${r.cpPeremp > 0 ? 'font-semibold text-warn' : 'text-ink-400'}`}>{r.cpPeremp ? `${r.cpPeremp} j (J-${r.perempIn})` : '0'}</td>
                   <td className={`mono px-3 py-2.5 text-right ${r.hsMonth > HS_MONTH_LIMIT ? 'font-semibold text-danger' : 'text-ink-500'}`}>{fmtH(r.hsMonth)}</td>

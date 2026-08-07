@@ -1,4 +1,5 @@
 import { EMPLOYEES, type EmployeeRecord } from '../../data/mock';
+import { useSessionContext } from '../useSession';
 
 /** Profondeur de vue managériale (cf. 01_FONDATION §0.3).
  *  - direct      : N-1 directs uniquement
@@ -9,6 +10,12 @@ export type ManagerDepth = 'direct' | 'department' | 'all';
 /** Manager connecté pour la démo MSS. Awa Koné (e1) encadre des managers
  *  (Kouadio e2, Ibrahim e4) → cascade N-1/N-2 réelle, idéale pour les 3 niveaux. */
 export const MANAGER_ID = 'e1';
+
+/** Hook React — retourne l'employeeId du manager authentifié, fallback 'e1' en demo. */
+export function useManagerId(): string {
+  const { data: ctx } = useSessionContext();
+  return ctx?.employeeId ?? 'e1';
+}
 
 const fullName = (e: EmployeeRecord) => `${e.firstName} ${e.lastName}`;
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Target, ClipboardList, TrendingUp, Award, AlertTriangle } from 'lucide-react';
+import { Target, ClipboardList, TrendingUp, Award, AlertTriangle, Wifi } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { ReportingSubNav } from '../../components/mss/ReportingSubNav';
@@ -8,6 +8,8 @@ import { useDirectory } from '../../store/useDirectory';
 import { useManagerScope } from '../../store/useManagerScope';
 import { scopedTeam } from '../../lib/mss/scope';
 import { OKR_DISTRIBUTION, evalDistribution } from '../../lib/mss/reporting';
+import { isBackendConfigured, useMssReportingLive } from '../../lib/mss/supabaseLive';
+import { useSessionContext } from '../../lib/useSession';
 
 const TONE_BAR: Record<string, string> = { ok: 'bg-ok', info: 'bg-info', warn: 'bg-warn', danger: 'bg-danger' };
 
@@ -19,7 +21,15 @@ export function ReportingPerformancePage() {
   const depth = useManagerScope((s) => s.depth);
   const team = useMemo(() => scopedTeam(depth, employees), [depth, employees]);
 
-  const evals = evalDistribution(team);
+  const { data: ctx } = useSessionContext();
+  const { data: live } = useMssReportingLive(ctx?.tenantId);
+  const liveEvalTotal = live ? Object.values(live.evalClasses).reduce((s, n) => s + n, 0) : 0;
+  const showLiveEval = isBackendConfigured && !!live && liveEvalTotal > 0;
+
+  const mockEvals = evalDistribution(team);
+  const evals = showLiveEval
+    ? ['A', 'B', 'C', 'D', 'E'].map((label) => ({ label, count: live!.evalClasses[label] ?? 0 }))
+    : mockEvals;
   const maxEval = Math.max(1, ...evals.map((e) => e.count));
   const recognized = Math.ceil(team.length / 2);
 
@@ -42,7 +52,7 @@ export function ReportingPerformancePage() {
       </Card>
 
       <Card>
-        <CardHeader title="Évaluations — dernière campagne" action={<ClipboardList size={16} className="text-ink-400" />} />
+        <CardHeader title="Évaluations — dernière campagne" action={showLiveEval ? <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500"><Wifi size={12} /> Live DB</span> : <ClipboardList size={16} className="text-ink-400" />} />
         <div className="flex h-32 items-end gap-3">
           {evals.map((e) => (
             <div key={e.label} className="flex flex-1 flex-col items-center gap-1.5">

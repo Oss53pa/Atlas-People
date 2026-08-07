@@ -12,15 +12,13 @@
  */
 import type { Block, ReportData } from '../reportBlocks';
 
-const uid = () => Math.random().toString(36).substring(2, 11);
-
 /** Génère un commentaire selon le titre de la section. */
 function commentForHeading(text: string, data: ReportData): string | null {
   const t = text.toLowerCase();
 
   // Section Effectifs
   if (/effectif/i.test(t)) {
-    if (!data.effectifsByDept) return null;
+    if (!data.effectifsByDept?.length) return null; // [] passait le garde → crash sur top.dept
     const total = data.effectifsByDept.reduce((s, e) => s + e.count, 0);
     const top = [...data.effectifsByDept].sort((a, b) => b.count - a.count)[0];
     const avgActive = data.effectifsByDept.reduce((s, e) => s + e.activeRatio, 0) / data.effectifsByDept.length;
@@ -122,7 +120,9 @@ export function autoCommentReport(
       const comment = commentForHeading(b.text, data);
       if (!comment) continue;
 
-      const para: Block = { id: uid(), type: 'paragraph', text: comment, auto: true };
+      // Id déterministe (position) — pas de Math.random : un rapport recalculé
+      // doit être structurellement identique (hash/diff/content persisté stables).
+      const para: Block = { id: `auto-${i}`, type: 'paragraph', text: comment, auto: true };
       if (alreadyHasAutoPara) {
         out.push(para);
         i += 1; // skip le vieil auto

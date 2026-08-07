@@ -16,6 +16,7 @@ import { DEFAULT_PAY_COMPONENTS } from '../lib/m1/payComponents';
 import { useDirectory } from '../store/useDirectory';
 import { useToast } from '../components/ui/Toast';
 import { employeeName, type EmployeeRecord } from '../data/mock';
+import { useCreateEmployee, isBackendConfigured } from '../lib/m1/supabaseLive';
 import { cn } from '../lib/cn';
 
 const STEPS = ['État civil', 'Documents légaux', 'Famille', 'Couverture sociale', 'Identité fiscale', 'Coordonnées', 'Versement', 'Contrat', 'Rémunération', 'Récapitulatif'];
@@ -67,6 +68,7 @@ const TAX_TYPE: Record<string, string> = { CI: 'NCC', SN: 'NINEA' };
 export function NewEmployeeWizard() {
   const navigate = useNavigate();
   const { employees, addEmployee } = useDirectory();
+  const createEmployee = useCreateEmployee();
   const { toast } = useToast();
   const [step, setStep] = useState(0);
   const [f, setF] = useState<Form>(initial);
@@ -97,7 +99,7 @@ export function NewEmployeeWizard() {
     }
   };
 
-  const create = () => {
+  const create = async () => {
     const id = `e${Date.now()}`;
     const contractType: EmployeeRecord['contractType'] = f.contractType === 'cdi' ? 'CDI' : f.contractType === 'cdd' ? 'CDD' : 'Stage';
     const manager = employees.find((e) => e.id === f.managerId);
@@ -108,6 +110,19 @@ export function NewEmployeeWizard() {
       manager: manager ? employeeName(manager) : undefined, retentionAttention: 10,
       phone: f.phones[0]?.number, mobileMoneyNumber: f.paymentMethod === 'mobile_money' ? f.mmNumber : undefined,
     };
+    if (isBackendConfigured) {
+      // Live : Supabase source de vérité (audit inclus).
+      try {
+        await createEmployee.mutateAsync(record);
+      } catch (e) {
+        toast({ variant: 'error', title: 'Échec de la création', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+        return;
+      }
+      toast({ variant: 'success', title: 'Collaborateur créé', description: `${employeeName(record)} · enregistré. Onboarding (M6) déclenché.` });
+      navigate('/collaborateurs');
+      return;
+    }
+    // Démo local : store Zustand.
     addEmployee(record);
     toast({ variant: 'success', title: 'Collaborateur créé', description: `${employeeName(record)} · matricule attribué. Onboarding (M6) déclenché.` });
     navigate(`/collaborateurs/${id}`);

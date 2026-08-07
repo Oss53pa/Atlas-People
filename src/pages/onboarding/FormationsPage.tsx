@@ -5,14 +5,15 @@ import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { OnboardingSubNav } from '../../components/onboarding/OnboardingSubNav';
-import { JOURNEYS, TRAINING_COMPLETIONS } from '../../lib/m6/mock';
+import { useM6Data } from '../../lib/m6/dataLive';
 import { MANDATORY_TRAININGS } from '../../lib/m6/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 
 export function FormationsPage() {
-  const completed = TRAINING_COMPLETIONS.filter((t) => t.status === 'completed').length;
-  const inProgress = TRAINING_COMPLETIONS.filter((t) => t.status === 'in_progress').length;
-  const total = TRAINING_COMPLETIONS.length;
+  const m6 = useM6Data();
+  const completed = m6.trainings.filter((t) => t.status === 'completed').length;
+  const inProgress = m6.trainings.filter((t) => t.status === 'in_progress').length;
+  const total = m6.trainings.length;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -42,7 +43,7 @@ export function FormationsPage() {
           </tr></thead>
           <tbody className="divide-y divide-line">
             {MANDATORY_TRAININGS.map((t) => {
-              const allComps = TRAINING_COMPLETIONS.filter((c) => c.trainingCode === t.code);
+              const allComps = m6.trainings.filter((c) => c.trainingCode === t.code);
               const compl = allComps.filter((c) => c.status === 'completed').length;
               const pct = Math.round((compl / Math.max(1, allComps.length)) * 100);
               return (
@@ -78,10 +79,10 @@ export function FormationsPage() {
               <th className="px-3 py-2 text-right" />
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {JOURNEYS.filter(j => j.status === 'in_progress').map((j) => {
+              {m6.journeys.filter(j => j.status === 'in_progress').map((j) => {
                 const emp = employeeById(j.employeeId);
                 if (!emp) return null;
-                const comps = TRAINING_COMPLETIONS.filter((c) => c.journeyId === j.id);
+                const comps = m6.trainings.filter((c) => c.journeyId === j.id);
                 const done = comps.filter((c) => c.status === 'completed');
                 const avgScore = done.length ? Math.round(done.reduce((s,c)=>s+(c.score??0),0) / done.length) : 0;
                 const allDone = done.length === MANDATORY_TRAININGS.length;

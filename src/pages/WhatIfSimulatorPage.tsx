@@ -17,7 +17,8 @@ import { StatusPill } from '../components/ui/StatusPill';
 import { Money } from '../lib/money';
 import { computePayslip, getRegime } from '../lib/payroll';
 import { TENANT_CURRENCY } from '../data/countries';
-import { EMPLOYEES, employeeName, type EmployeeRecord } from '../data/mock';
+import { employeeName, type EmployeeRecord } from '../data/mock';
+import { useRoster } from '../lib/m1/roster';
 import { useWhatIfScenarios } from '../store/useWhatIfScenarios';
 import { useToast } from '../components/ui/Toast';
 import { ProphtetPanel } from '../components/ProphtetPanel';
@@ -77,6 +78,7 @@ function computeForRoster(roster: EmployeeRecord[]): ComputedTotals {
 }
 
 export function WhatIfSimulatorPage() {
+  const roster = useRoster();
   // — Paramètres de simulation
   const [increasePct, setIncreasePct] = useState(0);        // augmentation générale (-10 à +30 %)
   const [extraFiscalParts, setExtraFiscalParts] = useState(0); // ajout/retrait global de parts
@@ -90,10 +92,10 @@ export function WhatIfSimulatorPage() {
   const toast = useToast();
 
   // — Roster baseline & roster simulé
-  const baseline = useMemo(() => computeForRoster(EMPLOYEES), []);
+  const baseline = useMemo(() => computeForRoster(roster), [roster]);
 
   const simulatedRoster = useMemo<EmployeeRecord[]>(() => {
-    const remaining: EmployeeRecord[] = EMPLOYEES
+    const remaining: EmployeeRecord[] = roster
       .filter((e) => !removedIds.has(e.id))
       .map((e) => ({
         ...e,
@@ -119,7 +121,7 @@ export function WhatIfSimulatorPage() {
       retentionAttention: 5,
     }));
     return [...remaining, ...newHires];
-  }, [increasePct, extraFiscalParts, removedIds, hires]);
+  }, [increasePct, extraFiscalParts, removedIds, hires, roster]);
 
   const simulated = useMemo(() => computeForRoster(simulatedRoster), [simulatedRoster]);
 
@@ -180,7 +182,7 @@ export function WhatIfSimulatorPage() {
     { name: 'Plan d\'austérité -5 % + 2 départs', apply: () => {
       reset();
       setIncreasePct(-5);
-      setRemovedIds(new Set([EMPLOYEES[EMPLOYEES.length - 1].id, EMPLOYEES[EMPLOYEES.length - 2].id]));
+      setRemovedIds(new Set([roster[roster.length - 1].id, roster[roster.length - 2].id]));
     } },
     { name: 'Réforme fiscale +0,5 parts', apply: () => { reset(); setExtraFiscalParts(0.5); } },
   ];
@@ -253,7 +255,7 @@ export function WhatIfSimulatorPage() {
           <Card>
             <CardHeader title="Suppressions de poste" subtitle={`${removedIds.size} collab(s) retiré(s) — coût employeur économisé`} action={<UserMinus size={16} className="text-amber-deep" />} />
             <div className="max-h-[200px] space-y-1 overflow-y-auto">
-              {EMPLOYEES.map((e) => {
+              {roster.map((e) => {
                 const removed = removedIds.has(e.id);
                 return (
                   <label key={e.id} className={cn('flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors',

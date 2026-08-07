@@ -7,7 +7,8 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { applicationsByJob, candidateById, jobById, stageMeta } from '../../lib/m5/mock';
+import { stageMeta } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { JOB_STATUS_META, JOB_LEVEL_LABEL, ACTIVE_STAGES } from '../../lib/m5/referentiels';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
@@ -18,9 +19,10 @@ import { cn } from '../../lib/cn';
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
 export function PosteDetailPage() {
+  const m5 = useM5Data();
   const { id = '' } = useParams();
-  const job = jobById(id);
-  const apps = useMemo(() => applicationsByJob(id), [id]);
+  const job = m5.jobById(id);
+  const apps = useMemo(() => m5.applicationsByJob(id), [id, m5.applications]);
 
   if (!job) {
     return (
@@ -135,7 +137,7 @@ export function PosteDetailPage() {
           <div className="space-y-1.5">
             {top.length === 0 ? <p className="py-2 text-center text-[12px] font-medium text-ink-400">Pas encore de candidats scorés.</p>
               : top.map((a) => {
-                const cand = candidateById(a.candidateId);
+                const cand = m5.candidateById(a.candidateId);
                 if (!cand) return null;
                 const m = stageMeta(a.stage as ApplicationStage);
                 return (
@@ -178,7 +180,7 @@ export function PosteDetailPage() {
             </tr></thead>
             <tbody className="divide-y divide-line">
               {apps.map((a) => {
-                const cand = candidateById(a.candidateId);
+                const cand = m5.candidateById(a.candidateId);
                 if (!cand) return null;
                 const m = stageMeta(a.stage);
                 return (

@@ -28,7 +28,7 @@ export const REGIME_CI: Regime = {
       base: 'capped',
       ceiling: 70_000,
       employeeBps: 0,
-      employerBps: 525, // 5,75 % (PF) — illustratif
+      employerBps: 575, // 5,75 % (5 % PF + 0,75 % maternité) — CNPS CI
       accounts: { employer: '664200' },
     },
     {
@@ -52,7 +52,7 @@ export const REGIME_CI: Regime = {
   incomeTax: {
     code: 'IGR',
     label: 'IGR / IRPP',
-    abatementBps: 2000, // abattement 20 % frais professionnels (illustratif)
+    abatementBps: 0, // aucun abattement depuis la réforme ITS 2024 (Ordonnance n°2023-719, CGI art. 119)
     brackets: [
       { upTo: 75_000, bps: 0 },
       { upTo: 240_000, bps: 1600 }, // 16 %
@@ -64,6 +64,6 @@ export const REGIME_CI: Regime = {
   },
   employerTaxes: [
     { code: 'FDFP_TA', label: "FDFP — Taxe d'apprentissage", bps: 40, account: '637100' },
-    { code: 'FDFP_FC', label: 'FDFP — Formation continue', bps: 60, account: '637200' },
+    { code: 'FDFP_FC', label: 'FDFP — Formation continue', bps: 120, account: '637200' }, // 1,2 % — FDFP CI
   ],
 };

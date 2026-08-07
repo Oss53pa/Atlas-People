@@ -8,27 +8,44 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { APPLICATIONS, INTERVIEWS, candidateById, jobById, scorecardsByApp } from '../../lib/m5/mock';
+import { scorecardsByApp } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
+import { useRecordInterviewOutcome, isBackendConfigured } from '../../lib/m5/supabaseLive';
 import { INTERVIEW_TYPES, RECOMMENDATION_META, SCORECARD_TEMPLATES } from '../../lib/m5/referentiels';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 
 export function EntretiensPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
+  const recordOutcome = useRecordInterviewOutcome();
   const [filter, setFilter] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
+
+  const handleOutcome = async (interviewId: string, outcome: 'completed' | 'no_show') => {
+    if (!isBackendConfigured) {
+      toast({ variant: 'success', title: outcome === 'completed' ? 'Entretien terminé' : 'No-show enregistré', description: 'Mode démo — aucune persistance.' });
+      return;
+    }
+    try {
+      await recordOutcome.mutateAsync({ interviewId, outcome });
+      toast({ variant: 'success', title: outcome === 'completed' ? 'Entretien terminé' : 'No-show enregistré', description: 'Statut mis à jour · audit SHA-256' });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
 
   const list = useMemo(() => {
     const now = new Date('2026-05-30').getTime();
-    return INTERVIEWS.filter((i) => {
+    return m5.interviews.filter((i) => {
       if (filter === 'upcoming') return i.status === 'planned' && new Date(i.scheduledAt).getTime() >= now - 86_400_000;
       if (filter === 'completed') return i.status === 'completed';
       return true;
     }).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-  }, [filter]);
+  }, [filter, m5.interviews]);
 
-  const planned = INTERVIEWS.filter((i) => i.status === 'planned').length;
-  const completed = INTERVIEWS.filter((i) => i.status === 'completed').length;
-  const noShows = INTERVIEWS.filter((i) => i.status === 'no_show').length;
+  const planned = m5.interviews.filter((i) => i.status === 'planned').length;
+  const completed = m5.interviews.filter((i) => i.status === 'completed').length;
+  const noShows = m5.interviews.filter((i) => i.status === 'no_show').length;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -60,9 +77,9 @@ export function EntretiensPage() {
 
       <div className="space-y-2">
         {list.map((i) => {
-          const ap = APPLICATIONS.find((a) => a.id === i.applicationId);
-          const cand = ap && candidateById(ap.candidateId);
-          const job = ap && jobById(ap.jobId);
+          const ap = m5.applications.find((a) => a.id === i.applicationId);
+          const cand = ap && m5.candidateById(ap.candidateId);
+          const job = ap && m5.jobById(ap.jobId);
           const t = INTERVIEW_TYPES.find((it) => it.code === i.type);
           if (!cand || !job) return null;
           const cards = scorecardsByApp(ap.id).filter((s) => s.interviewId === i.id);
@@ -99,7 +116,8 @@ export function EntretiensPage() {
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <Link to={`/recrutement/candidats/${cand.id}`}><Button variant="outline" size="sm">Profil candidat <ArrowUpRight size={12} /></Button></Link>
                 {i.status === 'planned' && <Button variant="ghost" size="sm" onClick={() => toast({ variant: 'success', title: 'Scorecard', description: `Grille ${SCORECARD_TEMPLATES.find(t => t.code === 'TECH')?.label} ouverte` })}><Star size={12} /> Saisir scorecard</Button>}
-                {i.status === 'planned' && <Button variant="ghost" size="sm">Reprogrammer</Button>}
+                {i.status === 'planned' && <Button variant="ghost" size="sm" disabled={recordOutcome.isPending} onClick={() => handleOutcome(i.id, 'completed')}><CheckCircle2 size={12} /> Terminer</Button>}
+                {i.status === 'planned' && <Button variant="ghost" size="sm" disabled={recordOutcome.isPending} onClick={() => handleOutcome(i.id, 'no_show')}><XCircle size={12} /> No-show</Button>}
               </div>
             </Card>
           );

@@ -6,15 +6,19 @@ import { useMemo, useState } from 'react';
 import {
   Shield, ClipboardCheck, ClipboardList, TrendingUp, ArrowRightLeft,
   Lock, ShieldAlert, AlertCircle, AlertTriangle, CheckCircle2, Sparkles,
-  FileSignature, Target, Eye, Award, ArrowRight,
+  FileSignature, Target, Eye, Award, ArrowRight, Wifi,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toast';
 import { CompetencesSubNav } from '../../components/competences/CompetencesSubNav';
-import { EMPLOYEES, employeeName, SKILLS } from '../../data/mock';
+import { useSignPDC, isBackendConfigured } from '../../lib/m9/supabaseLive';
+import { COMPETENCE_THRESHOLDS } from '../../lib/m9/referentiels';
+import { employeeName, SKILLS } from '../../data/mock';
+import { useRoster } from '../../lib/m1/roster';
 import { cn } from '../../lib/cn';
 
 /* ═══════════════ 1. AUDIT M9 ═══════════════ */
@@ -143,7 +147,8 @@ export function AuditM9Page() {
 
 /* ═══════════════ 2. AUTO-ÉVALUATION COMPÉTENCES ═══════════════ */
 export function AutoEvalCompetencesPage() {
-  const me = EMPLOYEES[3]; // Ibrahim
+  const roster = useRoster();
+  const me = roster[3]; // Ibrahim
   const myCompetences = SKILLS.slice(0, 6).map((s, i) => ({
     skill: s,
     autoLevel: Math.min(5, 2 + (i % 4)) as 0|1|2|3|4|5,
@@ -236,8 +241,9 @@ export function AutoEvalCompetencesPage() {
 
 /* ═══════════════ 3. ÉVALUATION MANAGER COMPÉTENCES ═══════════════ */
 export function ManagerEvalCompetencesPage() {
-  const manager = EMPLOYEES[12];      // Bineta - Marketing Lead
-  const reportee = EMPLOYEES[3];      // Ibrahim
+  const roster = useRoster();
+  const manager = roster[12];      // Bineta - Marketing Lead
+  const reportee = roster[3];      // Ibrahim
   const data = [
     { skill: 'Négociation commerciale', auto: 4, manager: 4, divergence: 0, preuves: 'Closing 3 deals enterprise Q2' },
     { skill: 'Analyse de données',      auto: 3, manager: 1, divergence: 2, preuves: 'Aucun livrable analytique observé' },
@@ -327,7 +333,28 @@ export function ManagerEvalCompetencesPage() {
 
 /* ═══════════════ 4. PDC (Plans Développement Compétences) ═══════════════ */
 export function PdcPage() {
-  const me = EMPLOYEES[3];
+  const roster = useRoster();
+  const me = roster[3];
+  const { toast } = useToast();
+  const signPdc = useSignPDC();
+  const [showSignForm, setShowSignForm] = useState(false);
+  const [pdcId, setPdcId] = useState('');
+
+  const handleSignPdc = async () => {
+    if (!isBackendConfigured) {
+      setShowSignForm(false);
+      toast({ variant: 'success', title: 'PDC signé', description: 'Mode démo — aucune persistance.' });
+      return;
+    }
+    if (!pdcId) { toast({ variant: 'error', title: 'Champ requis', description: 'Entrez l\'ID UUID du PDC.' }); return; }
+    try {
+      await signPdc.mutateAsync({ pdcId });
+      setShowSignForm(false); setPdcId('');
+      toast({ variant: 'success', title: 'PDC signé ADVIST', description: 'Statut signed · audit SHA-256' });
+    } catch (e) {
+      toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+    }
+  };
   const actions = [
     { kind: 'formation' as const, title: 'Data Analytics avec Python (FRM-2026-0026)', target: 'Analyse de données : 1 → 3', deadline: '2026-09-30', status: 'in_progress' as const, completion: 35 },
     { kind: 'mentorat' as const,  title: 'Mentorat Modeste Yapo (Data Analyst senior)', target: 'Analyse de données : pratique terrain', deadline: '2026-12-31', status: 'in_progress' as const, completion: 50 },
@@ -355,9 +382,23 @@ export function PdcPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">+ Action</Button>
-          <Button size="sm"><FileSignature size={14} /> Signer ADVIST</Button>
+          <Button size="sm" onClick={() => setShowSignForm((v) => !v)}><FileSignature size={14} /> {showSignForm ? 'Annuler' : 'Signer ADVIST'}</Button>
         </div>
       </div>
+
+      {showSignForm && (
+        <Card className="border-amber/40">
+          <CardHeader title="Signer le PDC (ADVIST)" subtitle="Signature irréversible · audit SHA-256"
+            action={isBackendConfigured ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"><Wifi size={9} /> Live</span> : undefined} />
+          <div className="flex items-center gap-2">
+            <input value={pdcId} onChange={(e) => setPdcId(e.target.value)} placeholder="UUID du PDC…"
+              className="h-9 flex-1 rounded-xl border border-line bg-surface px-3 text-sm font-mono text-ink focus:border-amber/40 focus:outline-none" />
+            <Button size="sm" disabled={signPdc.isPending || (isBackendConfigured && !pdcId)} onClick={handleSignPdc}>
+              {signPdc.isPending ? 'Signature…' : 'Confirmer signature'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Actions actives" value={String(actions.length)} unit="sur 12 mois" icon={ClipboardCheck} />
@@ -416,20 +457,21 @@ export function PdcPage() {
 
 /* ═══════════════ 5. TALENTS / MOBILITÉ INTERNE PROPH3T ═══════════════ */
 export function TalentsMobilitePage() {
+  const roster = useRoster();
   const opportunities = [
     { post: 'Sales Lead régional CI', family: 'Commercial', level: 'senior', open: true },
     { post: 'Lead Product Marketing',  family: 'Marketing', level: 'lead', open: true },
     { post: 'Customer Success Lead',   family: 'Commercial', level: 'senior', open: true },
   ];
   const matches = [
-    { post: opportunities[0], candidate: EMPLOYEES[3], match: 78, strengths: ['Négociation 4/5','Closing enterprise prouvé'], gaps: ['Management équipe (3/5 vs 4 req.)'] },
-    { post: opportunities[0], candidate: EMPLOYEES[10], match: 62, strengths: ['Customer success excellence'], gaps: ['Expérience régionale faible','Négociation 3/5'] },
-    { post: opportunities[1], candidate: EMPLOYEES[12], match: 91, strengths: ['Marketing lead actuel','5+ ans expérience'], gaps: ['Aucun gap majeur'] },
-    { post: opportunities[2], candidate: EMPLOYEES[10], match: 85, strengths: ['CSM senior','NPS +60'], gaps: ['Encadrement équipe (1→3)'] },
+    { post: opportunities[0], candidate: roster[3], match: 78, strengths: ['Négociation 4/5','Closing enterprise prouvé'], gaps: ['Management équipe (3/5 vs 4 req.)'] },
+    { post: opportunities[0], candidate: roster[10], match: 62, strengths: ['Customer success excellence'], gaps: ['Expérience régionale faible','Négociation 3/5'] },
+    { post: opportunities[1], candidate: roster[12], match: 91, strengths: ['Marketing lead actuel','5+ ans expérience'], gaps: ['Aucun gap majeur'] },
+    { post: opportunities[2], candidate: roster[10], match: 85, strengths: ['CSM senior','NPS +60'], gaps: ['Encadrement équipe (1→3)'] },
   ];
   const referents = SKILLS.slice(0, 3).map((s, i) => ({
     skill: s.name,
-    employee: EMPLOYEES[(i * 5 + 1) % EMPLOYEES.length],
+    employee: roster[(i * 5 + 1) % roster.length],
     level: 5 as const,
   }));
   return (
@@ -445,8 +487,8 @@ export function TalentsMobilitePage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Postes ouverts" value={String(opportunities.length)} unit="mobilité interne" icon={Target} />
-        <StatCard label="Candidatures matchées" value={String(matches.length)} unit="≥ 40 % minimum" icon={ArrowRightLeft} />
-        <StatCard label="Match ≥ 80 %" value={String(matches.filter((m) => m.match >= 80).length)} unit="prioritaires" icon={CheckCircle2} tone="default" />
+        <StatCard label="Candidatures matchées" value={String(matches.length)} unit={`≥ ${COMPETENCE_THRESHOLDS.MOBILITY_MATCH_MIN_PCT} % minimum`} icon={ArrowRightLeft} />
+        <StatCard label="Match ≥ 80 %" value={String(matches.filter((m) => m.match >= COMPETENCE_THRESHOLDS.MOBILITY_MATCH_AUTO_VALIDATE_PCT).length)} unit="prioritaires" icon={CheckCircle2} tone="default" />
         <StatCard label="Experts référents" value={String(referents.length)} unit="niveau 5" icon={Award} />
       </div>
 
@@ -465,8 +507,8 @@ export function TalentsMobilitePage() {
                 </div>
                 <div className="text-right">
                   <p className={cn('mono text-[24px] font-bold leading-none',
-                    m.match >= 80 ? 'text-emerald-600' :
-                    m.match >= 60 ? 'text-amber-700' :
+                    m.match >= COMPETENCE_THRESHOLDS.MOBILITY_MATCH_AUTO_VALIDATE_PCT ? 'text-emerald-600' :
+                    m.match >= COMPETENCE_THRESHOLDS.MOBILITY_MATCH_PDC_MIN_PCT ? 'text-amber-700' :
                                     'text-rose-600')}>{m.match} %</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-ink-500">match</p>
                 </div>
@@ -483,7 +525,7 @@ export function TalentsMobilitePage() {
               </div>
               <div className="mt-2 flex gap-2">
                 <Button variant="outline" size="sm">Voir profil</Button>
-                {m.match >= 40 && <Button size="sm">Initier candidature</Button>}
+                {m.match >= COMPETENCE_THRESHOLDS.MOBILITY_MATCH_MIN_PCT && <Button size="sm">Initier candidature</Button>}
               </div>
             </div>
           ))}
@@ -509,11 +551,11 @@ export function TalentsMobilitePage() {
       <Card>
         <CardHeader title="Politique mobilité interne Atlas" subtitle="Cadre déterministe — éviter contournement matching" action={<AlertTriangle size={16} className="text-amber-deep" />} />
         <ul className="space-y-1.5 text-[11px] font-medium text-ink-700">
-          <li>• <strong>Seuil match minimum 40 %</strong> pour qu'une candidature soit recevable.</li>
-          <li>• <strong>Match ≥ 80 %</strong> : décision DRH + manager d'accueil suffit.</li>
-          <li>• <strong>Match 60-79 %</strong> : exige PDC d'accompagnement signé ADVIST.</li>
-          <li>• <strong>Match &lt; 60 %</strong> : exige validation Comex + clause retour 6 mois.</li>
-          <li>• <strong>Patron P10</strong> : toute mobilité accordée &lt; 40 % déclenche alerte audit auto.</li>
+          <li>• <strong>Seuil match minimum {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_MIN_PCT} %</strong> pour qu'une candidature soit recevable.</li>
+          <li>• <strong>Match ≥ {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_AUTO_VALIDATE_PCT} %</strong> : décision DRH + manager d'accueil suffit.</li>
+          <li>• <strong>Match {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_PDC_MIN_PCT}-{COMPETENCE_THRESHOLDS.MOBILITY_MATCH_PDC_MAX_PCT} %</strong> : exige PDC d'accompagnement signé ADVIST.</li>
+          <li>• <strong>Match &lt; {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_PDC_MIN_PCT} %</strong> : exige validation Comex + clause retour {COMPETENCE_THRESHOLDS.MOBILITY_RETURN_CLAUSE_MONTHS} mois.</li>
+          <li>• <strong>Patron P10</strong> : toute mobilité accordée &lt; {COMPETENCE_THRESHOLDS.MOBILITY_MATCH_MIN_PCT} % déclenche alerte audit auto.</li>
         </ul>
       </Card>
     </div>

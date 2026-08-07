@@ -5,18 +5,19 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { CANDIDATES } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { RGPD } from '../../lib/m5/referentiels';
 
 export function RgpdPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
-  const consented = CANDIDATES.filter(c => c.rgpdConsent).length;
-  const total = CANDIDATES.length;
-  const expiringSoon = CANDIDATES.filter(c => {
+  const consented = m5.candidates.filter(c => c.rgpdConsent).length;
+  const total = m5.candidates.length;
+  const expiringSoon = m5.candidates.filter(c => {
     const days = (new Date(c.rgpdRetentionUntil).getTime() - new Date('2026-05-30').getTime()) / 86_400_000;
     return days <= 90 && days >= 0;
   });
-  const expired = CANDIDATES.filter(c => new Date(c.rgpdRetentionUntil) < new Date('2026-05-30'));
+  const expired = m5.candidates.filter(c => new Date(c.rgpdRetentionUntil) < new Date('2026-05-30'));
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -65,7 +66,7 @@ export function RgpdPage() {
               <th className="px-3 py-2 text-right" />
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {CANDIDATES.slice(0, 15).map((c) => {
+              {m5.candidates.slice(0, 15).map((c) => {
                 const days = Math.round((new Date(c.rgpdRetentionUntil).getTime() - new Date('2026-05-30').getTime()) / 86_400_000);
                 const status = days < 0 ? 'expired' : days < 90 ? 'expiring' : 'ok';
                 return (

@@ -4,15 +4,16 @@ import { Button } from '../../components/ui/Button';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { useToast } from '../../components/ui/Toast';
 import { OkrSubNav } from '../../components/okr/OkrSubNav';
-import { OKR_CYCLES, OBJECTIVES, activeCycle } from '../../lib/m7/mock';
+import { useM7Data } from '../../lib/m7/dataLive';
 import { LEVEL_META, SCORING_GRID } from '../../lib/m7/referentiels';
 
 export function RevuePage() {
+  const m7 = useM7Data();
   const { toast } = useToast();
-  const lastClosed = OKR_CYCLES.find((c) => c.status === 'closed');
-  const closedObjectives = lastClosed ? OBJECTIVES.filter((o) => o.cycleId === lastClosed.id) : [];
-  const cycleProgress = (new Date('2026-05-31').getTime() - new Date(activeCycle.startDate).getTime()) / (new Date(activeCycle.endDate).getTime() - new Date(activeCycle.startDate).getTime());
-  const reviewDue = new Date(activeCycle.endDate) > new Date('2026-05-31') && cycleProgress > 0.85;
+  const lastClosed = m7.cycles.find((c) => c.status === 'closed');
+  const closedObjectives = lastClosed ? m7.objectives.filter((o) => o.cycleId === lastClosed.id) : [];
+  const cycleProgress = (new Date('2026-05-31').getTime() - new Date(m7.activeCycle.startDate).getTime()) / (new Date(m7.activeCycle.endDate).getTime() - new Date(m7.activeCycle.startDate).getTime());
+  const reviewDue = new Date(m7.activeCycle.endDate) > new Date('2026-05-31') && cycleProgress > 0.85;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -22,11 +23,11 @@ export function RevuePage() {
           <h1 className="text-2xl font-semibold text-ink">Revue de cycle</h1>
           <p className="text-sm font-medium text-ink-500">Rétrospective · scoring 0.0-1.0 · carry-over · décisions next cycle</p>
         </div>
-        <Button size="sm" disabled={!reviewDue} onClick={() => toast({ variant: 'success', title: 'Revue lancée', description: `Préparation revue ${activeCycle.label}` })}><ClipboardCheck size={14} /> Lancer la revue {activeCycle.label}</Button>
+        <Button size="sm" disabled={!reviewDue} onClick={() => toast({ variant: 'success', title: 'Revue lancée', description: `Préparation revue ${m7.activeCycle.label}` })}><ClipboardCheck size={14} /> Lancer la revue {m7.activeCycle.label}</Button>
       </div>
 
       <Card className={reviewDue ? 'border-amber/40' : ''}>
-        <CardHeader title={`Cycle actif · ${activeCycle.label}`} subtitle={`${Math.round(cycleProgress * 100)} % du cycle écoulé · revue prévue ${activeCycle.reviewDate ?? '—'}`} />
+        <CardHeader title={`Cycle actif · ${m7.activeCycle.label}`} subtitle={`${Math.round(cycleProgress * 100)} % du cycle écoulé · revue prévue ${m7.activeCycle.reviewDate ?? '—'}`} />
         <div className="h-2 overflow-hidden rounded-full bg-ink/[0.06]">
           <div className="h-full rounded-full bg-amber" style={{ width: `${Math.round(cycleProgress * 100)}%` }} />
         </div>

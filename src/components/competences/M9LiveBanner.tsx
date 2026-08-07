@@ -24,9 +24,9 @@ export function M9LiveBanner() {
       stats={[
         { icon: Network, label: 'Compétences', value: String(data.skillsTotal), sub: `${data.matrixEntries} évaluations`, to: '/competences' },
         { icon: FileSignature, label: 'PDC actifs', value: String(data.pdcTotal), sub: `${data.pdcSigned} signés · ${data.pdcActionsActive} actions`, to: '/competences/pdc' },
-        { icon: Award, label: 'Certifications', value: String(data.certsObtained), sub: `${data.certsCatalog} catalogue`, to: '/competences/certifications',
+        { icon: Award, label: 'Certifications', value: String(data.certsObtained), sub: `${data.certsCatalog} catalogue`, to: '/competences',
           tone: 'success' },
-        { icon: Scale, label: 'Anti-discrim', value: String(data.antiDiscrimOpen), sub: 'biais détectés', to: '/competences/anti-discrim',
+        { icon: Scale, label: 'Anti-discrim', value: String(data.antiDiscrimOpen), sub: 'biais détectés', to: '/competences/audit',
           tone: data.antiDiscrimOpen > 0 ? 'danger' : 'success' },
         { icon: ShieldAlert, label: 'Patterns', value: String(data.patternsCritical), sub: 'P3/P5/P7 high+', to: '/competences/audit',
           tone: data.patternsCritical > 0 ? 'warn' : 'success' },

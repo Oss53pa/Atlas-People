@@ -7,8 +7,7 @@ import { Brand } from '../ui/Brand';
 import { useAppStore } from '../../store/useAppStore';
 import { useCorrespondence } from '../../store/useCorrespondence';
 import { cn } from '../../lib/cn';
-
-const SELF_ID = 'e2';
+import { useSessionContext } from '../../lib/useSession';
 
 interface Item { label: string; to?: string; icon: typeof Home; end?: boolean; soon?: boolean; badgeKey?: 'courrier' }
 
@@ -32,6 +31,8 @@ const ITEMS: Item[] = [
 /** Barre latérale du PORTAIL COLLABORATEUR. Aucun élément du back-office
  *  (ni Cockpit DRH, ni Collaborateurs, ni Paie & déclarations…). Navigation 100% « moi ». */
 export function PortalSidebar() {
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
   const { sidebarOpen, setSidebarOpen } = useAppStore();
   const unread = useCorrespondence((s) => s.items.filter((c) => c.employeeId === SELF_ID && (c.status === 'unread' || c.status === 'action_required')).length);
 

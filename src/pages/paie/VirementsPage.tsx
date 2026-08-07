@@ -11,6 +11,12 @@ import { cycleBulletins, cycleTotals } from '../../lib/m3/cycle';
 import { employeeName, mobileMoney } from '../../data/mock';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
+import {
+  isBackendConfigured,
+  usePayrollCyclePhase,
+  useValidateDRHVirement,
+  useValidateTresorierVirement,
+} from '../../lib/m3/supabaseLive';
 
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
@@ -19,8 +25,44 @@ export function VirementsPage() {
   const { toast } = useToast();
   const rows = useMemo(() => cycleBulletins(variables, statuses, prevNet), [variables, statuses, prevNet]);
   const totals = useMemo(() => cycleTotals(rows), [rows]);
-  const [drh, setDrh] = useState(false);
-  const [tres, setTres] = useState(false);
+
+  // DB-backed validation state (live); local state used in demo mode
+  const { data: phaseData } = usePayrollCyclePhase(cycle.id);
+  const validateDRH = useValidateDRHVirement();
+  const validateTres = useValidateTresorierVirement();
+  const [localDrh, setLocalDrh] = useState(false);
+  const [localTres, setLocalTres] = useState(false);
+
+  const drh = isBackendConfigured
+    ? ['payment', 'closed'].includes(phaseData?.current_phase ?? '')
+    : localDrh;
+  const tres = isBackendConfigured
+    ? phaseData?.current_phase === 'closed'
+    : localTres;
+
+  function handleDRH() {
+    if (isBackendConfigured) {
+      validateDRH.mutate(cycle.id, {
+        onSuccess: () => toast({ variant: 'success', title: 'Validé DRH' }),
+        onError: (err) => toast({ variant: 'error', title: (err as Error).message }),
+      });
+    } else {
+      setLocalDrh(true);
+      toast({ variant: 'success', title: 'Validé DRH' });
+    }
+  }
+
+  function handleTresorier() {
+    if (isBackendConfigured) {
+      validateTres.mutate(cycle.id, {
+        onSuccess: () => toast({ variant: 'success', title: 'Virements exécutés', description: `${rows.length} bénéficiaires · ${fmt(totals.net)} FCFA` }),
+        onError: (err) => toast({ variant: 'error', title: (err as Error).message }),
+      });
+    } else {
+      setLocalTres(true);
+      toast({ variant: 'success', title: 'Virements exécutés', description: `${rows.length} bénéficiaires · ${fmt(totals.net)} FCFA` });
+    }
+  }
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -42,11 +84,27 @@ export function VirementsPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className={`rounded-2xl border px-4 py-3 ${drh ? 'border-ok/30 bg-ok/[0.05]' : 'border-line bg-surface2'}`}>
             <p className="text-[11px] font-bold uppercase tracking-wider text-ink-400">1 — DRH</p>
-            <Button variant={drh ? 'ghost' : 'outline'} size="sm" className="mt-2" disabled={drh} onClick={() => { setDrh(true); toast({ variant: 'success', title: 'Validé DRH' }); }}>{drh ? 'Validé' : 'Valider (DRH)'}</Button>
+            <Button
+              variant={drh ? 'ghost' : 'outline'}
+              size="sm"
+              className="mt-2"
+              disabled={drh || validateDRH.isPending}
+              onClick={handleDRH}
+            >
+              {drh ? 'Validé' : validateDRH.isPending ? 'Validation…' : 'Valider (DRH)'}
+            </Button>
           </div>
           <div className={`rounded-2xl border px-4 py-3 ${tres ? 'border-ok/30 bg-ok/[0.05]' : 'border-line bg-surface2'}`}>
             <p className="text-[11px] font-bold uppercase tracking-wider text-ink-400">2 — Trésorier</p>
-            <Button variant={tres ? 'ghost' : 'outline'} size="sm" className="mt-2" disabled={!drh || tres} onClick={() => { setTres(true); toast({ variant: 'success', title: 'Virements exécutés', description: `${rows.length} bénéficiaires · ${fmt(totals.net)} FCFA` }); }}>{tres ? 'Exécuté' : 'Valider & exécuter'}</Button>
+            <Button
+              variant={tres ? 'ghost' : 'outline'}
+              size="sm"
+              className="mt-2"
+              disabled={!drh || tres || validateTres.isPending}
+              onClick={handleTresorier}
+            >
+              {tres ? 'Exécuté' : validateTres.isPending ? 'Exécution…' : 'Valider & exécuter'}
+            </Button>
           </div>
         </div>
       </Card>

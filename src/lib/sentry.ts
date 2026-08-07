@@ -24,7 +24,11 @@ let _sentry: {
 export async function initSentry(): Promise<void> {
   if (!DSN) return; // mode démo ou dev sans DSN
   try {
-    const Sentry = await import('@sentry/react');
+    // Import optionnel : @sentry/react n'est pas une dépendance obligatoire.
+    // Le specifier passe par une variable + @vite-ignore pour que Vite ne tente
+    // PAS de le résoudre au build (sinon échec de résolution en dev/build).
+    const sentryPkg = '@sentry/react';
+    const Sentry = await import(/* @vite-ignore */ sentryPkg);
     Sentry.init({
       dsn: DSN,
       environment: ENV,

@@ -14,8 +14,9 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { EvalSubNav } from '../../components/eval/EvalSubNav';
-import { EMPLOYEES, employeeName } from '../../data/mock';
+import { employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
+import { useRoster } from '../../lib/m1/roster';
 
 /* ═══════════════════════════════ 1. CYCLE ANNUEL ═══════════════════════════════ */
 export function CycleAnnuelEvalPage() {
@@ -236,6 +237,10 @@ export function CalibrationEvalPage() {
     { lvl: 2, name: 'Calibration direction',  who: 'Directeur + tous managers + RRH',        when: 'S47 · fin nov.', duration: '3-4 h workshop', enjeu: 'Cohérence inter-équipes' },
     { lvl: 3, name: 'Calibration entreprise', who: 'DG + Comex + DRH + Chargé Performance',  when: 'S48 · début déc.', duration: '4-6 h workshop', enjeu: 'Cohérence globale + équité' },
   ];
+  // Cible de répartition des classes finales ABCDE (note composite 0-100, cf. classe
+  // calculée dans NotationFinalePage ci-dessous). À distinguer de CALIBRATION_DISTRIBUTION
+  // (src/lib/m8/referentiels.ts), qui cible la grille 9-box performance × potentiel —
+  // deux axes de calibration légitimement différents, non interchangeables.
   const distribution = [
     { class: 'A — Exceptionnel',          target: 10, color: 'emerald-500' },
     { class: 'B — Au-dessus attentes',    target: 25, color: 'emerald-400' },
@@ -514,6 +519,7 @@ export function EquiteEvalPage() {
 
 /* ═══════════════════════════════ 6. AUDIT M8 SHA-256 ═══════════════════════════════ */
 export function AuditEvalPage() {
+  const roster = useRoster();
   const auditEvents = [
     { at: '2026-11-28 14:22', actor: 'Awa Koné',     action: 'eval.score.update',  detail: 'Note finale Marie SAMAKÉ : 76,5 → 78,2 (post-calibration)', hash: '7f3a91…b842c1' },
     { at: '2026-11-28 09:10', actor: 'Comité Calib.', action: 'calibration.close', detail: 'Workshop Direction Sales clôturé · 12 évaluations validées', hash: 'e4dc88…a3119f' },
@@ -617,7 +623,7 @@ cron m8_audit_verify       : 04:30 quotidien — vérifie l'intégralité de la 
 cron m8_bias_detection     : 03:00 quotidien — exécute les 12 patterns`}</pre>
       </Card>
 
-      <span className="hidden">{EMPLOYEES.length}{employeeName.name}{Avatar.name}</span>
+      <span className="hidden">{roster.length}{employeeName.name}{Avatar.name}</span>
     </div>
   );
 }

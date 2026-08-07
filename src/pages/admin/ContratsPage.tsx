@@ -8,31 +8,58 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../components/ui/Toast';
 import { AdminRhSubNav } from '../../components/admin/AdminRhSubNav';
-import { CONTRACTS, ALERTS } from '../../lib/m4/mock';
+import { CONTRACTS, ALERTS, buildContract } from '../../lib/m4/mock';
 import { CONTRACT_TYPES, CONTRACT_STATUS_META, CONTRACT_WIZARD_STEPS, CONTRACT_SURVEILLANCE_THRESHOLDS } from '../../lib/m4/referentiels';
-import { employeeById, employeeName, EMPLOYEES } from '../../data/mock';
-import type { ContractTypeCode, ContractStatus } from '../../lib/m4/types';
+import { employeeById, employeeName } from '../../data/mock';
+import type { ContractTypeCode, ContractStatus, EmploymentContract } from '../../lib/m4/types';
 import { cn } from '../../lib/cn';
-import { useM4Contracts, isBackendConfigured } from '../../lib/m4/supabaseLive';
+import { useM4Contracts, useCreateContract, isBackendConfigured } from '../../lib/m4/supabaseLive';
 import { useAuth } from '../../lib/auth';
+import { useRoster, mockEmpId } from '../../lib/m1/roster';
+import { useEmployees } from '../../lib/m1/supabaseLive';
 
 export function ContratsPage() {
   const { toast } = useToast();
   const { tenantId } = useAuth();
   const { data: liveContracts } = useM4Contracts(tenantId ?? undefined);
+  const { data: liveEmps } = useEmployees(tenantId ?? undefined);
+  const roster = useRoster();
+  const createContract = useCreateContract();
   const [q, setQ] = useState('');
   const [typeF, setTypeF] = useState<'all' | ContractTypeCode>('all');
   const [statF, setStatF] = useState<'all' | ContractStatus>('all');
   const [wizard, setWizard] = useState(false);
+  const [wizEmpId, setWizEmpId] = useState('');
+  const [wizType, setWizType] = useState<string>('CDI');
+  const [wizDate, setWizDate] = useState('');
 
-  const list = useMemo(() => CONTRACTS.filter((c) => {
+  // Liste live-first : lignes m4_contracts (DB) fusionnées avec le builder
+  // déterministe pour les champs hors schéma (société, dates, convention…).
+  const allContracts: EmploymentContract[] = useMemo(() => {
+    if (!isBackendConfigured || !liveContracts || liveContracts.length === 0) return CONTRACTS;
+    return liveContracts.flatMap((row) => {
+      const empId = mockEmpId(row.employee_id);
+      const emp = roster.find((e) => e.id === empId) ?? employeeById(empId);
+      if (!emp) return [];
+      const base = buildContract(emp);
+      return [{
+        ...base,
+        id: row.id,
+        ref: row.ref ?? base.ref,
+        type: (row.type as ContractTypeCode) ?? base.type,
+        status: (row.status as ContractStatus) ?? base.status,
+      }];
+    });
+  }, [liveContracts, roster]);
+
+  const list = useMemo(() => allContracts.filter((c) => {
     const emp = employeeById(c.employeeId);
     if (!emp) return false;
     if (typeF !== 'all' && c.type !== typeF) return false;
     if (statF !== 'all' && c.status !== statF) return false;
     if (q && !(`${employeeName(emp)} ${c.ref} ${c.fonction}`.toLowerCase().includes(q.toLowerCase()))) return false;
     return true;
-  }), [q, typeF, statF]);
+  }), [allContracts, q, typeF, statF]);
 
   const cddAlerts = ALERTS.filter((a) => a.kind === 'cdd');
   const probAlerts = ALERTS.filter((a) => a.kind === 'probation');
@@ -47,14 +74,14 @@ export function ContratsPage() {
           <p className="text-sm font-medium text-ink-500">
             {isBackendConfigured && liveContracts
               ? <><span className="inline-flex items-center gap-1 text-emerald-600 font-bold"><Wifi size={10} /> {liveContracts.length} contrats DB</span> · 11 types OHADA</>
-              : <>{CONTRACTS.length} contrats · 11 types · signature ADVIST OHADA · bibliothèque modèles par pays/CCN</>}
+              : <>{allContracts.length} contrats · 11 types · signature ADVIST OHADA · bibliothèque modèles par pays/CCN</>}
           </p>
         </div>
         <Button size="sm" onClick={() => setWizard(true)}><Plus size={14} /> Nouveau contrat</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Actifs" value={String(isBackendConfigured && liveContracts ? liveContracts.filter(c=>c.status==='active').length : CONTRACTS.filter(c=>c.status==='active').length)} unit="signés 2 parties" icon={CheckCircle2} />
+        <StatCard label="Actifs" value={String(allContracts.filter((c) => c.status === 'active').length)} unit="signés 2 parties" icon={CheckCircle2} />
         <StatCard label="CDD à surveiller" value={String(cddAlerts.length)} unit={`J-${CONTRACT_SURVEILLANCE_THRESHOLDS.cdd_end.join('/')}`} icon={AlertTriangle} tone={cddAlerts.length ? 'amber' : 'default'} />
         <StatCard label="Période d'essai" value={String(probAlerts.length)} unit="décision proche" icon={AlertTriangle} tone={probAlerts.length ? 'amber' : 'default'} />
         <StatCard label="Types de contrat" value="11" unit="OHADA" icon={FileSignature} />
@@ -97,7 +124,7 @@ export function ContratsPage() {
               {Object.entries(CONTRACT_STATUS_META).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
-          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{CONTRACTS.length} contrats</span>
+          <span className="text-[11px] font-semibold text-ink-400">{list.length}/{allContracts.length} contrats</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
@@ -140,8 +167,69 @@ export function ContratsPage() {
               </li>
             ))}
           </ol>
-          <div className="mt-3 flex items-center gap-2"><Filter size={12} className="text-ink-400" /><p className="text-[11px] font-medium text-ink-500">Sélectionner le collaborateur cible parmi les {EMPLOYEES.length} pour commencer.</p></div>
-          <div className="mt-2 flex gap-2"><Button size="sm" onClick={() => { setWizard(false); toast({ variant: 'success', title: 'Wizard', description: 'Contrat en brouillon créé (étape 1/10)' }); }}>Démarrer le wizard</Button></div>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Collaborateur</label>
+              {isBackendConfigured && liveEmps && liveEmps.length > 0 ? (
+                <select
+                  value={wizEmpId}
+                  onChange={(e) => setWizEmpId(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+                >
+                  <option value="">— choisir —</option>
+                  {liveEmps.map((e) => (
+                    <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="flex items-center gap-2"><Filter size={12} className="text-ink-400" /><p className="text-[11px] font-medium text-ink-500">{roster.length} collaborateurs (mode démo)</p></div>
+              )}
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Type de contrat</label>
+              <select
+                value={wizType}
+                onChange={(e) => setWizType(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              >
+                {CONTRACT_TYPES.map((t) => <option key={t.code} value={t.code}>{t.short} — {t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-400">Date d'effet</label>
+              <input
+                type="date"
+                value={wizDate}
+                onChange={(e) => setWizDate(e.target.value)}
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              disabled={createContract.isPending || (isBackendConfigured ? !wizEmpId : false)}
+              onClick={async () => {
+                if (!isBackendConfigured) {
+                  setWizard(false);
+                  toast({ variant: 'success', title: 'Wizard', description: 'Contrat en brouillon créé (mode démo — étape 1/10)' });
+                  return;
+                }
+                try {
+                  await createContract.mutateAsync({ employeeId: wizEmpId, type: wizType, effectiveDate: wizDate || undefined });
+                  setWizard(false);
+                  setWizEmpId('');
+                  setWizType('CDI');
+                  setWizDate('');
+                  toast({ variant: 'success', title: 'Contrat créé', description: `Brouillon ${wizType} enregistré (étape 1/10)` });
+                } catch (e) {
+                  toast({ variant: 'error', title: 'Erreur', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
+                }
+              }}
+            >
+              {createContract.isPending ? 'Création…' : 'Créer le brouillon (étape 1/10)'}
+            </Button>
+          </div>
         </Card>
       )}
     </div>

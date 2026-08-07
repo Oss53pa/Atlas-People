@@ -4,7 +4,8 @@ import { Button } from '../../components/ui/Button';
 import { StatCard } from '../../components/ui/StatCard';
 import { useToast } from '../../components/ui/Toast';
 import { RecrutSubNav } from '../../components/recrut/RecrutSubNav';
-import { APPLICATIONS, JOBS, OFFERS, kpis } from '../../lib/m5/mock';
+import { kpis } from '../../lib/m5/mock';
+import { useM5Data } from '../../lib/m5/dataLive';
 import { PIPELINE_STAGES } from '../../lib/m5/referentiels';
 import { TENANT_CURRENCY } from '../../data/countries';
 import { Money } from '../../lib/money';
@@ -12,17 +13,18 @@ import { Money } from '../../lib/money';
 const fmt = (n: number) => Money.of(Math.round(n), TENANT_CURRENCY).format();
 
 export function ReportingRecrutPage() {
+  const m5 = useM5Data();
   const { toast } = useToast();
   const k = kpis();
-  const total = APPLICATIONS.length;
+  const total = m5.applications.length;
   const funnel = PIPELINE_STAGES.map(s => ({
     ...s,
-    count: APPLICATIONS.filter(a => a.stage === s.code).length,
-    pct: Math.round((APPLICATIONS.filter(a => a.stage === s.code).length / Math.max(1, total)) * 100),
+    count: m5.applications.filter(a => a.stage === s.code).length,
+    pct: Math.round((m5.applications.filter(a => a.stage === s.code).length / Math.max(1, total)) * 100),
   }));
 
   // Sum cumulé en pipeline (sourced..offer) pour ratio entonnoir global
-  const inPipe = APPLICATIONS.filter(a => ['sourced','applied','screening','interview','assessment','offer'].includes(a.stage)).length;
+  const inPipe = m5.applications.filter(a => ['sourced','applied','screening','interview','assessment','offer'].includes(a.stage)).length;
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -74,7 +76,7 @@ export function ReportingRecrutPage() {
               <th className="py-1 text-right">Jours ouverts</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
-              {JOBS.filter(j => j.status === 'open' || j.status === 'closed_filled').slice(0, 6).map((j) => {
+              {m5.jobs.filter(j => j.status === 'open' || j.status === 'closed_filled').slice(0, 6).map((j) => {
                 const days = Math.round((new Date(j.closedAt ?? '2026-05-30').getTime() - new Date(j.openedAt).getTime()) / 86_400_000);
                 return (
                   <tr key={j.id}>
@@ -94,7 +96,7 @@ export function ReportingRecrutPage() {
             {['sent', 'negotiating', 'accepted', 'declined', 'expired'].map(s => (
               <div key={s} className="flex items-center justify-between rounded-lg bg-surface2/40 px-3 py-1.5 text-[12px]">
                 <span className="font-medium text-ink-700">{s}</span>
-                <span className="mono font-bold text-ink">{OFFERS.filter(o => o.status === s).length}</span>
+                <span className="mono font-bold text-ink">{m5.offers.filter(o => o.status === s).length}</span>
               </div>
             ))}
           </div>

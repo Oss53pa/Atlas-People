@@ -11,8 +11,7 @@ import { Brand } from '../../components/ui/Brand';
 import { useSurface } from '../../store/useSurface';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
-
-const SELF_ID = 'e2';
+import { useSessionContext } from '../../lib/useSession';
 
 interface Section {
   code: string; title: string; desc: string; icon: typeof Home; to?: string; live: boolean;
@@ -37,6 +36,9 @@ const SECTIONS: Section[] = [
 export function PortalHubPage() {
   const setSurface = useSurface((s) => s.setSurface);
   useEffect(() => { setSurface('ess'); }, [setSurface]);
+
+  const { data: ctx } = useSessionContext();
+  const SELF_ID = ctx?.employeeId ?? 'e2';
 
   const employee = employeeById(SELF_ID)!;
   const greeting = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
