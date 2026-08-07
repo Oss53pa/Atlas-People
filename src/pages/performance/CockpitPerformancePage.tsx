@@ -175,7 +175,7 @@ export function CockpitPerformancePage() {
               onClick={() => setAudience(a.key)}
               className={cn(
                 'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition',
-                audience === a.key ? 'bg-amber text-white shadow-sm' : 'text-ink-500 hover:text-ink',
+                audience === a.key ? 'bg-amber text-night shadow-sm' : 'text-ink-500 hover:text-ink',
               )}
             >
               <a.icon size={14} /> {a.label}
@@ -293,7 +293,7 @@ export function CockpitPerformancePage() {
               const emp = employeeById(m);
               return (
                 <button key={m} onClick={() => setManagerId(m)}
-                  className={cn('rounded-lg px-3 py-1 text-[12px] font-semibold', managerId === m ? 'bg-amber text-white' : 'border border-line bg-surface2/40 text-ink-500')}>
+                  className={cn('rounded-lg px-3 py-1 text-[12px] font-semibold', managerId === m ? 'bg-amber text-night' : 'border border-line bg-surface2/40 text-ink-500')}>
                   {emp ? employeeName(emp) : m}
                 </button>
               );
@@ -324,7 +324,7 @@ export function CockpitPerformancePage() {
               const emp = employeeById(e.employeId);
               return (
                 <button key={e.employeId} onClick={() => setEmployeId(e.employeId)}
-                  className={cn('rounded-lg px-3 py-1 text-[12px] font-semibold', employeId === e.employeId ? 'bg-amber text-white' : 'border border-line bg-surface2/40 text-ink-500')}>
+                  className={cn('rounded-lg px-3 py-1 text-[12px] font-semibold', employeId === e.employeId ? 'bg-amber text-night' : 'border border-line bg-surface2/40 text-ink-500')}>
                   {emp ? employeeName(emp) : e.employeId}
                 </button>
               );

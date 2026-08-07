@@ -75,7 +75,7 @@ export function ReadinessPage() {
           const m = employeeById(e.employeId);
           return (
             <button key={e.employeId} onClick={() => setEmployeId(e.employeId)}
-              className={cn('rounded-lg px-3 py-1 text-[12px] font-semibold', employeId === e.employeId ? 'bg-amber text-white' : 'border border-line bg-surface2/40 text-ink-500')}>
+              className={cn('rounded-lg px-3 py-1 text-[12px] font-semibold', employeId === e.employeId ? 'bg-amber text-night' : 'border border-line bg-surface2/40 text-ink-500')}>
               {m ? employeeName(m) : e.employeId}
             </button>
           );

@@ -146,7 +146,7 @@ export function CockpitBonusPage() {
             <div className="flex flex-wrap gap-1">
               {MODES.map((m) => (
                 <button key={m.key} onClick={() => setMode(m.key)} title={m.hint}
-                  className={cn('rounded-lg px-2.5 py-1.5 text-[11px] font-semibold', mode === m.key ? 'bg-amber text-white' : 'border border-line bg-surface2/40 text-ink-500')}>
+                  className={cn('rounded-lg px-2.5 py-1.5 text-[11px] font-semibold', mode === m.key ? 'bg-amber text-night' : 'border border-line bg-surface2/40 text-ink-500')}>
                   {m.label}
                 </button>
               ))}
