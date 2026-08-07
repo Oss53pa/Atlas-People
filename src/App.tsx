@@ -48,6 +48,7 @@ const BackOfficeQueuePage       = lz(() => import('./pages/backoffice/BackOffice
 const PortefeuilleClientsPage   = lz(() => import('./pages/cabinet/PortefeuilleClientsPage'),  'PortefeuilleClientsPage');
 const ClientDetailPage          = lz(() => import('./pages/cabinet/ClientDetailPage'),          'ClientDetailPage');
 const PrefacturationPage        = lz(() => import('./pages/cabinet/PrefacturationPage'),        'PrefacturationPage');
+const PrefactureDetailPage      = lz(() => import('./pages/cabinet/PrefactureDetailPage'),      'PrefactureDetailPage');
 const RapportCabinetPage        = lz(() => import('./pages/cabinet/RapportCabinetPage'),        'RapportCabinetPage');
 const InterfaceClientPage       = lz(() => import('./pages/cabinet/InterfaceClientPage'),        'InterfaceClientPage');
 const BulletinsLotPage          = lz(() => import('./pages/payroll/BulletinsLotPage'),          'BulletinsLotPage');
@@ -437,6 +438,7 @@ function App() {
           {/* Cabinet & Placement */}
           <Route path="/clients" element={<PortefeuilleClientsPage />} />
           <Route path="/clients/:id" element={<ClientDetailPage />} />
+          <Route path="/prefacturation/:id" element={<PrefactureDetailPage />} />
           <Route path="/travailleurs-places" element={<TravailleursPlacesPage />} />
           <Route path="/travailleurs-places/:id" element={<TravailleurDetailPage />} />
           <Route path="/collaborateurs/nouveau" element={<NewEmployeeWizard />} />
