@@ -72,9 +72,22 @@ export interface BonusSimulation {
 }
 
 /**
- * Simulation what-if (§8) : calcule la répartition pour une enveloppe, un mode
- * et un coefficient global donnés — pure, sans persistance. C'est ce que la
- * direction manipule avant de figer.
+ * Répartition d'une enveloppe à partir d'entrées déjà construites (démo OU live).
+ * Pure (§8, sans persistance) — voie de calcul unique pour les deux sources.
+ */
+export function buildRepartition(
+  montant: number,
+  mode: ModeBonus,
+  inputs: BonusInput[],
+  rows: BonusEmployeMock[],
+): BonusSimulation {
+  const enveloppe: Enveloppe = { montant: Money.of(montant, XOF), mode };
+  return { result: repartitionBonus(inputs, enveloppe, XOF), rows };
+}
+
+/**
+ * Simulation what-if (§8) sur le jeu de démonstration — enveloppe, mode et
+ * coefficient global. C'est ce que la direction manipule avant de figer.
  */
 export function simulate(
   montant: number,
@@ -82,8 +95,7 @@ export function simulate(
   coefGlobal = 1,
 ): BonusSimulation {
   const { inputs, rows } = bonusInputs(coefGlobal);
-  const enveloppe: Enveloppe = { montant: Money.of(montant, XOF), mode };
-  return { result: repartitionBonus(inputs, enveloppe, XOF), rows };
+  return buildRepartition(montant, mode, inputs, rows);
 }
 
 export { XOF as BONUS_CURRENCY };
