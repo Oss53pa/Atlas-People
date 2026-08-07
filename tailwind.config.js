@@ -14,7 +14,7 @@ export default {
           DEFAULT: '#17150F',
           700: '#3B382F',
           500: '#6C685E',
-          400: '#928D81',
+          400: '#6E6A5F',
         },
         // Accent de marque Atlas
         amber: {
