@@ -12,6 +12,7 @@ import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isBackendConfigured } from './supabase';
 import { clearSessionContextCache } from './session';
+import { safeLocalStorage } from './safeStorage';
 import type { TenantType } from '../store/useAppStore';
 export { isBackendConfigured };
 
@@ -19,14 +20,28 @@ export { isBackendConfigured };
 
 export type AppRole = 'super_admin' | 'admin' | 'hr' | 'manager' | 'employee';
 
+/** Un workspace auquel l'utilisateur appartient. */
+export interface Workspace {
+  tenantId: string;
+  name: string;
+  tenantType: TenantType;
+  role: AppRole;
+}
+
 export interface AuthState {
   session: Session | null;
   user: User | null;
   /** ID du tenant actif (UUID). Null tant que non résolu. */
   tenantId: string | null;
   role: AppRole;
-  /** Mode de fonctionnement du workspace. */
+  /** Mode de fonctionnement du workspace actif. */
   tenantType: TenantType;
+  /**
+   * Tous les workspaces du compte — un par formule souscrite. Le workspace
+   * ACTIF détermine le périmètre RLS côté base (cf. migration 0068) : ce
+   * n'est pas un simple confort d'affichage.
+   */
+  workspaces: Workspace[];
   loading: boolean;
   /**
    * True dès que la recherche d'appartenance a abouti, qu'elle en ait trouvé
@@ -44,12 +59,15 @@ interface AuthActions {
   _setError: (e: string | null) => void;
   _setTenantRole: (tenantId: string, role: AppRole) => void;
   _setTenantType: (type: TenantType) => void;
+  _setWorkspaces: (w: Workspace[]) => void;
   _setTenantResolved: (v: boolean) => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   sendMagicLink: (email: string) => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   acceptInvitation: (token: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Bascule de workspace : change le périmètre RLS, puis recharge. */
+  switchWorkspace: (tenantId: string) => Promise<{ error: string | null }>;
   /** Amorçage du premier administrateur d'un workspace (cf. migration 0057). */
   bootstrapTenant: (tenantId: string) => Promise<{ ok: boolean; error?: string }>;
 }
@@ -64,6 +82,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   tenantId: isBackendConfigured ? null : DEMO_TENANT,
   role: 'hr',
   tenantType: 'entreprise',
+  workspaces: [],
   loading: isBackendConfigured, // si backend présent, on attend onAuthStateChange
   tenantResolved: !isBackendConfigured, // en démo, rien à résoudre
   error: null,
@@ -73,6 +92,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   _setError: (e) => set({ error: e }),
   _setTenantRole: (tenantId, role) => set({ tenantId, role }),
   _setTenantType: (type) => set({ tenantType: type }),
+  _setWorkspaces: (w) => set({ workspaces: w }),
   _setTenantResolved: (v) => set({ tenantResolved: v }),
 
   signIn: async (email, password) => {
@@ -127,6 +147,31 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   /**
+   * Bascule de workspace.
+   *
+   * Le rechargement complet est délibéré : le périmètre RLS change côté
+   * base, or les caches de requêtes en mémoire contiennent encore les
+   * données de l'ancien workspace. Les invalider un par un serait une
+   * source d'oublis silencieux — et un oubli signifierait afficher les
+   * données d'un autre workspace.
+   */
+  switchWorkspace: async (tenantId) => {
+    if (!supabase) return { error: 'Backend non configuré' };
+    const target = get().workspaces.find((w) => w.tenantId === tenantId);
+    const { error } = await supabase
+      .schema('atlas_people')
+      .rpc('set_active_tenant', { p_tenant_id: tenantId });
+    if (error) return { error: humanizeWorkspaceError(error.message) };
+
+    safeLocalStorage.set(ACTIVE_TENANT_KEY, tenantId);
+    clearSessionContextCache();
+    if (typeof window !== 'undefined') {
+      window.location.assign(target ? PRODUCT_HOME_PATH[target.tenantType] : '/');
+    }
+    return { error: null };
+  },
+
+  /**
    * Amorçage du premier administrateur d'un workspace.
    * La RPC n'accepte que deux cas (cf. migration 0057) : l'appelant est le
    * propriétaire désigné, ou le workspace est vierge. Tout autre cas est
@@ -161,24 +206,84 @@ async function loadTenantType(tenantId: string): Promise<void> {
   }
 }
 
+const ACTIVE_TENANT_KEY  = 'atlas.people.active-tenant';
+const PENDING_PRODUCT_KEY = 'atlas.people.pending-product';
+
+/** Accueil propre à chaque mode — dupliqué de app/products pour éviter que
+ *  la couche d'authentification dépende du catalogue commercial. */
+const PRODUCT_HOME_PATH: Record<TenantType, string> = {
+  entreprise: '/',
+  cabinet_complet: '/clients',
+  cabinet_paie: '/clients',
+  cabinet_mixte: '/clients',
+  cabinet_agence: '/travailleurs-places',
+};
+
+function humanizeWorkspaceError(message: string): string {
+  if (message.includes('NOT_A_MEMBER')) return "Ce workspace ne vous est pas accessible.";
+  if (message.includes('AUTH_REQUIRED')) return "Session expirée — reconnectez-vous.";
+  if (message.includes('UNKNOWN_TENANT_TYPE')) return "Formule inconnue.";
+  return message;
+}
+
+/**
+ * Mémorise la formule demandée depuis la landing (`/login?produit=payroll`).
+ * Consommée à la résolution du tenant : si le compte possède un workspace de
+ * ce mode, c'est celui-là qui s'ouvre.
+ */
+export function requestProductWorkspace(tenantType: TenantType): void {
+  safeLocalStorage.set(PENDING_PRODUCT_KEY, tenantType);
+}
+
 interface ResolvedMembership {
   tenantId: string;
   role: AppRole;
 }
 
-/** Lit l'appartenance la plus ancienne de l'utilisateur, ou null. */
-async function readMembership(userId: string): Promise<ResolvedMembership | null> {
-  if (!supabase) return null;
-  const { data } = await supabase
+/** Liste les workspaces du compte (RPC my_workspaces, migration 0068). */
+async function readWorkspaces(): Promise<Workspace[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
     .schema('atlas_people')
-    .from('tenant_memberships')
-    .select('tenant_id, role')
-    .eq('user_id', userId)
-    .order('added_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (!data) return null;
-  return { tenantId: data.tenant_id as string, role: data.role as AppRole };
+    .rpc('my_workspaces');
+  if (error || !Array.isArray(data)) return [];
+  return (data as Array<{ tenant_id: string; name: string; tenant_type: string; role: string; is_active: boolean }>)
+    .map((r) => ({
+      tenantId: r.tenant_id,
+      name: r.name,
+      tenantType: r.tenant_type as TenantType,
+      role: r.role as AppRole,
+      isActive: r.is_active,
+    }))
+    .map(({ isActive: _isActive, ...w }) => w);
+}
+
+/**
+ * Choisit le workspace à ouvrir parmi ceux du compte :
+ *   1. la formule demandée depuis la landing, si le compte la possède ;
+ *   2. le dernier workspace ouvert ;
+ *   3. le plus ancien, à défaut.
+ */
+function pickWorkspace(workspaces: Workspace[]): Workspace | null {
+  if (workspaces.length === 0) return null;
+
+  // Le bac à sable de démonstration passe en dernier : un compte peut
+  // posséder à la fois « Atlas Démo SARL » et son vrai workspace du même
+  // mode, et c'est le workspace réel qui doit s'ouvrir.
+  const preferReal = (a: Workspace, b: Workspace) =>
+    Number(a.tenantId === DEMO_TENANT) - Number(b.tenantId === DEMO_TENANT);
+  const ordered = [...workspaces].sort(preferReal);
+
+  const pending = safeLocalStorage.get(PENDING_PRODUCT_KEY);
+  if (pending) {
+    safeLocalStorage.remove(PENDING_PRODUCT_KEY);
+    const wanted = ordered.find((w) => w.tenantType === pending);
+    if (wanted) return wanted;
+  }
+
+  const last = safeLocalStorage.get(ACTIVE_TENANT_KEY);
+  const known = last ? ordered.find((w) => w.tenantId === last) : undefined;
+  return known ?? ordered[0];
 }
 
 /**
@@ -264,10 +369,10 @@ function initAuthListener() {
   // drapeau — et non `loading` — qui autorise l'interface à conclure « cet
   // utilisateur n'a aucune appartenance ». `loading` passe à false avant que
   // cette résolution ait abouti.
-  async function resolveTenant(userId: string) {
+  async function resolveTenant() {
     if (!supabase) return;
     try {
-      let membership = await readMembership(userId);
+      let workspaces = await readWorkspaces();
 
       // Aucune appartenance : on provisionne le workspace du client.
       // Atlas People partage son projet d'authentification avec les autres
@@ -276,18 +381,32 @@ function initAuthListener() {
       // ouverture de l'application — l'intention d'entrer dans Atlas People.
       // La RPC est idempotente et refuse si une invitation attend cette
       // adresse ; dans ce cas TenantBootstrapPage reprend la main.
-      if (!membership && isBackendConfigured) {
-        membership = await provisionWorkspace();
+      if (workspaces.length === 0 && isBackendConfigured) {
+        const created = await provisionWorkspace();
+        if (created) workspaces = await readWorkspaces();
       }
 
-      if (membership) {
-        useAuthStore.getState()._setTenantRole(membership.tenantId, membership.role);
-        await loadTenantType(membership.tenantId);
+      const store = useAuthStore.getState();
+      store._setWorkspaces(workspaces);
+
+      const active = pickWorkspace(workspaces);
+      if (active) {
+        // Le workspace actif doit être connu de la BASE, pas seulement du
+        // client : c'est lui qui borne current_tenant_ids(), donc tout ce
+        // que la RLS laisse lire. Sans cet appel, un compte à plusieurs
+        // workspaces verrait leurs données fusionnées.
+        await supabase.schema('atlas_people')
+          .rpc('set_active_tenant', { p_tenant_id: active.tenantId });
+        safeLocalStorage.set(ACTIVE_TENANT_KEY, active.tenantId);
+        clearSessionContextCache();
+
+        store._setTenantRole(active.tenantId, active.role);
+        store._setTenantType(active.tenantType);
       } else if (!isBackendConfigured) {
         // Demo mode uniquement — jamais sur un backend réel
-        useAuthStore.getState()._setTenantRole(DEMO_TENANT, 'hr');
+        store._setTenantRole(DEMO_TENANT, 'hr');
       }
-      // Backend configuré, pas de membership et provisionnement refusé →
+      // Backend configuré, aucun workspace et provisionnement refusé →
       // tenantId reste null, TenantBootstrapPage prend le relais.
     } finally {
       useAuthStore.getState()._setTenantResolved(true);
@@ -297,7 +416,7 @@ function initAuthListener() {
   supabase.auth.getSession().then(({ data: { session } }) => {
     useAuthStore.getState()._setSession(session);
     useAuthStore.getState()._setLoading(false);
-    if (session?.user) resolveTenant(session.user.id);
+    if (session?.user) resolveTenant();
     else useAuthStore.getState()._setTenantResolved(true);
   });
 
@@ -307,7 +426,7 @@ function initAuthListener() {
     useAuthStore.getState()._setLoading(false);
     if (session?.user) {
       useAuthStore.getState()._setTenantResolved(false);
-      resolveTenant(session.user.id);
+      resolveTenant();
     } else {
       if (!isBackendConfigured) {
         useAuthStore.getState()._setTenantRole(DEMO_TENANT, 'hr');

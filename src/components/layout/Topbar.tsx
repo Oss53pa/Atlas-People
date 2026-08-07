@@ -7,6 +7,7 @@ import { Avatar } from '../ui/Avatar';
 import { Brand } from '../ui/Brand';
 import { CountrySwitcher } from './CountrySwitcher';
 import { SpaceSwitcher } from './SpaceSwitcher';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { NotificationsDrawer, useNotifications } from './NotificationsDrawer';
 
 export function Topbar() {
@@ -47,6 +48,9 @@ export function Topbar() {
 
       {/* Sélecteur d'espace (ESS / MSS / Back-office RH) */}
       <SpaceSwitcher />
+
+      {/* Sélecteur de workspace — visible dès que le compte en possède plusieurs */}
+      <WorkspaceSwitcher />
 
       {/* Badge mode (cliquable → Admin > Mode de fonctionnement, masqué en mode Entreprise) */}
       {tenantType === 'cabinet_complet' && (
