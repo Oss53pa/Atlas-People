@@ -1,0 +1,50 @@
+name: CI
+
+# Contrôle qualité BLOQUANT : typage, lint, tests et build doivent passer.
+# Toute erreur fait échouer le job → la PR ne peut pas être fusionnée
+# (une fois la protection de branche « Require status checks » activée sur main).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Types · Lint · Tests · Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # npm install (et non npm ci) : le package-lock.json est généré sous
+      # Windows et n'embarque pas les binaires optionnels Linux (esbuild),
+      # ce que npm ci refuse. Cohérent avec android.yml.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck (tsc, app + node)
+        run: npm run typecheck
+
+      - name: Lint (eslint — bloque sur les erreurs)
+        run: npm run lint
+
+      - name: Tests (vitest)
+        run: npm run test
+
+      - name: Build (vite)
+        run: npm run build

@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       rationale?: string;
       idempotencyKey?: string;
     };
-    const { probationId, decision, rationale, idempotencyKey } = body;
+    const { probationId, decision, idempotencyKey } = body;
     if (!probationId || !decision || !idempotencyKey) {
       return json({ error: { code: 'VALIDATION_ERROR', message: 'probationId, decision, idempotencyKey requis' } }, 400);
     }
