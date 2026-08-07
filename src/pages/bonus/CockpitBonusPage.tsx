@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Wallet, Calculator, TrendingUp, AlertTriangle, Lock, Eye, Coins, SlidersHorizontal,
+  Database, FlaskConical,
 } from 'lucide-react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
@@ -10,7 +12,8 @@ import { useToast } from '../../components/ui/Toast';
 import { employeeById, employeeName } from '../../data/mock';
 import { cn } from '../../lib/cn';
 import type { ModeBonus } from '../../engine/bonus';
-import { ENVELOPPE_DEFAUT, simulate } from '../../lib/bonus/mock';
+import { ENVELOPPE_DEFAUT, buildRepartition, simulate } from '../../lib/bonus/mock';
+import { fetchBonusInputsLive } from '../../lib/bonus/live';
 import {
   usePersistBonusSimulation, useCommitBonusDecision,
   type BonusAllocationInput, type PersistBonusResult,
@@ -37,7 +40,17 @@ export function CockpitBonusPage() {
   const [gated, setGated] = useState(false); // R6 : direction valide → affiché
   const [empSel, setEmpSel] = useState('e8');
 
-  const sim = useMemo(() => simulate(montant, mode, coef), [montant, mode, coef]);
+  // Entrées live (score validé Performance + fiche de rému) ; repli démo.
+  const { data: liveBonus } = useQuery({
+    queryKey: ['bonus-live', coef],
+    queryFn: () => fetchBonusInputsLive(coef),
+    staleTime: 60_000,
+  });
+  const isLive = !!liveBonus;
+  const sim = useMemo(
+    () => (liveBonus ? buildRepartition(montant, mode, liveBonus.inputs, liveBonus.rows) : simulate(montant, mode, coef)),
+    [montant, mode, coef, liveBonus],
+  );
   const byId = useMemo(() => new Map(sim.result.lignes.map((l) => [l.employeId, l])), [sim]);
 
   // Toute modification des paramètres invalide un enregistrement antérieur.
@@ -81,17 +94,23 @@ export function CockpitBonusPage() {
       toast({ variant: 'error', title: 'Échec de la validation', description: e instanceof Error ? e.message : 'Erreur inconnue.' });
     }
   };
-  const empLigne = byId.get(empSel);
-  const empRow = sim.rows.find((r) => r.employeId === empSel);
-  const emp = employeeById(empSel);
+  const empLigne = byId.get(empSel) ?? sim.result.lignes[0];
+  const empRow = sim.rows.find((r) => r.employeId === empSel) ?? sim.rows[0];
+  const emp = employeeById(empRow?.employeId ?? empSel);
 
   return (
     <div className="animate-fade-up space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Bonus — Simulation & pilotage</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-ink">Bonus — Simulation & pilotage</h1>
+            <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+              isLive ? 'bg-ok/15 text-ok' : 'bg-info/15 text-info')}>
+              {isLive ? <Database size={11} /> : <FlaskConical size={11} />} {isLive ? 'Scores live' : 'Démo'}
+            </span>
+          </div>
           <p className="text-sm font-medium text-ink-500">
-            SCORE = score <b>validé</b> de la campagne (§9) · calcul déterministe <b>Money.ts</b> (zéro décimale, R5)
+            SCORE = score <b>validé</b> de la campagne (§9){isLive ? ' · lu depuis perf_scores' : ''} · calcul déterministe <b>Money.ts</b> (zéro décimale, R5)
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
