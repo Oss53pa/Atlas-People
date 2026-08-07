@@ -54,6 +54,23 @@ Require status checks to pass before merging**, puis cocher :
 Cocher aussi **« Require branches to be up to date before merging »**. Une fois
 fait, aucune régression types / lint / tests / build / e2e ne peut atterrir sur `main`.
 
+## Accessibilité (a11y)
+
+Audit automatisé **axe-core** (WCAG 2.1 A + AA) intégré aux e2e (`e2e/a11y.spec.ts`)
+sur 6 écrans clés (Cockpit, Performance, Bonus, Readiness, Collaborateurs, Paie).
+
+- **Gate CI bloquant** : **0 violation `critical`** (bloqueurs clavier / lecteur d'écran).
+- **Backlog non bloquant** (rapporté en annotations/pièces jointes) :
+  - `color-contrast` (serious) — dette de **design system** : plusieurs textes
+    secondaires (`ink-400/500`, `amber-deep`) sous le ratio AA. À traiter par une
+    passe sur les tokens de couleur Tailwind.
+  - `nested-interactive` (serious) — table Collaborateurs : lignes cliquables
+    contenant des boutons. À restructurer (lien sur le nom plutôt que ligne-bouton).
+
+Ces points sont **mesurés et suivis** ; ils ne bloquent pas la CI tant que la
+passe design/markup dédiée n'est pas faite, mais aucune régression `critical`
+ne peut passer.
+
 ## Structure (extrait)
 
 ```

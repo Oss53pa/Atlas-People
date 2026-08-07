@@ -149,6 +149,7 @@ export function CollaborateursPage() {
               />
             </div>
             <select
+              aria-label="Filtrer par statut"
               value={status ?? ''}
               onChange={(e) => setStatus((e.target.value || null) as EmployeeRecord['status'] | null)}
               className="h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-ink focus:border-amber/40 focus:outline-none"
