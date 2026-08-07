@@ -143,7 +143,7 @@ export function SSOAuthPage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-line text-[13px] font-semibold text-ink-500 hover:border-amber-deep/30 hover:text-ink transition-colors"
             >
               <ArrowLeft size={14} />
-              Retour au portail Atlas Studio
+              Retour à la connexion
             </button>
           </>
         )}

@@ -7,13 +7,19 @@
  *   3. Réinitialisation mot de passe (email reset)
  *   4. Accepter une invitation (token dans l'URL ?token=xxx)
  *
+ * Produit ciblé : `?produit=core|conseil|payroll|360|placement` (posé par les
+ * cartes produit de la landing). Le produit sert à afficher le bon en-tête et
+ * à router vers l'accueil correspondant après connexion.
+ *
  * En mode démo (VITE_SUPABASE_URL absent), affiche un bouton "Accès démo"
  * qui redirige directement sans auth.
  */
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Sparkles, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { useAuth, isBackendConfigured } from '../lib/auth';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Mail, Lock, ArrowRight, ArrowLeft, Sparkles, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { useAuth, useAuthStore, isBackendConfigured } from '../lib/auth';
+import { PRODUCT_META } from '../app/nav';
+import { tenantTypeFromSlug } from '../app/products';
 import { Button } from '../components/ui/Button';
 import { cn } from '../lib/cn';
 
@@ -30,7 +36,20 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, sendMagicLink, resetPassword, acceptInvitation, isAuthenticated, loading } = useAuth();
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/accueil';
+  const setTenantType = useAuthStore((s) => s._setTenantType);
+
+  // Produit visé depuis la landing (`?produit=payroll`), null si accès direct.
+  const product = useMemo(
+    () => tenantTypeFromSlug(new URLSearchParams(location.search).get('produit')),
+    [location.search],
+  );
+  const productMeta = product ? PRODUCT_META[product] : null;
+
+  // Avec un produit ciblé on passe par « / » : HomeDispatch route ensuite selon
+  // le mode réel du workspace (celui de la base en production, celui choisi ici
+  // en mode démo).
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname
+    ?? (product ? '/' : '/accueil');
 
   const [view, setView] = useState<View>('login');
   const [email, setEmail] = useState('');
@@ -47,10 +66,16 @@ export function LoginPage() {
     if (token) { setInvitationToken(token); setView('invitation'); }
   }, [location.search]);
 
-  // Redirection si déjà authentifié
+  // Redirection si déjà authentifié.
+  // En démo (pas de backend), la session est toujours considérée ouverte : on
+  // applique alors le produit demandé avant de router, sinon la landing
+  // ouvrirait toujours le même logiciel. Avec backend, le mode vient de la base
+  // et ne doit pas être surchargé depuis l'URL.
   useEffect(() => {
-    if (isAuthenticated && !loading) navigate(from, { replace: true });
-  }, [isAuthenticated, loading, navigate, from]);
+    if (!isAuthenticated || loading) return;
+    if (!isBackendConfigured && product) setTenantType(product);
+    navigate(from, { replace: true });
+  }, [isAuthenticated, loading, navigate, from, product, setTenantType]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +138,15 @@ export function LoginPage() {
           </p>
         </div>
 
+        {/* Produit choisi sur la landing */}
+        {productMeta && (
+          <div className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3 text-center shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-500">Connexion au produit</p>
+            <p className={cn('mt-0.5 text-[15px] font-bold', productMeta.accentClass)}>{productMeta.name}</p>
+            <p className="text-[11px] font-medium text-ink-500">{productMeta.sub}</p>
+          </div>
+        )}
+
         <div className="rounded-2xl border border-line bg-surface p-8 shadow-premium">
 
           {/* ── Mode démo ──────────────────────────────────────── */}
@@ -127,8 +161,11 @@ export function LoginPage() {
                   </p>
                 </div>
               </div>
-              <Button className="w-full" onClick={() => navigate('/accueil')}>
-                Accéder au démo <ArrowRight size={15} />
+              <Button className="w-full" onClick={() => {
+                if (product) setTenantType(product);
+                navigate(from);
+              }}>
+                {productMeta ? `Ouvrir ${productMeta.name}` : 'Accéder au démo'} <ArrowRight size={15} />
               </Button>
               <p className="text-center text-[11px] text-ink-500">
                 Pour activer l'authentification, renseignez{' '}
@@ -274,11 +311,12 @@ export function LoginPage() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-[11px] text-ink-500">
-          Votre espace est géré depuis{' '}
-          <a href="https://atlas.studio" className="text-amber-deep hover:underline">Atlas Studio</a>.
-          {' '}Contactez votre administrateur pour un accès.
-        </p>
+        <div className="mt-6 space-y-2 text-center text-[11px] text-ink-500">
+          <p>Pas encore d'accès ? Contactez l'administrateur de votre workspace.</p>
+          <Link to="/landing#formules" className="inline-flex items-center gap-1 font-semibold text-amber-deep hover:underline">
+            <ArrowLeft size={12} /> Voir les 5 produits Atlas People
+          </Link>
+        </div>
       </div>
     </div>
   );
