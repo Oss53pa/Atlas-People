@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react';
-import { Route, Routes, Outlet, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Route, Routes, Outlet, Navigate, useLocation } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { PortalLayout } from './components/layout/PortalLayout';
 import { ManagerLayout } from './components/layout/ManagerLayout';
@@ -7,6 +7,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { ALL_MODULES } from './app/nav';
 import { useAuth } from './lib/auth';
+import { PRODUCT_HOME } from './app/products';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const lz = (factory: () => Promise<any>, name: string) =>
@@ -24,9 +25,13 @@ function SuspenseOutlet() {
   return <Suspense fallback={<PageLoader />}><Outlet /></Suspense>;
 }
 
-function SSORedirect() {
-  useEffect(() => { window.location.replace('https://atlas-studio.org/portal'); }, []);
-  return null;
+/**
+ * Lien d'invitation : on reste dans l'application. LoginPage sait traiter le
+ * `?token=` (vue « invitation »), inutile de sortir vers un portail externe.
+ */
+function InvitationRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/login${search}`} replace />;
 }
 
 // ── Lazy pages ────────────────────────────────────────────────────────
@@ -359,12 +364,12 @@ const SettingsTemplatesPage          = lz(() => import('./pages/mss/SettingsTemp
 function HomeDispatch() {
   const { tenantType, loading } = useAuth();
   if (loading) return <PageLoader />;
-  if (tenantType === 'cabinet_complet' || tenantType === 'cabinet_paie' || tenantType === 'cabinet_mixte') {
-    return <Navigate to="/clients" replace />;
-  }
-  if (tenantType === 'cabinet_agence') {
-    return <Navigate to="/travailleurs-places" replace />;
-  }
+  // Accueil propre à chaque produit (cabinets → portefeuille, agence →
+  // travailleurs placés). PRODUCT_HOME est la référence partagée avec la page
+  // de connexion, pour que « Se connecter » depuis la landing arrive au bon
+  // écran quel que soit le produit.
+  const home = PRODUCT_HOME[tenantType];
+  if (home !== '/') return <Navigate to={home} replace />;
   return <CockpitPage />;
 }
 
@@ -409,7 +414,7 @@ function App() {
     <Routes>
       {/* Auth — hors layouts */}
       <Route path="/login" element={<Suspense fallback={<PageLoader />}><LoginPage /></Suspense>} />
-      <Route path="/auth/invitation" element={<SSORedirect />} />
+      <Route path="/auth/invitation" element={<InvitationRedirect />} />
       <Route path="/auth" element={<Suspense fallback={<PageLoader />}><SSOAuthPage /></Suspense>} />
       <Route path="/landing" element={<Suspense fallback={<PageLoader />}><LandingPage /></Suspense>} />
       <Route path="/accueil" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><WelcomeCockpitPage /></Suspense></ProtectedRoute>} />

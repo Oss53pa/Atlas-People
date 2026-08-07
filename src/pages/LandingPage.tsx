@@ -16,10 +16,12 @@ import {
   Rocket, Target, Gauge, Network, Route as RouteIcon, GraduationCap,
   ShieldCheck, LayoutGrid, Check, ChevronDown, Mail,
   Lock, FileCheck2, Server, Quote, MapPin, Phone, Linkedin, Twitter,
-  Github, Newspaper, Heart, Globe2, Settings2, Compass,
+  Github, Newspaper, Heart, Globe2, Settings2, Compass, LogIn,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
+import { loginPathForProduct } from '../app/products';
+import type { TenantType } from '../store/useAppStore';
 
 const NAV_ITEMS = [
   { label: 'Formules', to: '/landing#formules' },
@@ -129,8 +131,8 @@ interface Step {
   icon: LucideIcon;
 }
 const STEPS: Step[] = [
-  { num: '01', title: 'Choisissez votre formule',    description: 'Visitez le catalogue Atlas Studio, comparez les 5 produits (Core, Conseil, Payroll, 360, Placement) et choisissez celui qui correspond à votre structure.', icon: Compass },
-  { num: '02', title: 'Souscrivez sur Atlas Studio', description: 'Créez votre compte sur Atlas Studio, sélectionnez votre formule dans le catalogue et finalisez l\'achat. Votre espace Atlas People est provisionné sous 24 h.', icon: Settings2 },
+  { num: '01', title: 'Choisissez votre formule',    description: 'Comparez les 5 produits (Core, Conseil, Payroll, 360, Placement) dans la section Formules et choisissez celui qui correspond à votre structure.', icon: Compass },
+  { num: '02', title: 'Souscrivez et connectez-vous', description: 'Demandez votre souscription depuis le formulaire de contact. Votre espace Atlas People est provisionné sous 24 h, puis vous vous connectez directement au produit choisi.', icon: Settings2 },
   { num: '03', title: 'Accès admin · créez vos profils', description: 'Vous recevez un accès administrateur. Depuis votre tableau de bord, invitez collaborateurs, managers, agents RH et responsables paie selon les postes.', icon: Users },
   { num: '04', title: 'Gérez et optimisez',          description: 'Chaque utilisateur accède à son espace dédié : Mon espace (ESS), Mon équipe (Manager) ou Administration RH (back-office). Cockpit DRH unifié en temps réel.', icon: GraduationCap },
 ];
@@ -245,7 +247,8 @@ const FAQ: FaqItem[] = [
 interface TenantPersona {
   icon: LucideIcon;
   productName: string;
-  catalogKey: string;
+  /** Mode de workspace correspondant — pilote le lien de connexion au produit. */
+  tenantType: TenantType;
   label: string;
   sub: string;
   description: string;
@@ -258,14 +261,12 @@ interface TenantPersona {
   accentBtn: string;
 }
 
-const ATLAS_STUDIO_CATALOG = 'https://atlas-studio.org/catalog';
-
 /* Ordre officiel : Core → Conseil → Payroll → 360 → Placement */
 const TENANT_PERSONAS: TenantPersona[] = [
   {
     icon: Building2,
     productName: 'Atlas People Core',
-    catalogKey: 'atlas-people-core',
+    tenantType: 'entreprise',
     label: 'Entreprise',
     sub: 'PME · ETI · Groupe multi-filiales',
     description: 'Vous gérez directement vos propres collaborateurs. Accès complet aux 14 modules RH, paie déterministe, ESS mobile.',
@@ -280,7 +281,7 @@ const TENANT_PERSONAS: TenantPersona[] = [
   {
     icon: Briefcase,
     productName: 'Atlas People Conseil',
-    catalogKey: 'atlas-people-conseil',
+    tenantType: 'cabinet_complet',
     label: 'Cabinet RH & Conseil',
     sub: 'Externalisation RH complète',
     description: 'Votre cabinet prend en charge la gestion RH et administrative complète pour des entreprises clientes.',
@@ -295,7 +296,7 @@ const TENANT_PERSONAS: TenantPersona[] = [
   {
     icon: Wallet,
     productName: 'Atlas Payroll',
-    catalogKey: 'atlas-payroll',
+    tenantType: 'cabinet_paie',
     label: 'Bureau de paie',
     sub: 'Externalisation paie & admin',
     description: 'Votre bureau traite la paie pour des entreprises clientes. Bulletins en lot, DSN consolidée, 14 régimes OHADA.',
@@ -310,7 +311,7 @@ const TENANT_PERSONAS: TenantPersona[] = [
   {
     icon: LayoutGrid,
     productName: 'Atlas People 360',
-    catalogKey: 'atlas-people-360',
+    tenantType: 'cabinet_mixte',
     label: 'Structure mixte',
     sub: 'RH interne + clients tiers',
     description: 'Vous gérez vos propres salariés ET des entreprises clientes. Deux périmètres distincts, un seul workspace Atlas People.',
@@ -325,7 +326,7 @@ const TENANT_PERSONAS: TenantPersona[] = [
   {
     icon: Users,
     productName: 'Atlas People Placement',
-    catalogKey: 'atlas-people-placement',
+    tenantType: 'cabinet_agence',
     label: 'Agence de mise à disposition',
     sub: 'Intérim · staffing · prêt de main-d\'œuvre',
     description: 'Vous êtes l\'employeur légal de travailleurs placés chez des entreprises clientes. RH, paie et conformité centralisées.',
@@ -407,9 +408,9 @@ export function LandingPage() {
               </p>
 
               <div className="mt-7 flex flex-wrap items-center gap-3">
-                <a href="https://atlas-studio.org/portal"
+                <a href="#formules"
                   className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 text-[14px] font-bold text-surface shadow-sm transition-shadow hover:shadow-lg">
-                  <Zap size={16} className="text-amber" /> Souscrire maintenant <ArrowRight size={14} />
+                  <Zap size={16} className="text-amber" /> Choisir mon produit <ArrowRight size={14} />
                 </a>
                 <a href="#demo"
                   className="inline-flex items-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3 text-[14px] font-bold text-ink transition-colors hover:border-amber-deep/40 hover:bg-amber/[0.04]">
@@ -531,7 +532,7 @@ export function LandingPage() {
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-[14px] font-medium leading-relaxed text-ink-500">
               Chaque produit Atlas People est taillé pour un modèle d'organisation précis.
-              Souscrivez sur Atlas Studio — votre accès admin est prêt en 24 h.
+              Déjà abonné ? Connectez-vous directement au vôtre. Sinon, votre accès admin est prêt en 24 h.
             </p>
           </div>
 
@@ -539,7 +540,7 @@ export function LandingPage() {
             {TENANT_PERSONAS.map((p) => {
               const Icon = p.icon;
               return (
-                <div key={p.catalogKey} className={cn(
+                <div key={p.tenantType} className={cn(
                   'flex flex-col rounded-2xl border-2 p-5 transition-shadow hover:shadow-md',
                   p.accentBorder, p.accentBg,
                 )}>
@@ -568,16 +569,20 @@ export function LandingPage() {
                     ))}
                   </div>
 
-                  <a
-                    href={`${ATLAS_STUDIO_CATALOG}?product=${p.catalogKey}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    to={loginPathForProduct(p.tenantType)}
                     className={cn(
                       'mt-4 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition-opacity',
                       p.accentBtn,
                     )}
                   >
-                    Acheter <ArrowUpRight size={14} />
+                    <LogIn size={14} /> Se connecter
+                  </Link>
+                  <a
+                    href="#contact"
+                    className="mt-2 inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-ink-500 transition-colors hover:text-amber-deep"
+                  >
+                    Souscrire à ce produit <ArrowUpRight size={12} />
                   </a>
                 </div>
               );
@@ -593,7 +598,7 @@ export function LandingPage() {
                 </p>
               </div>
               <Link
-                to="/"
+                to="/login"
                 className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-amber px-4 py-2.5 text-[13px] font-bold text-night transition-shadow hover:shadow-lg"
               >
                 <ArrowRight size={14} /> Accéder à l'application
@@ -823,7 +828,7 @@ export function LandingPage() {
                   ))}
                 </ul>
                 <a
-                  href="https://atlas-studio.org/portal"
+                  href="#contact"
                   className={cn(
                     'mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[13px] font-bold transition-shadow',
                     p.highlighted
@@ -1100,10 +1105,10 @@ export function LandingPage() {
               className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 text-[14px] font-bold text-surface shadow-sm transition-shadow hover:shadow-lg">
               <Play size={16} /> Voir la démo en live
             </Link>
-            <a href="https://atlas-studio.org/portal"
+            <Link to="/login"
               className="inline-flex items-center gap-2 rounded-2xl border border-line bg-surface px-5 py-3 text-[14px] font-bold text-ink transition-colors hover:border-amber-deep/40 hover:bg-amber/[0.04]">
-              <Zap size={14} /> Démarrer un tenant
-            </a>
+              <LogIn size={14} /> Accéder à mon espace
+            </Link>
           </div>
         </div>
       </section>
