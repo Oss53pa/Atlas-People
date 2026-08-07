@@ -264,23 +264,35 @@ async function readWorkspaces(): Promise<Workspace[]> {
  *   2. le dernier workspace ouvert ;
  *   3. le plus ancien, à défaut.
  */
+/**
+ * Workspace correspondant à une formule.
+ *
+ * Le bac à sable de démonstration passe en dernier : un compte peut posséder
+ * à la fois « Atlas Démo SARL » et son vrai workspace du même mode, et c'est
+ * le workspace réel qui doit s'ouvrir.
+ */
+export function findProductWorkspace(
+  workspaces: Workspace[],
+  tenantType: TenantType,
+): Workspace | null {
+  const matches = workspaces.filter((w) => w.tenantType === tenantType);
+  if (matches.length === 0) return null;
+  return matches.find((w) => w.tenantId !== DEMO_TENANT) ?? matches[0];
+}
+
 function pickWorkspace(workspaces: Workspace[]): Workspace | null {
   if (workspaces.length === 0) return null;
-
-  // Le bac à sable de démonstration passe en dernier : un compte peut
-  // posséder à la fois « Atlas Démo SARL » et son vrai workspace du même
-  // mode, et c'est le workspace réel qui doit s'ouvrir.
-  const preferReal = (a: Workspace, b: Workspace) =>
-    Number(a.tenantId === DEMO_TENANT) - Number(b.tenantId === DEMO_TENANT);
-  const ordered = [...workspaces].sort(preferReal);
 
   const pending = safeLocalStorage.get(PENDING_PRODUCT_KEY);
   if (pending) {
     safeLocalStorage.remove(PENDING_PRODUCT_KEY);
-    const wanted = ordered.find((w) => w.tenantType === pending);
+    const wanted = findProductWorkspace(workspaces, pending as TenantType);
     if (wanted) return wanted;
   }
 
+  const ordered = [...workspaces].sort(
+    (a, b) => Number(a.tenantId === DEMO_TENANT) - Number(b.tenantId === DEMO_TENANT),
+  );
   const last = safeLocalStorage.get(ACTIVE_TENANT_KEY);
   const known = last ? ordered.find((w) => w.tenantId === last) : undefined;
   return known ?? ordered[0];
