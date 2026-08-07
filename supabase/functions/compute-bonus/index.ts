@@ -12,7 +12,7 @@
 // Réplique fidèle du moteur testé src/engine/bonus. Réservé RH/admin.
 // Déploiement : supabase functions deploy compute-bonus
 import { CORS, json } from '../_shared/cors.ts';
-import { callerClient, resolveCaller, isHrOrAdmin, serviceClient } from '../_shared/supabase.ts';
+import { resolveCaller, isHrOrAdmin, serviceClient } from '../_shared/supabase.ts';
 import { Money, type Currency } from '../_shared/money.ts';
 
 /* ── DSL contrôlé : rationnels exacts BigInt ──────────────────────────────── */
