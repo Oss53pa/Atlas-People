@@ -12,10 +12,13 @@ import { useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import {
   ArrowRight, ArrowLeft, LogIn, Check, Mail, Zap, Sparkles, ShieldCheck, Clock,
+  CheckCircle, AlertCircle, Loader2,
 } from 'lucide-react';
 import { PRODUCTS, productFromSlug, productPath, loginPathForProduct } from '../app/products';
 import type { Product } from '../app/products';
 import { getNav } from '../app/nav';
+import { submitSubscription, subscriptionMailto } from '../lib/subscriptions';
+import type { SubscriptionInput } from '../lib/subscriptions';
 import { cn } from '../lib/cn';
 
 const CONTACT_EMAIL = 'hello@atlas-studio.org';
@@ -287,36 +290,69 @@ function Repere({ icon: Icon, label, value }: { icon: typeof Sparkles; label: st
 }
 
 /**
- * Demande de souscription. Aucun backend public n'est exposé pour la
- * souscription : la demande part par email, pré-remplie avec le produit et les
- * informations saisies — l'utilisateur voit et envoie lui-même son message.
+ * Demande de souscription — enregistrée en base via l'edge function
+ * `subscribe`. Si l'enregistrement est indisponible (mode démo, service
+ * injoignable), la demande n'est pas perdue : on bascule sur un email
+ * pré-rempli plutôt que d'afficher une confirmation qui ne vaudrait rien.
  */
 function SubscriptionForm({ product }: { product: Product }) {
-  const [sent, setSent] = useState(false);
+  const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [reference, setReference] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [fallback, setFallback] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
-    const get = (k: string) => String(data.get(k) ?? '').trim() || '—';
-    const body = [
-      `Produit souhaité : ${product.productName} (${product.mode})`,
-      '',
-      `Nom complet     : ${get('nom')}`,
-      `Email pro       : ${get('email')}`,
-      `Entreprise      : ${get('entreprise')}`,
-      `Effectif        : ${get('effectif')}`,
-      `Pays OHADA      : ${get('pays')}`,
-      '',
-      'Message :',
-      get('message'),
-    ].join('\n');
+    const get = (k: string) => String(data.get(k) ?? '').trim();
 
-    window.location.href =
-      `mailto:${CONTACT_EMAIL}`
-      + `?subject=${encodeURIComponent(`Souscription ${product.productName}`)}`
-      + `&body=${encodeURIComponent(body)}`;
-    setSent(true);
+    const input: SubscriptionInput = {
+      produit: product.slug,
+      nom: get('nom'),
+      email: get('email'),
+      entreprise: get('entreprise'),
+      effectif: get('effectif'),
+      pays: get('pays'),
+      message: get('message'),
+    };
+
+    setState('sending'); setError(null); setFallback(null);
+    const result = await submitSubscription(input);
+
+    if (result.ok) {
+      setReference(result.reference);
+      setState('sent');
+      return;
+    }
+
+    setState('idle');
+    setError(result.error);
+    if (result.backendUnavailable) {
+      setFallback(subscriptionMailto(input, product.productName, CONTACT_EMAIL));
+    }
   };
+
+  if (state === 'sent') {
+    return (
+      <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-7">
+        <CheckCircle size={32} className="text-emerald-600" />
+        <p className="mt-4 font-display text-[26px] leading-tight text-ink">Demande enregistrée</p>
+        <p className="mt-3 text-[13px] font-medium leading-relaxed text-ink-700">
+          Votre demande de souscription à <strong>{product.productName}</strong> est enregistrée.
+          L'équipe Atlas Studio vous répond sous 24 h ouvrées.
+        </p>
+        {reference && (
+          <p className="mt-4 rounded-xl border border-emerald-200 bg-surface px-3 py-2.5 text-[12px] font-medium text-ink-700">
+            Référence : <span className="mono font-bold text-ink">{reference}</span> — citez-la dans vos échanges.
+          </p>
+        )}
+        <p className="mt-4 text-[12px] font-medium text-ink-500">
+          Une précision à ajouter ?{' '}
+          <a href={`mailto:${CONTACT_EMAIL}`} className="font-bold text-amber-deep hover:underline">{CONTACT_EMAIL}</a>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="rounded-3xl border border-line bg-surface p-7 shadow-sm">
@@ -356,17 +392,29 @@ function SubscriptionForm({ product }: { product: Product }) {
         />
       </Field>
 
-      <button type="submit"
-        className={cn('mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[14px] font-bold shadow-sm transition-shadow hover:shadow-lg', product.accentBtn)}>
-        <Mail size={16} /> Envoyer ma demande de souscription
-      </button>
-
-      {sent && (
-        <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12px] font-medium text-emerald-700">
-          Votre messagerie s'ouvre avec la demande pré-remplie — il ne reste qu'à l'envoyer.
-          Si rien ne s'ouvre, écrivez à <a href={`mailto:${CONTACT_EMAIL}`} className="font-bold underline">{CONTACT_EMAIL}</a>.
-        </p>
+      {error && (
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/[0.06] px-3 py-2.5">
+          <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-600" />
+          <div>
+            <p className="text-[12px] font-medium text-rose-700">{error}</p>
+            {fallback && (
+              <a href={fallback} className="mt-1 inline-flex items-center gap-1 text-[12px] font-bold text-rose-700 underline">
+                <Mail size={12} /> Envoyer la demande par email
+              </a>
+            )}
+          </div>
+        </div>
       )}
+
+      <button type="submit" disabled={state === 'sending'}
+        className={cn(
+          'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[14px] font-bold shadow-sm transition-shadow hover:shadow-lg disabled:opacity-60',
+          product.accentBtn,
+        )}>
+        {state === 'sending'
+          ? <><Loader2 size={16} className="animate-spin" /> Enregistrement…</>
+          : <><Mail size={16} /> Envoyer ma demande de souscription</>}
+      </button>
 
       <p className="mt-3 text-[10px] font-medium leading-relaxed text-ink-500">
         Réponse sous 24 h ouvrées. Vos données restent en Afrique (Côte d'Ivoire / Sénégal).
