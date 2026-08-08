@@ -41,6 +41,7 @@ const LoginPage               = lz(() => import('./pages/LoginPage'),           
 const CockpitPage            = lz(() => import('./pages/CockpitPage'),            'CockpitPage');
 const UnifiedCockpitDRHPage  = lz(() => import('./pages/UnifiedCockpitPage'),     'UnifiedCockpitDRHPage');
 const LandingPage            = lz(() => import('./pages/LandingPage'),            'LandingPage');
+const ClientPortalPage       = lz(() => import('./pages/portail/ClientPortalPage'),      'ClientPortalPage');
 const ProductLandingPage     = lz(() => import('./pages/ProductLandingPage'),     'ProductLandingPage');
 const WelcomeCockpitPage     = lz(() => import('./pages/WelcomeCockpitPage'),     'WelcomeCockpitPage');
 const AdminWorkspacePage     = lz(() => import('./pages/admin/AdminWorkspacePage'),'AdminWorkspacePage');
@@ -423,6 +424,10 @@ function App() {
       <Route path="/produits" element={<Navigate to="/landing#formules" replace />} />
       <Route path="/produits/:slug" element={<Suspense fallback={<PageLoader />}><ProductLandingPage /></Suspense>} />
       <Route path="/accueil" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><WelcomeCockpitPage /></Suspense></ProtectedRoute>} />
+      {/* Portail client — le contact d'une entreprise cliente n'est membre
+          d'aucun workspace : ProtectedRoute exigerait une appartenance qu'il
+          n'a pas. La page résout elle-même son périmètre (cf. migration 0071). */}
+      <Route path="/portail" element={<Suspense fallback={<PageLoader />}><ClientPortalPage /></Suspense>} />
       <Route path="/admin" element={<ProtectedRoute requireRole="super_admin"><Suspense fallback={<PageLoader />}><AdminWorkspacePage /></Suspense></ProtectedRoute>} />
 
       {/* BACK-OFFICE — AppLayout */}
